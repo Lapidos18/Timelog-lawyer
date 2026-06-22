@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-navy-950 text-navy-100;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-gold-500 hover:bg-gold-400
+           text-navy-950 font-semibold rounded-lg transition-colors text-sm;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-navy-800 hover:bg-navy-700
+           text-navy-100 font-medium rounded-lg transition-colors text-sm border border-navy-700;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-3 py-1.5 hover:bg-navy-800
+           text-navy-300 hover:text-navy-100 rounded-lg transition-colors text-sm;
+  }
+  .card {
+    @apply bg-navy-900 border border-navy-800 rounded-xl p-5;
+  }
+  .input {
+    @apply w-full bg-navy-800 border border-navy-700 rounded-lg px-3 py-2 text-navy-100
+           placeholder-navy-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50
+           focus:border-gold-500 transition-colors text-sm;
+  }
+  .label {
+    @apply block text-xs font-medium text-navy-400 mb-1.5 uppercase tracking-wide;
+  }
+  .select {
+    @apply w-full bg-navy-800 border border-navy-700 rounded-lg px-3 py-2 text-navy-100
+           focus:outline-none focus:ring-2 focus:ring-gold-500/50 focus:border-gold-500
+           transition-colors text-sm;
+  }
+  .table-row-hover {
+    @apply hover:bg-navy-800/50 transition-colors;
+  }
+  .stat-card {
+    @apply card flex flex-col gap-1;
+  }
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+  }
+  .badge-active   { @apply badge bg-emerald-900/40 text-emerald-400 border border-emerald-800/50; }
+  .badge-inactive { @apply badge bg-navy-800 text-navy-400 border border-navy-700; }
+  .badge-gold     { @apply badge bg-gold-900/30 text-gold-400 border border-gold-800/50; }
+}

@@ -1,12 +1,25 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
-import { TimeEntry, Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
+import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format } from 'date-fns'
 import { Plus, Pencil, Trash2, X, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-interface EntryWithRelations extends Omit<TimeEntry, 'matters' | 'profiles'> {
+interface EntryWithRelations {
+  id: string
+  matter_id: string
+  user_id: string
+  work_date: string
+  duration_min: number
+  hourly_rate: number
+  amount: number
+  activity_type: ActivityType
+  description: string
+  is_billable: boolean
+  notes: string | null
+  created_at: string
+  updated_at: string
   matters: (Matter & { clients: Client }) | null
   profiles: Profile | null
 }
@@ -32,7 +45,6 @@ export default function EntriesPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
-  // Form state
   const [form, setForm] = useState({
     matter_id: '',
     work_date: format(new Date(), 'yyyy-MM-dd'),
@@ -71,7 +83,6 @@ export default function EntriesPage() {
     init()
   }, [])
 
-  // When matter changes, update rate from matter's rate
   useEffect(() => {
     if (!form.matter_id) return
     const m = matters.find(x => x.id === form.matter_id)
@@ -119,7 +130,6 @@ export default function EntriesPage() {
     if (!form.matter_id) { toast.error('Выберите дело'); return }
     const dmin = (parseInt(form.hours || '0') * 60) + parseInt(form.minutes || '0')
     if (dmin <= 0) { toast.error('Укажите время'); return }
-
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
     const payload = {
@@ -133,17 +143,11 @@ export default function EntriesPage() {
       is_billable: form.is_billable,
       notes: form.notes || null,
     }
-
     const { error } = editId
       ? await supabase.from('time_entries').update(payload).eq('id', editId)
       : await supabase.from('time_entries').insert(payload)
-
     if (error) { toast.error('Ошибка: ' + error.message) }
-    else {
-      toast.success(editId ? 'Запись обновлена' : 'Запись добавлена')
-      resetForm()
-      loadEntries()
-    }
+    else { toast.success(editId ? 'Запись обновлена' : 'Запись добавлена'); resetForm(); loadEntries() }
     setSubmitting(false)
   }
 
@@ -163,16 +167,12 @@ export default function EntriesPage() {
         </button>
       </div>
 
-      {/* Form */}
       {showForm && (
         <div className="card mb-6 border-gold-800/40">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="font-medium text-navy-200">
-              {editId ? 'Редактировать запись' : 'Новая запись'}
-            </h2>
+            <h2 className="font-medium text-navy-200">{editId ? 'Редактировать запись' : 'Новая запись'}</h2>
             <button onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
           </div>
-
           <form onSubmit={handleSubmit} className="grid grid-cols-3 gap-4">
             <div className="col-span-3 md:col-span-1">
               <label className="label">Дело *</label>
@@ -181,19 +181,16 @@ export default function EntriesPage() {
                 <option value="">— выберите дело —</option>
                 {matters.map(m => (
                   <option key={m.id} value={m.id}>
-                    {m.clients?.name} / {m.title}
-                    {m.agreement_no ? ` (${m.agreement_no})` : ''}
+                    {m.clients?.name} / {m.title}{m.agreement_no ? ` (${m.agreement_no})` : ''}
                   </option>
                 ))}
               </select>
             </div>
-
             <div>
               <label className="label">Дата *</label>
               <input type="date" className="input" value={form.work_date}
                 onChange={e => setForm(f => ({ ...f, work_date: e.target.value }))} required />
             </div>
-
             <div>
               <label className="label">Вид работы *</label>
               <select className="select" value={form.activity_type}
@@ -201,7 +198,6 @@ export default function EntriesPage() {
                 {ACTIVITY_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </div>
-
             <div className="flex gap-3 items-end">
               <div className="flex-1">
                 <label className="label">Часов *</label>
@@ -216,15 +212,13 @@ export default function EntriesPage() {
                 </select>
               </div>
             </div>
-
             <div>
               <label className="label">Ставка, руб./ч *</label>
               <input type="number" min="0" className="input" placeholder="1290"
                 value={form.hourly_rate}
                 onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))} required />
             </div>
-
-            <div className="flex items-end gap-3">
+            <div className="flex items-end">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4 rounded accent-gold-500"
                   checked={form.is_billable}
@@ -232,41 +226,28 @@ export default function EntriesPage() {
                 <span className="text-sm text-navy-300">Оплачиваемо</span>
               </label>
             </div>
-
             <div className="col-span-3">
               <label className="label">Описание работы *</label>
               <textarea className="input resize-none" rows={2} required
-                placeholder="Подготовка апелляционной жалобы, анализ материалов дела..."
+                placeholder="Подготовка апелляционной жалобы..."
                 value={form.description}
                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
-
             <div className="col-span-3">
               <label className="label">Примечания</label>
-              <input type="text" className="input"
-                placeholder="Дополнительная информация (необязательно)"
-                value={form.notes}
-                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+              <input type="text" className="input" placeholder="Необязательно"
+                value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
-
-            {/* Preview */}
             {form.hours && form.hourly_rate && (
               <div className="col-span-3 bg-navy-800/50 rounded-lg px-4 py-3 flex gap-6 text-sm">
-                <span className="text-navy-400">Время:
-                  <strong className="text-navy-200 ml-1">
-                    {minutesToDisplay((parseInt(form.hours||'0')*60)+parseInt(form.minutes||'0'))}
-                  </strong>
-                </span>
-                <span className="text-navy-400">Сумма:
-                  <strong className="text-gold-400 ml-1">
-                    {form.is_billable
-                      ? formatMoney(((parseInt(form.hours||'0')*60+parseInt(form.minutes||'0'))/60)*parseFloat(form.hourly_rate||'0')) + ' ₽'
-                      : '—'}
-                  </strong>
-                </span>
+                <span className="text-navy-400">Время: <strong className="text-navy-200 ml-1">
+                  {minutesToDisplay((parseInt(form.hours||'0')*60)+parseInt(form.minutes||'0'))}
+                </strong></span>
+                <span className="text-navy-400">Сумма: <strong className="text-gold-400 ml-1">
+                  {form.is_billable ? formatMoney(((parseInt(form.hours||'0')*60+parseInt(form.minutes||'0'))/60)*parseFloat(form.hourly_rate||'0')) + ' ₽' : '—'}
+                </strong></span>
               </div>
             )}
-
             <div className="col-span-3 flex gap-3">
               <button type="submit" disabled={submitting} className="btn-primary">
                 <Check className="w-4 h-4" /> {submitting ? 'Сохраняю...' : (editId ? 'Сохранить' : 'Добавить')}
@@ -277,16 +258,11 @@ export default function EntriesPage() {
         </div>
       )}
 
-      {/* Table */}
       <div className="card">
-        {loading ? (
-          <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
-        ) : entries.length === 0 ? (
+        {loading ? <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
+        : entries.length === 0 ? (
           <p className="text-navy-500 text-sm text-center py-12">
-            Нет записей.{' '}
-            <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">
-              Добавить первую →
-            </button>
+            Нет записей. <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">Добавить →</button>
           </p>
         ) : (
           <table className="w-full text-sm">
@@ -304,42 +280,21 @@ export default function EntriesPage() {
                     {format(new Date(e.work_date), 'dd.MM.yy')}
                   </td>
                   <td className="py-3 pr-4">
-                    <p className="text-navy-200 text-xs font-medium truncate max-w-[150px]">
-                      {e.matters?.clients?.name}
-                    </p>
-                    <p className="text-navy-500 text-xs truncate max-w-[150px]">
-                      {e.matters?.title}
-                    </p>
+                    <p className="text-navy-200 text-xs font-medium truncate max-w-[150px]">{e.matters?.clients?.name}</p>
+                    <p className="text-navy-500 text-xs truncate max-w-[150px]">{e.matters?.title}</p>
                   </td>
-                  <td className="py-3 pr-4">
-                    <span className="badge-gold text-xs">{ACTIVITY_LABELS[e.activity_type]}</span>
+                  <td className="py-3 pr-4"><span className="badge-gold text-xs">{ACTIVITY_LABELS[e.activity_type]}</span></td>
+                  <td className="py-3 pr-4 text-navy-300 text-xs max-w-[200px] truncate">{e.description}</td>
+                  <td className="py-3 pr-4 text-navy-300 font-mono text-xs">{minutesToDisplay(e.duration_min)}</td>
+                  <td className="py-3 pr-4 text-navy-400 font-mono text-xs">{formatMoney(e.hourly_rate)} ₽</td>
+                  <td className="py-3 pr-4 font-mono text-xs">
+                    {e.is_billable ? <span className="text-gold-400">{formatMoney(e.amount)} ₽</span> : <span className="text-navy-600">—</span>}
                   </td>
-                  <td className="py-3 pr-4 text-navy-300 text-xs max-w-[200px] truncate">
-                    {e.description}
-                  </td>
-                  <td className="py-3 pr-4 text-navy-300 font-mono text-xs whitespace-nowrap">
-                    {minutesToDisplay(e.duration_min)}
-                  </td>
-                  <td className="py-3 pr-4 text-navy-400 font-mono text-xs">
-                    {formatMoney(e.hourly_rate)} ₽
-                  </td>
-                  <td className="py-3 pr-4 font-mono text-xs whitespace-nowrap">
-                    {e.is_billable
-                      ? <span className="text-gold-400">{formatMoney(e.amount)} ₽</span>
-                      : <span className="text-navy-600">—</span>}
-                  </td>
-                  <td className="py-3 pr-4 text-navy-500 text-xs truncate max-w-[100px]">
-                    {e.profiles?.full_name}
-                  </td>
+                  <td className="py-3 pr-4 text-navy-500 text-xs truncate max-w-[100px]">{e.profiles?.full_name}</td>
                   <td className="py-3">
                     <div className="flex gap-1">
-                      <button onClick={() => startEdit(e)} className="btn-ghost p-1.5">
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => handleDelete(e.id)}
-                        className="btn-ghost p-1.5 hover:text-red-400 hover:bg-red-900/10">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <button onClick={() => startEdit(e)} className="btn-ghost p-1.5"><Pencil className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => handleDelete(e.id)} className="btn-ghost p-1.5 hover:text-red-400 hover:bg-red-900/10"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>

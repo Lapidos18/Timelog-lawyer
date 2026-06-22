@@ -6,7 +6,7 @@ import { format } from 'date-fns'
 import { Plus, Pencil, Trash2, X, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-interface EntryWithRelations extends TimeEntry {
+interface EntryWithRelations extends Omit<TimeEntry, 'matters' | 'profiles'> {
   matters: (Matter & { clients: Client }) | null
   profiles: Profile | null
 }

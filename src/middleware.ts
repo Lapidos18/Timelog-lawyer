@@ -1,38 +1,21 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
 
-export async function middleware(req: NextRequest) {
-  const res = NextResponse.next()
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return req.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            res.cookies.set(name, value, options)
-          })
-        },
-      },
-    }
-  )
-
-  const { data: { session } } = await supabase.auth.getSession()
+export function middleware(req: NextRequest) {
+  const token = req.cookies.get('sb-access-token') || 
+                req.cookies.get('sb-refresh-token') ||
+                req.cookies.getAll().find(c => c.name.includes('auth-token'))
+  
   const isLoginPage = req.nextUrl.pathname.startsWith('/login')
 
-  if (!session && !isLoginPage) {
+  if (!token && !isLoginPage) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
-  if (session && isLoginPage) {
+  if (token && isLoginPage) {
     return NextResponse.redirect(new URL('/dashboard', req.url))
   }
 
-  return res
+  return NextResponse.next()
 }
 
 export const config = {

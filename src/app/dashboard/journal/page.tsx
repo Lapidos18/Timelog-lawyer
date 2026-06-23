@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth } from 'date-fns'
@@ -47,6 +47,7 @@ export default function JournalPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [showCal, setShowCal] = useState(false)
+  const calRef = useRef<HTMLDivElement>(null)
   const [calMonth, setCalMonth] = useState(new Date())
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({
@@ -85,6 +86,16 @@ export default function JournalPage() {
   }, [])
 
   useEffect(() => { loadDay() }, [dateStr])
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (calRef.current && !calRef.current.contains(e.target as Node)) {
+        setShowCal(false)
+      }
+    }
+    if (showCal) document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showCal])
 
   async function loadDay() {
     setLoading(true)
@@ -163,7 +174,7 @@ export default function JournalPage() {
 
             {/* Calendar popup */}
             {showCal && (
-              <div className="absolute top-10 left-0 z-50 bg-navy-900 border border-navy-700
+              <div ref={calRef} className="absolute top-10 left-0 z-50 bg-navy-900 border border-navy-700
                               rounded-xl shadow-2xl p-4 w-72">
                 {/* Month nav */}
                 <div className="flex items-center justify-between mb-3">

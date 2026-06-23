@@ -6,12 +6,13 @@ import { createClient } from '@/lib/supabase'
 import { Profile } from '@/types'
 import {
   LayoutDashboard, Clock, Users, Briefcase,
-  FileBarChart2, LogOut, Scale, ChevronRight
+  FileBarChart2, LogOut, Scale, ChevronRight, BookOpen
 } from 'lucide-react'
 
 const NAV = [
   { href: '/dashboard',          icon: LayoutDashboard, label: 'Обзор' },
-  { href: '/dashboard/entries',  icon: Clock,           label: 'Учёт времени' },
+  { href: '/dashboard/journal',  icon: BookOpen,        label: 'Журнал (день)' },
+  { href: '/dashboard/entries',  icon: Clock,           label: 'Все записи' },
   { href: '/dashboard/matters',  icon: Briefcase,       label: 'Дела' },
   { href: '/dashboard/clients',  icon: Users,           label: 'Клиенты' },
   { href: '/dashboard/reports',  icon: FileBarChart2,   label: 'Отчёты' },

@@ -1,8 +1,8 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
-import { format, addDays, subDays, startOfDay } from 'date-fns'
+import { format, addDays, subDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Plus, X, Check, Calendar } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -19,12 +19,11 @@ interface DayEntry {
   description: string
   is_billable: boolean
   notes: string | null
-  start_hour?: number
   matters: (Matter & { clients: Client }) | null
   profiles: Profile | null
 }
 
-const HOURS = Array.from({ length: 13 }, (_, i) => i + 8) // 8:00 - 20:00
+const HOURS = Array.from({ length: 13 }, (_, i) => i + 8)
 const COLORS: Record<ActivityType, string> = {
   consultation:   'bg-blue-900/60 border-blue-500/50 text-blue-300',
   court_hearing:  'bg-red-900/60 border-red-500/50 text-red-300',
@@ -47,10 +46,12 @@ export default function JournalPage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [showCal, setShowCal] = useState(false)
+  const [calMonth, setCalMonth] = useState(new Date())
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({
     matter_id: '',
-    hours: '',
+    hours: '1',
     minutes: '0',
     start_hour: '9',
     hourly_rate: '',
@@ -62,6 +63,13 @@ export default function JournalPage() {
 
   const dateStr = format(date, 'yyyy-MM-dd')
   const dateLabel = format(date, 'EEEE, d MMMM yyyy', { locale: ru })
+
+  // Calendar grid
+  const calDays = eachDayOfInterval({
+    start: startOfMonth(calMonth),
+    end: endOfMonth(calMonth),
+  })
+  const firstDow = (startOfMonth(calMonth).getDay() + 6) % 7 // Mon=0
 
   useEffect(() => {
     async function init() {
@@ -87,6 +95,12 @@ export default function JournalPage() {
       .order('created_at')
     setEntries((data ?? []) as DayEntry[])
     setLoading(false)
+  }
+
+  function selectDay(d: Date) {
+    setDate(d)
+    setCalMonth(d)
+    setShowCal(false)
   }
 
   function openFormAtHour(h: number) {
@@ -137,11 +151,83 @@ export default function JournalPage() {
           <button onClick={() => setDate(d => addDays(d, 1))} className="btn-ghost p-2">
             <ChevronRight className="w-4 h-4" />
           </button>
-          <button onClick={() => setDate(new Date())}
-            className="btn-ghost text-xs px-3 py-1.5 ml-1">
-            <Calendar className="w-3.5 h-3.5" /> Сегодня
-          </button>
+
+          {/* Calendar button */}
+          <div className="relative">
+            <button
+              onClick={() => { setShowCal(c => !c); setCalMonth(date) }}
+              className="btn-ghost text-xs px-3 py-1.5 ml-1 gap-1.5"
+            >
+              <Calendar className="w-3.5 h-3.5" /> Календарь
+            </button>
+
+            {/* Calendar popup */}
+            {showCal && (
+              <div className="absolute top-10 left-0 z-50 bg-navy-900 border border-navy-700
+                              rounded-xl shadow-2xl p-4 w-72">
+                {/* Month nav */}
+                <div className="flex items-center justify-between mb-3">
+                  <button onClick={() => setCalMonth(m => subMonths(m, 1))} className="btn-ghost p-1">
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-sm font-medium text-navy-200 capitalize">
+                    {format(calMonth, 'LLLL yyyy', { locale: ru })}
+                  </span>
+                  <button onClick={() => setCalMonth(m => addMonths(m, 1))} className="btn-ghost p-1">
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Day headers */}
+                <div className="grid grid-cols-7 mb-1">
+                  {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => (
+                    <div key={d} className="text-center text-xs text-navy-600 py-1">{d}</div>
+                  ))}
+                </div>
+
+                {/* Days grid */}
+                <div className="grid grid-cols-7 gap-0.5">
+                  {/* Empty cells before first day */}
+                  {Array.from({ length: firstDow }).map((_, i) => (
+                    <div key={`e${i}`} />
+                  ))}
+                  {calDays.map(d => {
+                    const isSelected = isSameDay(d, date)
+                    const isToday = isSameDay(d, new Date())
+                    const inMonth = isSameMonth(d, calMonth)
+                    return (
+                      <button
+                        key={d.toISOString()}
+                        onClick={() => selectDay(d)}
+                        className={`
+                          h-8 w-full rounded-lg text-xs font-medium transition-colors
+                          ${isSelected
+                            ? 'bg-gold-500 text-navy-950'
+                            : isToday
+                            ? 'bg-navy-700 text-gold-400 ring-1 ring-gold-500/50'
+                            : inMonth
+                            ? 'text-navy-300 hover:bg-navy-800'
+                            : 'text-navy-700'}
+                        `}
+                      >
+                        {format(d, 'd')}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Today shortcut */}
+                <button
+                  onClick={() => selectDay(new Date())}
+                  className="w-full mt-3 btn-secondary text-xs justify-center py-1.5"
+                >
+                  Сегодня
+                </button>
+              </div>
+            )}
+          </div>
         </div>
+
         <button onClick={() => { setForm(f => ({ ...f, start_hour: '9', hours: '1' })); setShowForm(true) }}
           className="btn-primary">
           <Plus className="w-4 h-4" /> Новая запись
@@ -152,7 +238,9 @@ export default function JournalPage() {
       {showForm && (
         <div className="card mb-5 border-gold-800/40">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-medium text-navy-200 text-sm">Новая запись — {dateLabel}</h2>
+            <h2 className="font-medium text-navy-200 text-sm capitalize">
+              Новая запись — {format(date, 'd MMMM yyyy', { locale: ru })}
+            </h2>
             <button onClick={() => setShowForm(false)} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
           </div>
           <form onSubmit={handleSubmit} className="grid grid-cols-4 gap-3">
@@ -198,8 +286,8 @@ export default function JournalPage() {
               <input type="number" className="input" value={form.hourly_rate}
                 onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))} />
             </div>
-            <div className="flex items-end">
-              <label className="flex items-center gap-2 cursor-pointer mb-2">
+            <div className="flex items-end pb-1">
+              <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4 accent-gold-500" checked={form.is_billable}
                   onChange={e => setForm(f => ({ ...f, is_billable: e.target.checked }))} />
                 <span className="text-sm text-navy-300">Оплачиваемо</span>
@@ -248,20 +336,17 @@ export default function JournalPage() {
 
             {/* Entries overlay */}
             {!loading && entries.map((e, i) => {
-              const startH = e.start_hour ?? (8 + (i % 10))
-              const clampedH = Math.max(8, Math.min(19, startH))
-              const top = (clampedH - 8) * 64
-              const height = Math.max(32, Math.min(e.duration_min / 60 * 64, 64 * 12))
-              const colorClass = COLORS[e.activity_type]
+              const top = (i % 12) * 64
+              const height = Math.max(56, Math.min(e.duration_min / 60 * 64, 128))
               return (
                 <div key={e.id}
                   className={`absolute left-2 right-2 rounded-lg border px-3 py-2 text-xs
-                              cursor-default overflow-hidden ${colorClass}`}
+                              cursor-default overflow-hidden ${COLORS[e.activity_type]}`}
                   style={{ top: top + 4, height: height - 8 }}>
                   <div className="font-semibold truncate">{e.matters?.clients?.name}</div>
                   <div className="truncate opacity-80">{e.description}</div>
                   <div className="mt-1 flex items-center gap-2 opacity-60">
-                    <span>{Math.floor(e.duration_min/60)}ч {e.duration_min%60 > 0 ? `${e.duration_min%60}м` : ''}</span>
+                    <span>{Math.floor(e.duration_min/60)}ч {e.duration_min%60>0?`${e.duration_min%60}м`:''}</span>
                     {e.is_billable && <span>{formatMoney(e.amount)} ₽</span>}
                   </div>
                 </div>
@@ -277,8 +362,8 @@ export default function JournalPage() {
             {loading ? (
               <p className="text-navy-600 text-xs text-center py-8">Загрузка...</p>
             ) : entries.length === 0 ? (
-              <p className="text-navy-600 text-xs text-center py-8">
-                Нет записей.<br/>Кликни на время чтобы добавить.
+              <p className="text-navy-600 text-xs text-center py-8 px-4">
+                Нет записей.<br/>Кликни на временной слот чтобы добавить.
               </p>
             ) : (
               <div className="overflow-y-auto" style={{ maxHeight: '832px' }}>

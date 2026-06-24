@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { Profile } from '@/types'
 import {
   LayoutDashboard, Clock, Users, Briefcase,
-  FileBarChart2, LogOut, Scale, ChevronRight, BookOpen
+  FileBarChart2, LogOut, Scale, ChevronRight, BookOpen, ClipboardList
 } from 'lucide-react'
 
 const NAV = [
@@ -15,7 +15,8 @@ const NAV = [
   { href: '/dashboard/entries',  icon: Clock,           label: 'Все записи' },
   { href: '/dashboard/matters',  icon: Briefcase,       label: 'Дела' },
   { href: '/dashboard/clients',  icon: Users,           label: 'Клиенты' },
-  { href: '/dashboard/reports',  icon: FileBarChart2,   label: 'Отчёты' },
+  { href: '/dashboard/reports',         icon: FileBarChart2,   label: 'Отчёты' },
+  { href: '/dashboard/reconciliation', icon: ClipboardList,  label: 'Акт сверки' },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

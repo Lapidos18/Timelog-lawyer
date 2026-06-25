@@ -187,7 +187,7 @@ export default function EntriesPage() {
   const templates = TEMPLATES[form.activity_type] ?? []
 
   return (
-    <div className="p-7">
+    <div className="p-4 md:p-7">
       <div className="flex items-center justify-between mb-7">
         <h1 className="text-2xl font-semibold text-navy-100">Учёт времени</h1>
         <button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
@@ -204,7 +204,7 @@ export default function EntriesPage() {
             <button onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
           </div>
 
-          <form onSubmit={handleSubmit} className="grid grid-cols-3 gap-4">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
             <div className="col-span-3 md:col-span-1">
               <label className="label">Дело *</label>
               <select className="select" value={form.matter_id}

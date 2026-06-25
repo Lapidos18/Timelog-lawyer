@@ -243,7 +243,7 @@ export default function ReconciliationPage() {
   }
 
   return (
-    <div className="p-7">
+    <div className="p-4 md:p-7">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-navy-100">Акт сверки</h1>
         {generated && (
@@ -260,7 +260,7 @@ export default function ReconciliationPage() {
 
       {/* Filters */}
       <div className="card mb-5">
-        <div className="grid grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4 mb-4">
           <div className="col-span-2">
             <label className="label">Клиент *</label>
             <select className="select" value={selectedClient}
@@ -342,7 +342,7 @@ export default function ReconciliationPage() {
       {generated && (
         <>
           {/* Summary */}
-          <div className="grid grid-cols-3 gap-4 mb-5">
+          <div className="grid grid-cols-3 gap-3 mb-4 md:mb-5">
             <div className="stat-card">
               <p className="text-xs text-navy-400">Оказано услуг</p>
               <p className="text-2xl font-semibold text-navy-100">{fmt(totalServices)} ₽</p>

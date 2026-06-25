@@ -44,6 +44,7 @@ export default function EntriesPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [ndfl, setNdfl] = useState(false)
 
   const [form, setForm] = useState({
     matter_id: '',
@@ -137,7 +138,7 @@ export default function EntriesPage() {
       user_id: user!.id,
       work_date: form.work_date,
       duration_min: dmin,
-      hourly_rate: parseFloat(form.hourly_rate),
+      hourly_rate: effectiveRate(form.hourly_rate),
       activity_type: form.activity_type,
       description: form.description,
       is_billable: form.is_billable,
@@ -218,12 +219,18 @@ export default function EntriesPage() {
                 value={form.hourly_rate}
                 onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))} required />
             </div>
-            <div className="flex items-end">
+            <div className="flex items-end gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4 rounded accent-gold-500"
                   checked={form.is_billable}
                   onChange={e => setForm(f => ({ ...f, is_billable: e.target.checked }))} />
                 <span className="text-sm text-navy-300">Оплачиваемо</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" className="w-4 h-4 rounded accent-amber-500"
+                  checked={ndfl}
+                  onChange={e => setNdfl(e.target.checked)} />
+                <span className="text-sm text-amber-400">+НДФЛ 15%</span>
               </label>
             </div>
             <div className="col-span-3">
@@ -244,7 +251,7 @@ export default function EntriesPage() {
                   {minutesToDisplay((parseInt(form.hours||'0')*60)+parseInt(form.minutes||'0'))}
                 </strong></span>
                 <span className="text-navy-400">Сумма: <strong className="text-gold-400 ml-1">
-                  {form.is_billable ? formatMoney(((parseInt(form.hours||'0')*60+parseInt(form.minutes||'0'))/60)*parseFloat(form.hourly_rate||'0')) + ' ₽' : '—'}
+                  {form.is_billable ? formatMoney(((parseInt(form.hours||'0')*60+parseInt(form.minutes||'0'))/60)*effectiveRate(form.hourly_rate)) + ' ₽' + (ndfl ? ` (ставка ${formatMoney(effectiveRate(form.hourly_rate))} ₽/ч с НДФЛ)` : '') : '—'}
                 </strong></span>
               </div>
             )}

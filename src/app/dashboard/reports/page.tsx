@@ -126,7 +126,7 @@ export default function ReportsPage() {
   const fmtDate = (d: string) => format(new Date(d), 'dd.MM.yy')
 
   return (
-    <div className="p-7">
+    <div className="p-4 md:p-7">
       <div className="flex items-center justify-between mb-7">
         <h1 className="text-2xl font-semibold text-navy-100">Отчёты</h1>
         {searched && rows.length > 0 && (
@@ -146,7 +146,7 @@ export default function ReportsPage() {
         <div className="flex items-center gap-2 mb-4 text-navy-400 text-sm">
           <Filter className="w-4 h-4" /> Фильтры
         </div>
-        <div className="grid grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4 mb-4">
           <div>
             <label className="label">Дата с</label>
             <input type="date" className="input" value={filters.date_from ?? ''}
@@ -224,7 +224,7 @@ export default function ReportsPage() {
 
       {/* Summary */}
       {searched && (
-        <div className="grid grid-cols-3 gap-4 mb-5">
+        <div className="grid grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-5">
           <div className="stat-card">
             <p className="text-xs text-navy-400">Записей</p>
             <p className="text-2xl font-semibold text-navy-100">{rows.length}</p>

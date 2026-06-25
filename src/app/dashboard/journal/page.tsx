@@ -299,22 +299,12 @@ export default function JournalPage() {
               <input type="number" className="input" value={form.hourly_rate}
                 onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))} />
             </div>
-            <div className="col-span-4 flex items-center gap-6 px-3 py-2 bg-navy-800/40 rounded-lg border border-navy-700/50">
+            <div className="flex items-end pb-1">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4 accent-gold-500" checked={form.is_billable}
                   onChange={e => setForm(f => ({ ...f, is_billable: e.target.checked }))} />
                 <span className="text-sm text-navy-300">Оплачиваемо</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 accent-amber-500" checked={ndfl}
-                  onChange={e => setNdfl(e.target.checked)} />
-                <span className={`text-sm font-medium ${ndfl ? 'text-amber-400' : 'text-navy-500'}`}>+НДФЛ 15%</span>
-              </label>
-              {ndfl && form.hourly_rate && (
-                <span className="ml-auto text-xs text-amber-400 bg-amber-900/30 px-3 py-1 rounded-full border border-amber-700/40">
-                  {parseFloat(form.hourly_rate).toLocaleString('ru')} → {Math.round(parseFloat(form.hourly_rate) / 0.85).toLocaleString('ru')} ₽/ч
-                </span>
-              )}
             </div>
             <div className="col-span-4">
               <label className="label">Описание *</label>
@@ -328,6 +318,24 @@ export default function JournalPage() {
               <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">Отмена</button>
             </div>
           </form>
+          <div className="mt-3 flex items-center gap-4 px-3 py-2.5 bg-navy-800/50 rounded-lg border border-navy-700/50">
+            <span className="text-xs text-navy-400 font-medium">Ставка с НДФЛ:</span>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" className="w-4 h-4 accent-amber-500" checked={ndfl}
+                onChange={e => setNdfl(e.target.checked)} />
+              <span className={`text-sm font-semibold ${ndfl ? 'text-amber-400' : 'text-navy-500'}`}>
+                +НДФЛ 15%
+              </span>
+            </label>
+            {form.hourly_rate && (
+              <span className="text-xs text-navy-400">
+                {ndfl
+                  ? <span className="text-amber-400 font-medium">{parseFloat(form.hourly_rate).toLocaleString('ru-RU')} ÷ 0,85 = {Math.round(parseFloat(form.hourly_rate)/0.85).toLocaleString('ru-RU')} ₽/ч</span>
+                  : <span>{parseFloat(form.hourly_rate).toLocaleString('ru-RU')} ₽/ч (без НДФЛ)</span>
+                }
+              </span>
+            )}
+          </div>
         </div>
       )}
 

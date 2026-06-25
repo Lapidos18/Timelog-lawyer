@@ -10,13 +10,13 @@ import {
 } from 'lucide-react'
 
 const NAV = [
-  { href: '/dashboard',          icon: LayoutDashboard, label: 'Обзор' },
-  { href: '/dashboard/journal',  icon: BookOpen,        label: 'Журнал (день)' },
-  { href: '/dashboard/entries',  icon: Clock,           label: 'Все записи' },
-  { href: '/dashboard/matters',  icon: Briefcase,       label: 'Дела' },
-  { href: '/dashboard/clients',  icon: Users,           label: 'Клиенты' },
-  { href: '/dashboard/reports',         icon: FileBarChart2,   label: 'Отчёты' },
-  { href: '/dashboard/reconciliation', icon: ClipboardList,  label: 'Акт сверки' },
+  { href: '/dashboard',                icon: LayoutDashboard, label: 'Обзор' },
+  { href: '/dashboard/journal',        icon: BookOpen,        label: 'Журнал (день)' },
+  { href: '/dashboard/entries',        icon: Clock,           label: 'Все записи' },
+  { href: '/dashboard/matters',        icon: Briefcase,       label: 'Дела' },
+  { href: '/dashboard/clients',        icon: Users,           label: 'Клиенты' },
+  { href: '/dashboard/reports',        icon: FileBarChart2,   label: 'Отчёты' },
+  { href: '/dashboard/reconciliation', icon: ClipboardList,   label: 'Акт сверки' },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -40,10 +40,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen">
-      {/* Sidebar */}
       <aside className="w-56 flex-shrink-0 bg-navy-950 border-r border-navy-800
                         flex flex-col py-5 px-3 fixed h-full z-10">
-        {/* Brand */}
         <div className="flex items-center gap-3 px-3 mb-7">
           <div className="w-8 h-8 rounded-lg bg-gold-500/15 border border-gold-500/30
                           flex items-center justify-center flex-shrink-0">
@@ -54,7 +52,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </span>
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 space-y-0.5">
           {NAV.map(({ href, icon: Icon, label }) => {
             const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
@@ -77,12 +74,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           })}
         </nav>
 
-        {/* User */}
         <div className="border-t border-navy-800 pt-4 mt-4 px-1">
           {profile && (
             <div className="px-2 mb-3">
               <p className="text-xs font-medium text-navy-300 truncate">{profile.full_name}</p>
-              <p className="text-xs text-navy-600 capitalize">
+              <p className="text-xs text-navy-600">
                 {profile.role === 'advocate' ? 'Адвокат' : 'Помощник'}
               </p>
             </div>
@@ -98,7 +94,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      {/* Main */}
       <main className="flex-1 ml-56 min-h-screen">
         {children}
       </main>

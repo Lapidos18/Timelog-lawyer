@@ -299,22 +299,22 @@ export default function JournalPage() {
               <input type="number" className="input" value={form.hourly_rate}
                 onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))} />
             </div>
-            <div className="flex flex-col gap-2 pb-1">
+            <div className="col-span-4 flex items-center gap-6 px-3 py-2 bg-navy-800/40 rounded-lg border border-navy-700/50">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4 accent-gold-500" checked={form.is_billable}
                   onChange={e => setForm(f => ({ ...f, is_billable: e.target.checked }))} />
                 <span className="text-sm text-navy-300">Оплачиваемо</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer group">
+              <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4 accent-amber-500" checked={ndfl}
                   onChange={e => setNdfl(e.target.checked)} />
-                <span className="text-sm text-amber-400 font-medium">+НДФЛ 15%</span>
-                {ndfl && form.hourly_rate && (
-                  <span className="text-xs text-amber-600">
-                    {Math.round(parseFloat(form.hourly_rate)/0.85).toLocaleString('ru-RU')} ₽/ч
-                  </span>
-                )}
+                <span className={`text-sm font-medium ${ndfl ? 'text-amber-400' : 'text-navy-500'}`}>+НДФЛ 15%</span>
               </label>
+              {ndfl && form.hourly_rate && (
+                <span className="ml-auto text-xs text-amber-400 bg-amber-900/30 px-3 py-1 rounded-full border border-amber-700/40">
+                  {parseFloat(form.hourly_rate).toLocaleString('ru')} → {Math.round(parseFloat(form.hourly_rate) / 0.85).toLocaleString('ru')} ₽/ч
+                </span>
+              )}
             </div>
             <div className="col-span-4">
               <label className="label">Описание *</label>

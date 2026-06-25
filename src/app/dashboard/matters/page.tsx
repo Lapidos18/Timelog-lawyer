@@ -83,7 +83,7 @@ export default function MattersPage() {
   }[s])
 
   return (
-    <div className="p-7">
+    <div className="p-4 md:p-7">
       <div className="flex items-center justify-between mb-7">
         <h1 className="text-2xl font-semibold text-navy-100">Дела</h1>
         <button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
@@ -97,7 +97,7 @@ export default function MattersPage() {
             <h2 className="font-medium text-navy-200">{editId ? 'Редактировать дело' : 'Новое дело'}</h2>
             <button onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
           </div>
-          <form onSubmit={handleSubmit} className="grid grid-cols-3 gap-4">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
             <div>
               <label className="label">Клиент *</label>
               <select className="select" required value={form.client_id}

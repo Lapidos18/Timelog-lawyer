@@ -63,14 +63,14 @@ export default function DashboardPage() {
   }, [])
 
   return (
-    <div className="p-7">
-      <div className="mb-7">
+    <div className="p-4 md:p-7">
+      <div className="mb-5 md:mb-7">
         <h1 className="text-2xl font-semibold text-navy-100">Обзор</h1>
         <p className="text-navy-400 text-sm mt-0.5 capitalize">{monthLabel}</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
         <div className="stat-card">
           <div className="flex items-center gap-2 text-navy-400 text-xs mb-2">
             <Clock className="w-3.5 h-3.5" /> Часов за месяц

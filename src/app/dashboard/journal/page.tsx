@@ -50,6 +50,8 @@ export default function JournalPage() {
   const calRef = useRef<HTMLDivElement>(null)
   const [calMonth, setCalMonth] = useState(new Date())
   const [submitting, setSubmitting] = useState(false)
+  const [ndfl, setNdfl] = useState(false)
+  const effectiveRate = (base: string) => { const n = parseFloat(base || '0'); return ndfl ? Math.round(n / 0.85) : n }
   const [form, setForm] = useState({
     matter_id: '',
     hours: '1',
@@ -131,7 +133,7 @@ export default function JournalPage() {
       user_id: user!.id,
       work_date: dateStr,
       duration_min: dmin,
-      hourly_rate: parseFloat(form.hourly_rate),
+      hourly_rate: effectiveRate(form.hourly_rate),
       activity_type: form.activity_type,
       description: form.description,
       is_billable: form.is_billable,
@@ -297,11 +299,16 @@ export default function JournalPage() {
               <input type="number" className="input" value={form.hourly_rate}
                 onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))} />
             </div>
-            <div className="flex items-end pb-1">
+            <div className="flex items-end pb-1 gap-3 flex-wrap">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4 accent-gold-500" checked={form.is_billable}
                   onChange={e => setForm(f => ({ ...f, is_billable: e.target.checked }))} />
                 <span className="text-sm text-navy-300">Оплачиваемо</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" className="w-4 h-4 accent-amber-500" checked={ndfl}
+                  onChange={e => setNdfl(e.target.checked)} />
+                <span className="text-sm text-amber-400">+НДФЛ 15%</span>
               </label>
             </div>
             <div className="col-span-4">

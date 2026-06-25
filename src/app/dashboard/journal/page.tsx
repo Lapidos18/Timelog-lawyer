@@ -318,24 +318,31 @@ export default function JournalPage() {
               <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">Отмена</button>
             </div>
           </form>
-          <div className="mt-3 flex items-center gap-4 px-3 py-2.5 bg-navy-800/50 rounded-lg border border-navy-700/50">
-            <span className="text-xs text-navy-400 font-medium">Ставка с НДФЛ:</span>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" className="w-4 h-4 accent-amber-500" checked={ndfl}
-                onChange={e => setNdfl(e.target.checked)} />
-              <span className={`text-sm font-semibold ${ndfl ? 'text-amber-400' : 'text-navy-500'}`}>
-                +НДФЛ 15%
-              </span>
-            </label>
-            {form.hourly_rate && (
-              <span className="text-xs text-navy-400">
-                {ndfl
-                  ? <span className="text-amber-400 font-medium">{parseFloat(form.hourly_rate).toLocaleString('ru-RU')} ÷ 0,85 = {Math.round(parseFloat(form.hourly_rate)/0.85).toLocaleString('ru-RU')} ₽/ч</span>
-                  : <span>{parseFloat(form.hourly_rate).toLocaleString('ru-RU')} ₽/ч (без НДФЛ)</span>
-                }
-              </span>
-            )}
-          </div>
+
+        </div>
+      )}
+
+      {/* NDFL toggle - visible when form is open */}
+      {showForm && (
+        <div className="mb-5 flex items-center gap-4 px-4 py-3 bg-navy-900 rounded-xl border border-navy-700">
+          <span className="text-sm text-navy-400 font-medium">Ставка с учётом НДФЛ:</span>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" className="w-5 h-5 accent-amber-500" checked={ndfl}
+              onChange={e => setNdfl(e.target.checked)} />
+            <span className={`text-sm font-bold ${ndfl ? 'text-amber-400' : 'text-navy-500'}`}>
+              +НДФЛ 15%
+            </span>
+          </label>
+          {form.hourly_rate && (
+            <span className="text-sm">
+              {ndfl
+                ? <span className="text-amber-400 font-semibold">
+                    {parseFloat(form.hourly_rate).toLocaleString('ru-RU')} ÷ 0,85 = {Math.round(parseFloat(form.hourly_rate)/0.85).toLocaleString('ru-RU')} ₽/ч
+                  </span>
+                : <span className="text-navy-400">{parseFloat(form.hourly_rate).toLocaleString('ru-RU')} ₽/ч</span>
+              }
+            </span>
+          )}
         </div>
       )}
 

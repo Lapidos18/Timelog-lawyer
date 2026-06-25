@@ -127,67 +127,84 @@ export default function ReconciliationPage() {
   const balance = totalServices - totalPayments
   const client = clients.find(c => c.id === selectedClient)
 
-  async function exportPDF() {
+  function exportPDF() {
     if (!generated) return
-    const { jsPDF } = await import('jspdf')
-    const autoTable = (await import('jspdf-autotable')).default
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-
     const period = `${fmtDate(dateFrom)} — ${fmtDate(dateTo)}`
-    doc.setFontSize(13)
-    doc.text('АКТ СВЕРКИ ВЗАИМОРАСЧЁТОВ', 105, 18, { align: 'center' })
-    doc.setFontSize(10)
-    doc.text(`за период: ${period}`, 105, 25, { align: 'center' })
-    doc.text(`Адвокатский кабинет Бухмина А.А. (рег. № 54/1831)`, 14, 33)
-    doc.text(`Доверитель: ${client?.name ?? ''}${client?.inn ? `  ИНН ${client.inn}` : ''}`, 14, 39)
+    const balLabel = balance > 0 ? 'Задолженность доверителя' : balance < 0 ? 'Переплата доверителя' : 'Сальдо'
 
-    // Services table
-    doc.setFontSize(9)
-    doc.text('Оказанные услуги:', 14, 47)
-    autoTable(doc, {
-      startY: 50,
-      head: [['№','Дата','Дело','Вид работы','Описание','Часов','Ставка','Сумма, руб.']],
-      body: services.map((r, i) => [
-        i+1, fmtDate(r.work_date), r.matter_title,
-        ACTIVITY_LABELS[r.activity_type as keyof typeof ACTIVITY_LABELS],
-        r.description, r.hours.toFixed(2),
-        fmt(r.hourly_rate), fmt(r.amount)
-      ]),
-      foot: [['','','','','','','Итого:', fmt(totalServices)]],
-      styles: { fontSize: 7, cellPadding: 1.5 },
-      headStyles: { fillColor: [30, 58, 95], textColor: 255 },
-      footStyles: { fontStyle: 'bold', fillColor: [240, 244, 248] },
-      columnStyles: { 4: { cellWidth: 45 }, 7: { halign: 'right' } },
-    })
+    const svcRows = services.map((r, i) => `
+      <tr>
+        <td>${i+1}</td><td>${fmtDate(r.work_date)}</td><td>${r.matter_title}</td>
+        <td>${ACTIVITY_LABELS[r.activity_type as keyof typeof ACTIVITY_LABELS]}</td>
+        <td>${r.description}</td>
+        <td style="text-align:right">${r.hours.toFixed(2)}</td>
+        <td style="text-align:right">${fmt(r.hourly_rate)}</td>
+        <td style="text-align:right">${fmt(r.amount)}</td>
+      </tr>`).join('')
 
-    const y1 = (doc as any).lastAutoTable.finalY + 6
-    doc.text('Поступившие оплаты:', 14, y1)
-    autoTable(doc, {
-      startY: y1 + 3,
-      head: [['№','Дата','№ документа','Назначение','Сумма, руб.']],
-      body: payments.map((p, i) => [
-        i+1, fmtDate(p.pay_date), p.doc_no ?? '—', p.description, fmt(p.amount)
-      ]),
-      foot: [['','','','Итого:', fmt(totalPayments)]],
-      styles: { fontSize: 7, cellPadding: 1.5 },
-      headStyles: { fillColor: [30, 58, 95], textColor: 255 },
-      footStyles: { fontStyle: 'bold', fillColor: [240, 244, 248] },
-      columnStyles: { 4: { halign: 'right' } },
-    })
+    const payRows = payments.map((p, i) => `
+      <tr>
+        <td>${i+1}</td><td>${fmtDate(p.pay_date)}</td>
+        <td>${p.doc_no ?? '—'}</td><td>${p.description}</td>
+        <td style="text-align:right">${fmt(p.amount)}</td>
+      </tr>`).join('')
 
-    const y2 = (doc as any).lastAutoTable.finalY + 8
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'bold')
-    const balLabel = balance > 0 ? 'Задолженность доверителя:' : balance < 0 ? 'Переплата доверителя:' : 'Сальдо:'
-    doc.text(`${balLabel} ${fmt(Math.abs(balance))} руб.`, 14, y2)
+    const html = `<!DOCTYPE html>
+<html lang="ru"><head><meta charset="UTF-8"><title>Акт сверки</title>
+<style>
+  body{font-family:Arial,sans-serif;font-size:10px;margin:15mm;color:#111}
+  h2{text-align:center;font-size:14px;margin-bottom:4px}
+  .sub{text-align:center;font-size:10px;color:#555;margin-bottom:6px}
+  .meta{font-size:10px;margin-bottom:14px}
+  h3{font-size:11px;margin:14px 0 4px}
+  table{width:100%;border-collapse:collapse;margin-bottom:8px}
+  th{background:#1e3a5f;color:#fff;padding:5px 4px;font-size:9px;text-align:left}
+  td{padding:4px;border-bottom:1px solid #ddd;font-size:9px}
+  tr:nth-child(even) td{background:#f5f7fa}
+  tfoot td{font-weight:bold;border-top:2px solid #1e3a5f;background:#eef2f7}
+  .balance{font-size:12px;font-weight:bold;margin:16px 0;padding:10px;background:#f0f4f8;border-left:4px solid #1e3a5f}
+  .signs{margin-top:30px;display:flex;justify-content:space-between;font-size:10px}
+  .sign-block{width:45%}
+  @media print{body{margin:10mm}}
+</style></head><body>
+<h2>АКТ СВЕРКИ ВЗАИМОРАСЧЁТОВ</h2>
+<div class="sub">за период: ${period}</div>
+<div class="meta">
+  <b>Адвокат:</b> Адвокатский кабинет Бухмина Антона Андреевича, рег. № 54/1831, ИНН 540233730471<br>
+  <b>Доверитель:</b> ${client?.name ?? ''}${client?.inn ? `, ИНН ${client.inn}` : ''}
+</div>
+<h3>Оказанные услуги</h3>
+<table>
+  <thead><tr><th>№</th><th>Дата</th><th>Дело</th><th>Вид работы</th><th>Описание</th><th>Часов</th><th>Ставка</th><th>Сумма, руб.</th></tr></thead>
+  <tbody>${svcRows}</tbody>
+  <tfoot><tr><td colspan="7" style="text-align:right">Итого:</td><td style="text-align:right">${fmt(totalServices)}</td></tr></tfoot>
+</table>
+<h3>Поступившие оплаты</h3>
+<table>
+  <thead><tr><th>№</th><th>Дата</th><th>№ документа</th><th>Назначение</th><th>Сумма, руб.</th></tr></thead>
+  <tbody>${payRows.length ? payRows : '<tr><td colspan="5" style="text-align:center;color:#999">Платежей не поступало</td></tr>'}</tbody>
+  <tfoot><tr><td colspan="4" style="text-align:right">Итого:</td><td style="text-align:right">${fmt(totalPayments)}</td></tr></tfoot>
+</table>
+<div class="balance">${balLabel}: ${fmt(Math.abs(balance))} руб.</div>
+<div class="signs">
+  <div class="sign-block">
+    <b>Адвокат:</b><br><br>
+    _________________________ /А.А. Бухмин/
+  </div>
+  <div class="sign-block">
+    <b>Доверитель:</b><br><br>
+    _________________________ /${client?.name ?? ''}/
+  </div>
+</div>
+</body></html>`
 
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    doc.text('Адвокат: _________________________ /А.А. Бухмин/', 14, y2 + 16)
-    doc.text(`Доверитель: _________________________ /${client?.name ?? ''}/`, 14, y2 + 24)
-
-    doc.save(`Акт_сверки_${client?.name ?? ''}_${dateFrom}_${dateTo}.pdf`)
-    toast.success('PDF сохранён')
+    const w = window.open('', '_blank', 'width=900,height=700')
+    if (!w) return
+    w.document.write(html)
+    w.document.close()
+    w.focus()
+    setTimeout(() => { w.print() }, 500)
+    toast.success('Откроется диалог печати — выберите «Сохранить как PDF»')
   }
 
   async function exportExcel() {

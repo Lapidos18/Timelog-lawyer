@@ -219,7 +219,7 @@ export default function EntriesPage() {
                 value={form.hourly_rate}
                 onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))} required />
             </div>
-            <div className="flex items-end gap-4">
+            <div className="flex flex-col gap-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4 rounded accent-gold-500"
                   checked={form.is_billable}
@@ -230,7 +230,12 @@ export default function EntriesPage() {
                 <input type="checkbox" className="w-4 h-4 rounded accent-amber-500"
                   checked={ndfl}
                   onChange={e => setNdfl(e.target.checked)} />
-                <span className="text-sm text-amber-400">+НДФЛ 15%</span>
+                <span className="text-sm text-amber-400 font-medium">+НДФЛ 15%</span>
+                {ndfl && form.hourly_rate && (
+                  <span className="text-xs text-amber-600">
+                    → {Math.round(parseFloat(form.hourly_rate)/0.85).toLocaleString('ru-RU')} ₽/ч
+                  </span>
+                )}
               </label>
             </div>
             <div className="col-span-3">

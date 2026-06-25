@@ -299,16 +299,21 @@ export default function JournalPage() {
               <input type="number" className="input" value={form.hourly_rate}
                 onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))} />
             </div>
-            <div className="flex items-end pb-1 gap-3 flex-wrap">
+            <div className="flex flex-col gap-2 pb-1">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4 accent-gold-500" checked={form.is_billable}
                   onChange={e => setForm(f => ({ ...f, is_billable: e.target.checked }))} />
                 <span className="text-sm text-navy-300">Оплачиваемо</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer group">
                 <input type="checkbox" className="w-4 h-4 accent-amber-500" checked={ndfl}
                   onChange={e => setNdfl(e.target.checked)} />
-                <span className="text-sm text-amber-400">+НДФЛ 15%</span>
+                <span className="text-sm text-amber-400 font-medium">+НДФЛ 15%</span>
+                {ndfl && form.hourly_rate && (
+                  <span className="text-xs text-amber-600">
+                    {Math.round(parseFloat(form.hourly_rate)/0.85).toLocaleString('ru-RU')} ₽/ч
+                  </span>
+                )}
               </label>
             </div>
             <div className="col-span-4">

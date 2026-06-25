@@ -57,7 +57,7 @@ export default function ClientsPage() {
   }
 
   return (
-    <div className="p-7">
+    <div className="p-4 md:p-7">
       <div className="flex items-center justify-between mb-7">
         <h1 className="text-2xl font-semibold text-navy-100">Клиенты</h1>
         <button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
@@ -71,7 +71,7 @@ export default function ClientsPage() {
             <h2 className="font-medium text-navy-200">{editId ? 'Редактировать' : 'Новый клиент'}</h2>
             <button onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
           </div>
-          <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div className="col-span-2 md:col-span-1">
               <label className="label">Наименование / ФИО *</label>
               <input className="input" required value={form.name}

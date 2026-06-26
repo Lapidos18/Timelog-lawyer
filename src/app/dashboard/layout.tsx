@@ -7,7 +7,7 @@ import { Profile } from '@/types'
 import {
   LayoutDashboard, Clock, Users, Briefcase,
   FileBarChart2, LogOut, Scale, ChevronRight,
-  BookOpen, ClipboardList, Menu, X
+  BookOpen, ClipboardList, Menu, X, FileCheck
 } from 'lucide-react'
 
 const NAV = [
@@ -17,6 +17,7 @@ const NAV = [
   { href: '/dashboard/matters',        icon: Briefcase,       label: 'Дела' },
   { href: '/dashboard/clients',        icon: Users,           label: 'Клиенты' },
   { href: '/dashboard/reports',        icon: FileBarChart2,   label: 'Отчёты' },
+  { href: '/dashboard/acts',           icon: FileCheck,       label: 'Акты' },
   { href: '/dashboard/reconciliation', icon: ClipboardList,   label: 'Акт сверки' },
 ]
 

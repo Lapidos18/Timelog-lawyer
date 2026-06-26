@@ -135,6 +135,7 @@ export default function EntriesPage() {
     setEditId(null)
     setShowForm(false)
     setShowTemplates(false)
+    if (profile) setSelectedUserId(profile.id)
   }
 
   function startEdit(e: EntryWithRelations) {

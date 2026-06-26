@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { TimeEntry, ReportRow, ACTIVITY_LABELS } from '@/types'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { Clock, Banknote, Briefcase, TrendingUp } from 'lucide-react'
+import { Clock, Banknote, Briefcase, TrendingUp, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 
 function formatMoney(n: number) {
@@ -20,6 +20,7 @@ export default function DashboardPage() {
     hoursThisWeek: 0,
   })
   const [recentEntries, setRecentEntries] = useState<ReportRow[]>([])
+  const [clientBalances, setClientBalances] = useState<{name: string; billed: number; paid: number; debt: number}[]>([])
   const [loading, setLoading] = useState(true)
 
   const now = new Date()
@@ -29,7 +30,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
-      const [entriesRes, mattersRes, recentRes] = await Promise.all([
+      const [entriesRes, mattersRes, recentRes, allEntriesRes, paymentsRes] = await Promise.all([
         supabase
           .from('report_view')
           .select('hours, amount, is_billable')
@@ -44,6 +45,8 @@ export default function DashboardPage() {
           .select('*')
           .order('work_date', { ascending: false })
           .limit(8),
+        supabase.from('report_view').select('client_name, amount, is_billable'),
+        supabase.from('payments').select('client_id, amount, clients(name)'),
       ])
 
       const entries = entriesRes.data ?? []
@@ -57,6 +60,23 @@ export default function DashboardPage() {
         hoursThisWeek: 0,
       })
       setRecentEntries(recentRes.data ?? [])
+
+      // Client balances
+      const billedMap: Record<string, number> = {}
+      for (const r of (allEntriesRes.data ?? [])) {
+        if (r.is_billable) billedMap[r.client_name] = (billedMap[r.client_name] ?? 0) + Number(r.amount)
+      }
+      const paidMap: Record<string, number> = {}
+      for (const p of (paymentsRes.data ?? [])) {
+        const name = (p as any).clients?.name ?? ''
+        if (name) paidMap[name] = (paidMap[name] ?? 0) + Number(p.amount)
+      }
+      const balances = Object.entries(billedMap)
+        .map(([name, billed]) => ({ name, billed, paid: paidMap[name] ?? 0, debt: billed - (paidMap[name] ?? 0) }))
+        .filter(b => b.debt > 0)
+        .sort((a, b) => b.debt - a.debt)
+        .slice(0, 5)
+      setClientBalances(balances)
       setLoading(false)
     }
     load()
@@ -108,7 +128,28 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Recent entries */}
+      {/* Client balances */}
+      {clientBalances.length > 0 && (
+        <div className="card mb-5">
+          <h2 className="text-sm font-medium text-navy-300 mb-4 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-400" /> Задолженность клиентов
+          </h2>
+          <div className="space-y-2">
+            {clientBalances.map(b => (
+              <div key={b.name} className="flex items-center gap-3">
+                <span className="text-sm text-navy-300 flex-1 truncate">{b.name}</span>
+                <span className="text-xs text-navy-500">начислено {formatMoney(b.billed)} ₽</span>
+                <span className="text-xs text-emerald-400">оплачено {formatMoney(b.paid)} ₽</span>
+                <span className="text-sm font-semibold text-red-400 w-28 text-right">
+                  долг {formatMoney(b.debt)} ₽
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent entries */}}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-medium text-navy-200">Последние записи</h2>

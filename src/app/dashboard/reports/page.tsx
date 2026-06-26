@@ -105,7 +105,7 @@ export default function ReportsPage() {
     toast.success('Excel сохранён')
   }
 
-  function handlePDFExport() {
+  async function handlePDFExport() {
     if (rows.length === 0) { toast.error('Нет данных'); return }
     const { exportToPDF } = await import('@/lib/reports')
     const clientName = clients.find(c => c.id === filters.client_id)?.name

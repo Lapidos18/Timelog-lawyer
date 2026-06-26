@@ -56,6 +56,8 @@ export default function EntriesPage() {
   const [submitting, setSubmitting] = useState(false)
   const [ndfl, setNdfl] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
+  const [profiles, setProfiles] = useState<Profile[]>([])
+  const [selectedUserId, setSelectedUserId] = useState<string>('')
 
   const [form, setForm] = useState({
     matter_id: '',
@@ -92,6 +94,7 @@ export default function EntriesPage() {
         const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
         if (p) {
           setProfile(p)
+          setSelectedUserId(p.id)
           // Автозаполнение ставки из профиля
           if (p.hourly_rate) setForm(f => ({ ...f, hourly_rate: String(p.hourly_rate) }))
         }
@@ -99,6 +102,8 @@ export default function EntriesPage() {
       const { data: m } = await supabase
         .from('matters').select('*, clients(*)').eq('status', 'active').order('title')
       setMatters((m ?? []) as (Matter & { clients: Client })[])
+      const { data: profData } = await supabase.from('profiles').select('*').order('full_name')
+      setProfiles(profData ?? [])
       loadEntries()
     }
     init()
@@ -160,7 +165,7 @@ export default function EntriesPage() {
     const { data: { user } } = await supabase.auth.getUser()
     const payload = {
       matter_id: form.matter_id,
-      user_id: user!.id,
+      user_id: selectedUserId || user!.id,
       work_date: form.work_date,
       duration_min: dmin,
       hourly_rate: effectiveRate(form.hourly_rate),
@@ -276,6 +281,22 @@ export default function EntriesPage() {
                   {[0,15,30,45].map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
               </div>
+            </div>
+
+            <div>
+              <label className="label">Исполнитель</label>
+              <select className="select" value={selectedUserId}
+                onChange={e => {
+                  setSelectedUserId(e.target.value)
+                  const p = profiles.find(x => x.id === e.target.value)
+                  if (p?.hourly_rate) setForm(f => ({ ...f, hourly_rate: String(p.hourly_rate) }))
+                }}>
+                {profiles.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.full_name} ({p.role === 'advocate' ? 'Адвокат' : 'Помощник'}{p.hourly_rate ? ` · ${p.hourly_rate} ₽/ч` : ''})
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>

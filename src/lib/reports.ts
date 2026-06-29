@@ -10,7 +10,10 @@ function formatMinutes(min: number) {
   return m > 0 ? `${h}ч ${m}м` : `${h}ч`
 }
 function formatMoney(n: number) {
-  return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2 }).format(n)
+  return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+}
+function formatHours(h: number) {
+  return h.toFixed(2).replace('.', ',')
 }
 
 // ── Excel ────────────────────────────────────────────────────
@@ -43,25 +46,61 @@ export async function exportToExcel(rows: ReportRow[], title: string) {
   XLSX.writeFile(wb, `${title}.xlsx`)
 }
 
-// ── PDF через print window (поддержка кириллицы) ─────────────
-export function exportToPDF(rows: ReportRow[], title: string, subtitle?: string) {
-  const totalHours = rows.reduce((s, r) => s + Number(r.hours), 0)
-  const totalAmount = rows.filter(r => r.is_billable).reduce((s, r) => s + Number(r.amount), 0)
+// ── PDF — формат юридического отчёта ─────────────────────────
+export function exportToPDF(
+  rows: ReportRow[],
+  title: string,
+  subtitle?: string,
+  meta?: {
+    agreementNo?: string
+    agreementDate?: string
+    clientName?: string
+    matterTitle?: string
+    dateFrom?: string
+    dateTo?: string
+  }
+) {
+  const billableRows = rows.filter(r => r.is_billable)
+  const totalHours   = billableRows.reduce((s, r) => s + Number(r.hours), 0)
+  const totalAmount  = billableRows.reduce((s, r) => s + Number(r.amount), 0)
 
-  const rowsHtml = rows.map((r, i) => `
+  // Group by executor for "Детализация по специалистам"
+  const byExecutor: Record<string, { rate: number; hours: number; amount: number }> = {}
+  for (const r of billableRows) {
+    const key = r.performed_by
+    if (!byExecutor[key]) byExecutor[key] = { rate: Number(r.hourly_rate), hours: 0, amount: 0 }
+    byExecutor[key].hours  += Number(r.hours)
+    byExecutor[key].amount += Number(r.amount)
+  }
+
+  // Детализация по услугам
+  const servicesRows = billableRows.map((r, i) => `
     <tr>
-      <td>${i+1}</td>
       <td>${formatDate(r.work_date)}</td>
-      <td>${r.client_name}</td>
-      <td>${r.matter_title}</td>
-      <td>${ACTIVITY_LABELS[r.activity_type]}</td>
-      <td>${r.description}</td>
-      <td style="text-align:right">${Number(r.hours).toFixed(2)}</td>
-      <td style="text-align:right">${formatMoney(r.hourly_rate)}</td>
-      <td style="text-align:right">${r.is_billable ? formatMoney(r.amount) : '—'}</td>
       <td>${r.performed_by}</td>
-    </tr>
-  `).join('')
+      <td>${r.description || ACTIVITY_LABELS[r.activity_type]}</td>
+      <td class="num">${formatHours(Number(r.hours))}</td>
+    </tr>`).join('')
+
+  // Детализация по специалистам
+  const executorRows = Object.entries(byExecutor).map(([name, d]) => `
+    <tr>
+      <td>${name}</td>
+      <td class="num">${formatMoney(d.rate)}</td>
+      <td class="num">${formatHours(d.hours)}</td>
+      <td class="num">${formatMoney(d.amount)}</td>
+    </tr>`).join('')
+
+  const periodStr = meta?.dateFrom && meta?.dateTo
+    ? `с ${formatDate(meta.dateFrom)} по ${formatDate(meta.dateTo)}`
+    : subtitle ?? ''
+
+  const agreementStr = meta?.agreementNo
+    ? `Соглашение ${meta.agreementNo}${meta.agreementDate ? ` от ${meta.agreementDate} г.` : ''}`
+    : '—'
+
+  const reportNo = title.replace(/[^0-9]/g, '') || '1'
+  const reportDate = meta?.dateTo ? formatDate(meta.dateTo) : formatDate(new Date().toISOString().split('T')[0])
 
   const html = `<!DOCTYPE html>
 <html lang="ru">
@@ -69,45 +108,145 @@ export function exportToPDF(rows: ReportRow[], title: string, subtitle?: string)
 <meta charset="UTF-8">
 <title>${title}</title>
 <style>
-  body { font-family: Arial, sans-serif; font-size: 10px; margin: 15mm; color: #111; }
-  h2 { text-align: center; font-size: 13px; margin-bottom: 4px; }
-  .sub { text-align: center; font-size: 10px; color: #555; margin-bottom: 16px; }
-  table { width: 100%; border-collapse: collapse; }
-  th { background: #1e3a5f; color: #fff; padding: 5px 4px; text-align: left; font-size: 9px; }
-  td { padding: 4px; border-bottom: 1px solid #ddd; font-size: 9px; }
-  tr:nth-child(even) td { background: #f5f7fa; }
-  tfoot td { font-weight: bold; border-top: 2px solid #1e3a5f; background: #eef2f7; }
-  @media print { body { margin: 10mm; } }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: Arial, sans-serif;
+    font-size: 10pt;
+    color: #000;
+    padding: 20mm 20mm 25mm 20mm;
+  }
+  .header {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .header h1 {
+    font-size: 11pt;
+    font-weight: bold;
+    margin-bottom: 2px;
+  }
+  .header h2 {
+    font-size: 10pt;
+    font-weight: normal;
+  }
+  .meta {
+    margin-bottom: 20px;
+    font-size: 10pt;
+    line-height: 1.8;
+  }
+  .meta b { font-weight: bold; }
+  h3 {
+    font-size: 12pt;
+    font-weight: bold;
+    border-bottom: 2px solid #000;
+    padding-bottom: 4px;
+    margin: 20px 0 10px 0;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 6px;
+    font-size: 9.5pt;
+  }
+  th {
+    border: 1px solid #000;
+    padding: 5px 6px;
+    font-weight: bold;
+    text-align: center;
+    background: #f0f0f0;
+  }
+  td {
+    border: 1px solid #000;
+    padding: 4px 6px;
+    vertical-align: top;
+  }
+  .num { text-align: right; }
+  .total-row td {
+    font-weight: bold;
+    text-align: right;
+    border-top: 2px solid #000;
+    text-decoration: underline;
+  }
+  .footer {
+    position: fixed;
+    bottom: 10mm;
+    left: 20mm;
+    right: 20mm;
+    font-size: 8pt;
+    color: #444;
+    border-top: 1px solid #aaa;
+    padding-top: 4px;
+    display: flex;
+    justify-content: space-between;
+  }
+  @media print {
+    body { padding: 15mm; }
+    .footer { position: fixed; bottom: 8mm; }
+  }
 </style>
 </head>
 <body>
-<h2>${title}</h2>
-${subtitle ? `<div class="sub">${subtitle}</div>` : ''}
+
+<div class="header">
+  <h1>Отчёт №${reportNo} от ${reportDate} г.</h1>
+  <h2>об оказанных услугах</h2>
+</div>
+
+<div class="meta">
+  <b>Договор:</b>${agreementStr}<br>
+  <b>Валюта:</b>Российский рубль<br>
+  <b>Период:</b>${periodStr}
+</div>
+
+<h3>Детализация по оказанным услугам</h3>
 <table>
   <thead>
     <tr>
-      <th>№</th><th>Дата</th><th>Клиент</th><th>Дело</th><th>Вид работы</th>
-      <th>Описание</th><th>Часов</th><th>Ставка</th><th>Сумма</th><th>Исполнитель</th>
+      <th style="width:90px">Дата</th>
+      <th style="width:140px">Квалификация</th>
+      <th>Содержание услуг</th>
+      <th style="width:55px">Часы</th>
     </tr>
   </thead>
-  <tbody>${rowsHtml}</tbody>
-  <tfoot>
-    <tr>
-      <td colspan="6" style="text-align:right">Итого:</td>
-      <td style="text-align:right">${totalHours.toFixed(2)}</td>
-      <td></td>
-      <td style="text-align:right">${formatMoney(totalAmount)} руб.</td>
-      <td></td>
+  <tbody>
+    ${servicesRows}
+    <tr class="total-row">
+      <td colspan="3" style="text-align:right">ИТОГО:</td>
+      <td class="num">${formatHours(totalHours)}</td>
     </tr>
-  </tfoot>
+  </tbody>
 </table>
+
+<h3>Детализация по специалистам</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Квалификация</th>
+      <th style="width:90px">Ставка</th>
+      <th style="width:55px">Часы</th>
+      <th style="width:90px">Сумма</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${executorRows}
+    <tr class="total-row">
+      <td colspan="3" style="text-align:right"></td>
+      <td class="num">${formatMoney(totalAmount)}</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="footer">
+  <span>Отчёт №${reportNo} от ${reportDate} по Договору №${meta?.agreementNo ?? '—'}</span>
+  <span>Стр. 1 из 1</span>
+</div>
+
 </body>
 </html>`
 
-  const w = window.open('', '_blank', 'width=1000,height=700')
+  const w = window.open('', '_blank', 'width=900,height=700')
   if (!w) return
   w.document.write(html)
   w.document.close()
   w.focus()
-  setTimeout(() => { w.print() }, 500)
+  setTimeout(() => { w.print() }, 600)
 }

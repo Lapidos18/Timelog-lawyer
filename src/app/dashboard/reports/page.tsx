@@ -108,15 +108,22 @@ export default function ReportsPage() {
   async function handlePDFExport() {
     if (rows.length === 0) { toast.error('Нет данных'); return }
     const { exportToPDF } = await import('@/lib/reports')
-    const clientName = clients.find(c => c.id === filters.client_id)?.name
-    const matterName = matters.find(m => m.id === filters.matter_id)?.title
-    const title = matterName
-      ? `Отчёт по делу: ${matterName}`
-      : clientName
-      ? `Отчёт по клиенту: ${clientName}`
-      : 'Отчёт о рабочем времени'
-    const sub = `${filters.date_from} — ${filters.date_to} · АК Бухмин А.А.`
-    exportToPDF(rows, title, sub)
+    const client = clients.find(c => c.id === filters.client_id)
+    const matter = matters.find(m => m.id === filters.matter_id)
+
+    // Формируем номер отчёта из даты
+    const reportDate = filters.date_to ?? new Date().toISOString().split('T')[0]
+    const reportNo = reportDate.replace(/-/g, '').slice(2) // YYMMDD
+
+    const title = `Отчёт №${reportNo}`
+
+    exportToPDF(rows, title, undefined, {
+      agreementNo: matter?.agreement_no ?? undefined,
+      clientName: client?.name,
+      matterTitle: matter?.title,
+      dateFrom: filters.date_from,
+      dateTo: filters.date_to,
+    })
   }
 
   const totalHours = rows.reduce((s, r) => s + Number(r.hours), 0)
@@ -216,7 +223,7 @@ export default function ReportsPage() {
           </button>
           {filters.matter_id && searched && rows.length > 0 && (
             <button onClick={handlePDFExport} className="btn-secondary text-xs">
-              <FileDown className="w-3.5 h-3.5" /> PDF для клиента
+              <FileDown className="w-3.5 h-3.5" /> Отчёт PDF
             </button>
           )}
         </div>

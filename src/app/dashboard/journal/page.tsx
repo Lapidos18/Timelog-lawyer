@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, X, Check, Calendar } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, Check, Calendar, Trash2, Pencil } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface DayEntry {
@@ -12,6 +12,7 @@ interface DayEntry {
   matter_id: string
   user_id: string
   work_date: string
+  start_time: string | null
   duration_min: number
   hourly_rate: number
   amount: number
@@ -23,7 +24,7 @@ interface DayEntry {
   profiles: Profile | null
 }
 
-const HOURS = Array.from({ length: 13 }, (_, i) => i + 8)
+const HOURS = Array.from({ length: 13 }, (_, i) => i + 8) // 8:00 - 20:00
 const COLORS: Record<ActivityType, string> = {
   consultation:   'bg-blue-900/60 border-blue-500/50 text-blue-300',
   court_hearing:  'bg-red-900/60 border-red-500/50 text-red-300',
@@ -38,6 +39,13 @@ function formatMoney(n: number) {
   return new Intl.NumberFormat('ru-RU').format(Math.round(n))
 }
 
+// "09:30:00" -> 9.5 (decimal hour for positioning)
+function timeToDecimal(t: string | null): number {
+  if (!t) return 9
+  const [h, m] = t.split(':').map(Number)
+  return h + (m || 0) / 60
+}
+
 export default function JournalPage() {
   const supabase = createClient()
   const [date, setDate] = useState(new Date())
@@ -46,17 +54,20 @@ export default function JournalPage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
   const [showCal, setShowCal] = useState(false)
   const calRef = useRef<HTMLDivElement>(null)
   const [calMonth, setCalMonth] = useState(new Date())
   const [submitting, setSubmitting] = useState(false)
   const [ndfl, setNdfl] = useState(false)
   const effectiveRate = (base: string) => { const n = parseFloat(base || '0'); return ndfl ? Math.round(n / 0.85) : n }
+
   const [form, setForm] = useState({
     matter_id: '',
     hours: '1',
     minutes: '0',
     start_hour: '9',
+    start_minute: '0',
     hourly_rate: '',
     activity_type: 'consultation' as ActivityType,
     description: '',
@@ -67,12 +78,8 @@ export default function JournalPage() {
   const dateStr = format(date, 'yyyy-MM-dd')
   const dateLabel = format(date, 'EEEE, d MMMM yyyy', { locale: ru })
 
-  // Calendar grid
-  const calDays = eachDayOfInterval({
-    start: startOfMonth(calMonth),
-    end: endOfMonth(calMonth),
-  })
-  const firstDow = (startOfMonth(calMonth).getDay() + 6) % 7 // Mon=0
+  const calDays = eachDayOfInterval({ start: startOfMonth(calMonth), end: endOfMonth(calMonth) })
+  const firstDow = (startOfMonth(calMonth).getDay() + 6) % 7
 
   useEffect(() => {
     async function init() {
@@ -91,9 +98,7 @@ export default function JournalPage() {
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (calRef.current && !calRef.current.contains(e.target as Node)) {
-        setShowCal(false)
-      }
+      if (calRef.current && !calRef.current.contains(e.target as Node)) setShowCal(false)
     }
     if (showCal) document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -105,20 +110,58 @@ export default function JournalPage() {
       .from('time_entries')
       .select('*, matters(*, clients(*)), profiles(*)')
       .eq('work_date', dateStr)
-      .order('created_at')
+      .order('start_time')
     setEntries((data ?? []) as DayEntry[])
     setLoading(false)
   }
 
   function selectDay(d: Date) {
-    setDate(d)
-    setCalMonth(d)
-    setShowCal(false)
+    setDate(d); setCalMonth(d); setShowCal(false)
+  }
+
+  function resetForm() {
+    setForm({
+      matter_id: '', hours: '1', minutes: '0',
+      start_hour: '9', start_minute: '0',
+      hourly_rate: String(profile?.hourly_rate ?? ''),
+      activity_type: 'consultation', description: '',
+      is_billable: true, notes: '',
+    })
+    setEditId(null)
+    setShowForm(false)
+    setNdfl(false)
   }
 
   function openFormAtHour(h: number) {
-    setForm(f => ({ ...f, start_hour: String(h), hours: '1', minutes: '0' }))
+    resetForm()
+    setForm(f => ({ ...f, start_hour: String(h), start_minute: '0', hours: '1', minutes: '0' }))
     setShowForm(true)
+  }
+
+  // Double-click to edit
+  function openEdit(entry: DayEntry) {
+    const startDec = timeToDecimal(entry.start_time)
+    const startH = Math.floor(startDec)
+    const startM = Math.round((startDec - startH) * 60)
+    const durH = Math.floor(entry.duration_min / 60)
+    const durM = entry.duration_min % 60
+
+    setForm({
+      matter_id: entry.matter_id,
+      hours: String(durH),
+      minutes: String(durM),
+      start_hour: String(startH),
+      start_minute: String(startM),
+      hourly_rate: String(entry.hourly_rate),
+      activity_type: entry.activity_type,
+      description: entry.description,
+      is_billable: entry.is_billable,
+      notes: entry.notes ?? '',
+    })
+    setEditId(entry.id)
+    setNdfl(false)
+    setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function handleSubmit(ev: React.FormEvent) {
@@ -128,29 +171,45 @@ export default function JournalPage() {
     if (dmin <= 0) { toast.error('Укажите время'); return }
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
-    const { error } = await supabase.from('time_entries').insert({
+    const startTime = `${form.start_hour.padStart(2,'0')}:${form.start_minute.padStart(2,'0')}:00`
+
+    const payload = {
       matter_id: form.matter_id,
       user_id: user!.id,
       work_date: dateStr,
+      start_time: startTime,
       duration_min: dmin,
       hourly_rate: effectiveRate(form.hourly_rate),
       activity_type: form.activity_type,
       description: form.description,
       is_billable: form.is_billable,
       notes: form.notes || null,
-    })
+    }
+
+    const { error } = editId
+      ? await supabase.from('time_entries').update(payload).eq('id', editId)
+      : await supabase.from('time_entries').insert(payload)
+
     if (error) { toast.error('Ошибка: ' + error.message) }
-    else { toast.success('Запись добавлена'); setShowForm(false); loadDay() }
+    else { toast.success(editId ? 'Запись обновлена' : 'Запись добавлена'); resetForm(); loadDay() }
     setSubmitting(false)
+  }
+
+  async function handleDelete() {
+    if (!editId) return
+    if (!confirm('Удалить запись?')) return
+    const { error } = await supabase.from('time_entries').delete().eq('id', editId)
+    if (error) { toast.error('Ошибка удаления') }
+    else { toast.success('Удалено'); resetForm(); loadDay() }
   }
 
   const totalHours = entries.reduce((s, e) => s + e.duration_min / 60, 0)
   const totalAmount = entries.filter(e => e.is_billable).reduce((s, e) => s + Number(e.amount), 0)
 
   return (
-    <div className="p-7">
+    <div className="p-4 md:p-7">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button onClick={() => setDate(d => subDays(d, 1))} className="btn-ghost p-2">
             <ChevronLeft className="w-4 h-4" />
@@ -165,20 +224,14 @@ export default function JournalPage() {
             <ChevronRight className="w-4 h-4" />
           </button>
 
-          {/* Calendar button */}
           <div className="relative">
-            <button
-              onClick={() => { setShowCal(c => !c); setCalMonth(date) }}
-              className="btn-ghost text-xs px-3 py-1.5 ml-1 gap-1.5"
-            >
+            <button onClick={() => { setShowCal(c => !c); setCalMonth(date) }}
+              className="btn-ghost text-xs px-3 py-1.5 ml-1 gap-1.5">
               <Calendar className="w-3.5 h-3.5" /> Календарь
             </button>
-
-            {/* Calendar popup */}
             {showCal && (
               <div ref={calRef} className="absolute top-10 left-0 z-50 bg-navy-900 border border-navy-700
                               rounded-xl shadow-2xl p-4 w-72">
-                {/* Month nav */}
                 <div className="flex items-center justify-between mb-3">
                   <button onClick={() => setCalMonth(m => subMonths(m, 1))} className="btn-ghost p-1">
                     <ChevronLeft className="w-4 h-4" />
@@ -190,50 +243,29 @@ export default function JournalPage() {
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
-
-                {/* Day headers */}
                 <div className="grid grid-cols-7 mb-1">
                   {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => (
                     <div key={d} className="text-center text-xs text-navy-600 py-1">{d}</div>
                   ))}
                 </div>
-
-                {/* Days grid */}
                 <div className="grid grid-cols-7 gap-0.5">
-                  {/* Empty cells before first day */}
-                  {Array.from({ length: firstDow }).map((_, i) => (
-                    <div key={`e${i}`} />
-                  ))}
+                  {Array.from({ length: firstDow }).map((_, i) => <div key={`e${i}`} />)}
                   {calDays.map(d => {
                     const isSelected = isSameDay(d, date)
                     const isToday = isSameDay(d, new Date())
                     const inMonth = isSameMonth(d, calMonth)
                     return (
-                      <button
-                        key={d.toISOString()}
-                        onClick={() => selectDay(d)}
-                        className={`
-                          h-8 w-full rounded-lg text-xs font-medium transition-colors
-                          ${isSelected
-                            ? 'bg-gold-500 text-navy-950'
-                            : isToday
-                            ? 'bg-navy-700 text-gold-400 ring-1 ring-gold-500/50'
-                            : inMonth
-                            ? 'text-navy-300 hover:bg-navy-800'
-                            : 'text-navy-700'}
-                        `}
-                      >
+                      <button key={d.toISOString()} onClick={() => selectDay(d)}
+                        className={`h-8 w-full rounded-lg text-xs font-medium transition-colors
+                          ${isSelected ? 'bg-gold-500 text-navy-950'
+                            : isToday ? 'bg-navy-700 text-gold-400 ring-1 ring-gold-500/50'
+                            : inMonth ? 'text-navy-300 hover:bg-navy-800' : 'text-navy-700'}`}>
                         {format(d, 'd')}
                       </button>
                     )
                   })}
                 </div>
-
-                {/* Today shortcut */}
-                <button
-                  onClick={() => selectDay(new Date())}
-                  className="w-full mt-3 btn-secondary text-xs justify-center py-1.5"
-                >
+                <button onClick={() => selectDay(new Date())} className="w-full mt-3 btn-secondary text-xs justify-center py-1.5">
                   Сегодня
                 </button>
               </div>
@@ -241,23 +273,23 @@ export default function JournalPage() {
           </div>
         </div>
 
-        <button onClick={() => { setForm(f => ({ ...f, start_hour: '9', hours: '1' })); setShowForm(true) }}
+        <button onClick={() => { resetForm(); setForm(f => ({ ...f, start_hour: '9' })); setShowForm(true) }}
           className="btn-primary">
           <Plus className="w-4 h-4" /> Новая запись
         </button>
       </div>
 
-      {/* Quick form */}
+      {/* Form */}
       {showForm && (
-        <div className="card mb-5 border-gold-800/40">
+        <div className="card mb-3 border-gold-800/40">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-medium text-navy-200 text-sm capitalize">
-              Новая запись — {format(date, 'd MMMM yyyy', { locale: ru })}
+              {editId ? 'Редактировать запись' : `Новая запись — ${format(date, 'd MMMM yyyy', { locale: ru })}`}
             </h2>
-            <button onClick={() => setShowForm(false)} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
+            <button onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
           </div>
-          <form onSubmit={handleSubmit} className="grid grid-cols-4 gap-3">
-            <div className="col-span-2">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="md:col-span-2">
               <label className="label">Дело *</label>
               <select className="select" required value={form.matter_id}
                 onChange={e => setForm(f => ({ ...f, matter_id: e.target.value }))}>
@@ -267,12 +299,21 @@ export default function JournalPage() {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="label">Начало</label>
-              <select className="select" value={form.start_hour}
-                onChange={e => setForm(f => ({ ...f, start_hour: e.target.value }))}>
-                {HOURS.map(h => <option key={h} value={h}>{h}:00</option>)}
-              </select>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="label">Начало (час)</label>
+                <select className="select" value={form.start_hour}
+                  onChange={e => setForm(f => ({ ...f, start_hour: e.target.value }))}>
+                  {HOURS.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="label">Мин</label>
+                <select className="select" value={form.start_minute}
+                  onChange={e => setForm(f => ({ ...f, start_minute: e.target.value }))}>
+                  {[0,15,30,45].map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
             </div>
             <div>
               <label className="label">Вид работы</label>
@@ -306,32 +347,37 @@ export default function JournalPage() {
                 <span className="text-sm text-navy-300">Оплачиваемо</span>
               </label>
             </div>
-            <div className="col-span-4">
+
+            <div className="md:col-span-4">
               <label className="label">Описание *</label>
-              <input type="text" className="input" required placeholder="Что делал..."
+              <textarea className="input resize-none" rows={2} required placeholder="Что делал..."
                 value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
-            <div className="col-span-4 flex gap-3">
+
+            <div className="md:col-span-4 flex flex-wrap gap-3">
               <button type="submit" disabled={submitting} className="btn-primary">
-                <Check className="w-4 h-4" /> {submitting ? 'Сохраняю...' : 'Добавить'}
+                <Check className="w-4 h-4" /> {submitting ? 'Сохраняю...' : (editId ? 'Сохранить' : 'Добавить')}
               </button>
-              <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">Отмена</button>
+              <button type="button" onClick={resetForm} className="btn-secondary">Отмена</button>
+              {editId && (
+                <button type="button" onClick={handleDelete}
+                  className="btn-secondary text-red-400 hover:bg-red-900/20 ml-auto">
+                  <Trash2 className="w-4 h-4" /> Удалить
+                </button>
+              )}
             </div>
           </form>
-
         </div>
       )}
 
-      {/* NDFL toggle - visible when form is open */}
+      {/* NDFL toggle */}
       {showForm && (
         <div className="mb-5 flex items-center gap-4 px-4 py-3 bg-navy-900 rounded-xl border border-navy-700">
           <span className="text-sm text-navy-400 font-medium">Ставка с учётом НДФЛ:</span>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" className="w-5 h-5 accent-amber-500" checked={ndfl}
               onChange={e => setNdfl(e.target.checked)} />
-            <span className={`text-sm font-bold ${ndfl ? 'text-amber-400' : 'text-navy-500'}`}>
-              +НДФЛ 15%
-            </span>
+            <span className={`text-sm font-bold ${ndfl ? 'text-amber-400' : 'text-navy-500'}`}>+НДФЛ 15%</span>
           </label>
           {form.hourly_rate && (
             <span className="text-sm">
@@ -339,11 +385,15 @@ export default function JournalPage() {
                 ? <span className="text-amber-400 font-semibold">
                     {parseFloat(form.hourly_rate).toLocaleString('ru-RU')} ÷ 0,85 = {Math.round(parseFloat(form.hourly_rate)/0.85).toLocaleString('ru-RU')} ₽/ч
                   </span>
-                : <span className="text-navy-400">{parseFloat(form.hourly_rate).toLocaleString('ru-RU')} ₽/ч</span>
-              }
+                : <span className="text-navy-400">{parseFloat(form.hourly_rate).toLocaleString('ru-RU')} ₽/ч</span>}
             </span>
           )}
         </div>
+      )}
+
+      {/* Hint */}
+      {!showForm && entries.length > 0 && (
+        <p className="text-xs text-navy-600 mb-3">💡 Двойной клик по записи — редактировать</p>
       )}
 
       {/* Day view */}
@@ -352,81 +402,106 @@ export default function JournalPage() {
           {/* Timeline */}
           <div className="w-16 flex-shrink-0 border-r border-navy-800">
             {HOURS.map(h => (
-              <div key={h} className="h-16 border-b border-navy-800/50 flex items-start justify-end pr-3 pt-1">
-                <span className="text-xs text-navy-600 font-mono">{h}:00</span>
+              <div key={h} className="h-16 border-b border-navy-800/50 px-2 py-1
+                                       text-xs text-navy-600 font-mono">
+                {h}:00
               </div>
             ))}
           </div>
 
-          {/* Slots */}
-          <div className="flex-1 relative">
-            {HOURS.map(h => (
+          {/* Entries column */}
+          <div className="flex-1 relative" style={{ height: `${HOURS.length * 64}px` }}>
+            {/* Hour grid lines (clickable to add) */}
+            {HOURS.map((h, i) => (
               <div key={h}
-                className="h-16 border-b border-navy-800/30 hover:bg-navy-800/20 cursor-pointer
-                           transition-colors group relative"
-                onClick={() => openFormAtHour(h)}>
-                <span className="absolute inset-0 flex items-center justify-center
-                                 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Plus className="w-4 h-4 text-navy-600" />
-                </span>
-              </div>
+                onClick={() => openFormAtHour(h)}
+                className="absolute left-0 right-0 border-b border-navy-800/50
+                           hover:bg-navy-800/30 cursor-pointer transition-colors"
+                style={{ top: `${i * 64}px`, height: '64px' }}
+              />
             ))}
 
-            {/* Entries overlay */}
-            {!loading && entries.map((e, i) => {
-              const top = (i % 12) * 64
-              const height = Math.max(56, Math.min(e.duration_min / 60 * 64, 128))
+            {/* Entry blocks positioned by real start_time */}
+            {entries.map(e => {
+              const startDec = timeToDecimal(e.start_time)
+              const top = Math.max(0, (startDec - 8) * 64)
+              const heightPx = Math.max(28, (e.duration_min / 60) * 64)
+              const startLabel = e.start_time ? e.start_time.slice(0,5) : '—'
+              const endDec = startDec + e.duration_min / 60
+              const endH = Math.floor(endDec)
+              const endM = Math.round((endDec - endH) * 60)
+              const endLabel = `${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`
+
               return (
-                <div key={e.id}
-                  className={`absolute left-2 right-2 rounded-lg border px-3 py-2 text-xs
-                              cursor-default overflow-hidden ${COLORS[e.activity_type]}`}
-                  style={{ top: top + 4, height: height - 8 }}>
-                  <div className="font-semibold truncate">{e.matters?.clients?.name}</div>
-                  <div className="truncate opacity-80">{e.description}</div>
-                  <div className="mt-1 flex items-center gap-2 opacity-60">
-                    <span>{Math.floor(e.duration_min/60)}ч {e.duration_min%60>0?`${e.duration_min%60}м`:''}</span>
-                    {e.is_billable && <span>{formatMoney(e.amount)} ₽</span>}
+                <div
+                  key={e.id}
+                  onDoubleClick={() => openEdit(e)}
+                  title="Двойной клик — редактировать"
+                  className={`absolute left-2 right-2 rounded-lg border px-3 py-1.5
+                              cursor-pointer hover:brightness-125 transition-all overflow-hidden
+                              ${COLORS[e.activity_type]}`}
+                  style={{ top: `${top}px`, height: `${heightPx}px`, zIndex: 5 }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold truncate">{e.matters?.clients?.name}</p>
+                    <span className="text-[10px] font-mono opacity-70 flex-shrink-0">
+                      {startLabel}–{endLabel}
+                    </span>
                   </div>
+                  {heightPx > 30 && (
+                    <p className="text-xs opacity-80 truncate">{e.description}</p>
+                  )}
                 </div>
               )
             })}
           </div>
 
           {/* Side list */}
-          <div className="w-72 border-l border-navy-800 flex-shrink-0">
-            <div className="px-4 py-3 border-b border-navy-800">
-              <p className="text-xs font-medium text-navy-400 uppercase tracking-wide">Записи дня</p>
-            </div>
+          <div className="w-72 flex-shrink-0 border-l border-navy-800 p-4 overflow-y-auto"
+               style={{ maxHeight: `${HOURS.length * 64}px` }}>
+            <h3 className="text-xs font-medium text-navy-500 mb-3 uppercase tracking-wide">Записи дня</h3>
             {loading ? (
-              <p className="text-navy-600 text-xs text-center py-8">Загрузка...</p>
+              <p className="text-navy-600 text-xs">Загрузка...</p>
             ) : entries.length === 0 ? (
-              <p className="text-navy-600 text-xs text-center py-8 px-4">
-                Нет записей.<br/>Кликни на временной слот чтобы добавить.
-              </p>
+              <p className="text-navy-600 text-xs">Нет записей. Кликни на временной слот чтобы добавить.</p>
             ) : (
-              <div className="overflow-y-auto" style={{ maxHeight: '832px' }}>
+              <div className="space-y-2">
                 {entries.map(e => (
-                  <div key={e.id} className={`mx-3 my-2 p-3 rounded-lg border text-xs ${COLORS[e.activity_type]}`}>
-                    <div className="font-semibold truncate mb-1">{e.matters?.clients?.name}</div>
-                    <div className="opacity-80 mb-1">{ACTIVITY_LABELS[e.activity_type]}</div>
-                    <div className="opacity-70 line-clamp-2">{e.description}</div>
-                    <div className="mt-2 flex justify-between opacity-60">
-                      <span>{Math.floor(e.duration_min/60)}ч {e.duration_min%60>0?`${e.duration_min%60}м`:''}</span>
-                      {e.is_billable && <span className="text-gold-400">{formatMoney(e.amount)} ₽</span>}
+                  <div key={e.id}
+                    onDoubleClick={() => openEdit(e)}
+                    className={`p-2.5 rounded-lg border cursor-pointer hover:brightness-125 transition-all
+                                ${COLORS[e.activity_type]}`}
+                    title="Двойной клик — редактировать">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <p className="text-xs font-semibold truncate">{e.matters?.clients?.name}</p>
+                      <Pencil className="w-3 h-3 opacity-50 flex-shrink-0" />
                     </div>
-                    <div className="mt-1 opacity-50">{e.profiles?.full_name}</div>
+                    <p className="text-xs opacity-90">{ACTIVITY_LABELS[e.activity_type]}</p>
+                    <p className="text-xs opacity-70 truncate mt-0.5">{e.description}</p>
+                    <div className="flex justify-between mt-1.5 text-xs">
+                      <span className="font-mono opacity-70">
+                        {e.start_time?.slice(0,5)} · {(e.duration_min/60).toFixed(2)}ч
+                      </span>
+                      <span className="font-semibold">
+                        {e.is_billable ? formatMoney(e.amount) + ' ₽' : '—'}
+                      </span>
+                    </div>
+                    <p className="text-xs opacity-60 mt-0.5">{e.profiles?.full_name}</p>
                   </div>
                 ))}
-                <div className="mx-3 my-3 p-3 bg-navy-800/30 rounded-lg border border-navy-700/50 text-xs">
-                  <div className="flex justify-between text-navy-400 mb-1">
-                    <span>Итого часов:</span>
-                    <span className="text-navy-200 font-mono">{totalHours.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-navy-400">
-                    <span>К оплате:</span>
-                    <span className="text-gold-400 font-mono">{formatMoney(totalAmount)} ₽</span>
-                  </div>
-                </div>
+              </div>
+            )}
+
+            {entries.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-navy-800 flex justify-between text-xs">
+                <span className="text-navy-500">Итого часов:</span>
+                <span className="text-navy-200 font-semibold">{totalHours.toFixed(2)}</span>
+              </div>
+            )}
+            {entries.length > 0 && (
+              <div className="flex justify-between text-xs mt-1">
+                <span className="text-navy-500">К оплате:</span>
+                <span className="text-gold-400 font-semibold">{formatMoney(totalAmount)} ₽</span>
               </div>
             )}
           </div>

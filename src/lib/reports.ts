@@ -323,7 +323,7 @@ export async function exportToWord(
       })],
     })
   }
-  function cell(text: string, width: number, align: typeof AlignmentType.LEFT = AlignmentType.LEFT) {
+  function cell(text: string, width: number, align: (typeof AlignmentType)[keyof typeof AlignmentType] = AlignmentType.LEFT) {
     return new TableCell({
       width: { size: width, type: WidthType.DXA },
       borders: cellBorder,

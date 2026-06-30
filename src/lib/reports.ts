@@ -244,11 +244,25 @@ export function exportToPDF(
 </html>`
 
   const w = window.open('', '_blank', 'width=900,height=700')
-  if (!w) return
+  if (!w) {
+    alert('Браузер заблокировал всплывающее окно. Разрешите всплывающие окна для этого сайта и попробуйте снова.')
+    return
+  }
   w.document.write(html)
   w.document.close()
-  w.focus()
-  setTimeout(() => { w.print() }, 600)
+
+  // Ждём полной загрузки контента (шрифты, рендеринг) перед печатью
+  w.onload = () => {
+    w.focus()
+    setTimeout(() => {
+      w.print()
+    }, 300)
+  }
+
+  // Закрываем окно после печати/отмены, чтобы не оставался пустой белый таб
+  w.onafterprint = () => {
+    w.close()
+  }
 }
 
 // ── Word (DOCX) — формат юридического отчёта ─────────────────

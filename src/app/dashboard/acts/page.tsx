@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { FileText, Plus, X, Check, Printer, Trash2 } from 'lucide-react'
+import { Plus, X, Check, Printer, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface Act {

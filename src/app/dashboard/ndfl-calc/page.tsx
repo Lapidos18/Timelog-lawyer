@@ -1,16 +1,12 @@
 
 'use client'
 import { useState, useMemo } from 'react'
-import { Calculator, ArrowRight, Info, Copy, Check } from 'lucide-react'
+import { Calculator, Info, Copy, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 function fmt(n: number) {
   return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(Math.round(n))
 }
-function fmt2(n: number) {
-  return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
-}
-
 type Mode = 'net_to_gross' | 'gross_to_net'
 
 export default function NdflCalcPage() {

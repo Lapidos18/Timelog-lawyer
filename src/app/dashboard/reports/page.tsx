@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { ReportRow, ReportFilters, Client, Matter, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
-import { FileDown, FileSpreadsheet, Filter, ChevronDown, ChevronRight, FileText, X, Check, Trash2, Pencil } from 'lucide-react'
+import { FileDown, FileSpreadsheet, Filter, ChevronDown, ChevronRight, FileText, X, Check, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 type GroupBy = 'none' | 'client' | 'matter'

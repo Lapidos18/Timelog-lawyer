@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { ReportRow, ReportFilters, Client, Matter, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
-import { FileDown, FileSpreadsheet, Filter, ChevronDown, ChevronRight } from 'lucide-react'
+import { FileDown, FileSpreadsheet, Filter, ChevronDown, ChevronRight, FileText } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 type GroupBy = 'none' | 'client' | 'matter'
@@ -126,6 +126,25 @@ export default function ReportsPage() {
     })
   }
 
+  async function handleWordExport() {
+    if (rows.length === 0) { toast.error('Нет данных'); return }
+    const { exportToWord } = await import('@/lib/reports')
+    const client = clients.find(c => c.id === filters.client_id)
+    const matter = matters.find(m => m.id === filters.matter_id)
+    const reportDate = filters.date_to ?? new Date().toISOString().split('T')[0]
+    const reportNo = reportDate.replace(/-/g, '').slice(2)
+    const title = `Отчёт №${reportNo}`
+
+    await exportToWord(rows, title, {
+      agreementNo: matter?.agreement_no ?? undefined,
+      clientName: client?.name,
+      matterTitle: matter?.title,
+      dateFrom: filters.date_from,
+      dateTo: filters.date_to,
+    })
+    toast.success('Документ Word сохранён')
+  }
+
   const totalHours = rows.reduce((s, r) => s + Number(r.hours), 0)
   const totalBillable = rows.filter(r => r.is_billable).reduce((s, r) => s + Number(r.amount), 0)
   const groups = groupRows(rows, groupBy)
@@ -140,6 +159,9 @@ export default function ReportsPage() {
           <div className="flex gap-2">
             <button onClick={handleExcelExport} className="btn-secondary">
               <FileSpreadsheet className="w-4 h-4" /> Excel
+            </button>
+            <button onClick={handleWordExport} className="btn-secondary">
+              <FileText className="w-4 h-4" /> Word
             </button>
             <button onClick={handlePDFExport} className="btn-secondary">
               <FileDown className="w-4 h-4" /> PDF

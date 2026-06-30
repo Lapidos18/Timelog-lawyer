@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { ReportRow, ReportFilters, Client, Matter, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
-import { FileDown, FileSpreadsheet, Filter, ChevronDown, ChevronRight, FileText } from 'lucide-react'
+import { FileDown, FileSpreadsheet, Filter, ChevronDown, ChevronRight, FileText, X, Check, Trash2, Pencil } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 type GroupBy = 'none' | 'client' | 'matter'
@@ -40,6 +40,15 @@ export default function ReportsPage() {
   const [searched, setSearched] = useState(false)
   const [groupBy, setGroupBy] = useState<GroupBy>('none')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+
+  // Edit modal state
+  const [editRow, setEditRow] = useState<ReportRow | null>(null)
+  const [editForm, setEditForm] = useState({
+    matter_id: '', work_date: '', hours: '', minutes: '',
+    hourly_rate: '', activity_type: 'consultation' as ActivityType,
+    description: '', is_billable: true, notes: '',
+  })
+  const [editSaving, setEditSaving] = useState(false)
 
   const now = new Date()
   const [filters, setFilters] = useState<ReportFilters>({
@@ -88,6 +97,52 @@ export default function ReportsPage() {
     if (error) { toast.error('Ошибка запроса') }
     else { setRows(data ?? []); setSearched(true) }
     setLoading(false)
+  }
+
+  function openEdit(row: ReportRow) {
+    const h = Math.floor(row.duration_min / 60)
+    const m = row.duration_min % 60
+    setEditForm({
+      matter_id: matters.find(mt => mt.title === row.matter_title)?.id ?? '',
+      work_date: row.work_date,
+      hours: String(h),
+      minutes: String(m),
+      hourly_rate: String(row.hourly_rate),
+      activity_type: row.activity_type,
+      description: row.description,
+      is_billable: row.is_billable,
+      notes: row.notes ?? '',
+    })
+    setEditRow(row)
+  }
+
+  async function saveEdit() {
+    if (!editRow) return
+    if (!editForm.matter_id) { toast.error('Выберите дело'); return }
+    const dmin = parseInt(editForm.hours || '0') * 60 + parseInt(editForm.minutes || '0')
+    if (dmin <= 0) { toast.error('Укажите время'); return }
+    setEditSaving(true)
+    const { error } = await supabase.from('time_entries').update({
+      matter_id: editForm.matter_id,
+      work_date: editForm.work_date,
+      duration_min: dmin,
+      hourly_rate: parseFloat(editForm.hourly_rate),
+      activity_type: editForm.activity_type,
+      description: editForm.description,
+      is_billable: editForm.is_billable,
+      notes: editForm.notes || null,
+    }).eq('id', editRow.id)
+    if (error) { toast.error('Ошибка: ' + error.message) }
+    else { toast.success('Запись обновлена'); setEditRow(null); runReport() }
+    setEditSaving(false)
+  }
+
+  async function deleteEdit() {
+    if (!editRow) return
+    if (!confirm('Удалить запись?')) return
+    const { error } = await supabase.from('time_entries').delete().eq('id', editRow.id)
+    if (error) { toast.error('Ошибка удаления') }
+    else { toast.success('Удалено'); setEditRow(null); runReport() }
   }
 
   function toggleGroup(key: string) {
@@ -156,6 +211,10 @@ export default function ReportsPage() {
       <div className="flex items-center justify-between mb-7">
         <h1 className="text-2xl font-semibold text-navy-100">Отчёты</h1>
         {searched && rows.length > 0 && (
+        <p className="text-xs text-navy-600 mb-2">💡 Двойной клик по строке — редактировать запись</p>
+      )}
+
+      {searched && rows.length > 0 && (
           <div className="flex gap-2">
             <button onClick={handleExcelExport} className="btn-secondary">
               <FileSpreadsheet className="w-4 h-4" /> Excel
@@ -321,7 +380,7 @@ export default function ReportsPage() {
                       </thead>
                       <tbody>
                         {group.rows.map((r, i) => (
-                          <tr key={r.id} className="border-b border-navy-800/40 table-row-hover">
+                          <tr key={r.id} onDoubleClick={() => openEdit(r)} className="border-b border-navy-800/40 table-row-hover cursor-pointer" title="Двойной клик — редактировать">
                             <td className="px-3 py-2 text-navy-600">{i+1}</td>
                             <td className="px-3 py-2 font-mono text-navy-400 whitespace-nowrap">{fmtDate(r.work_date)}</td>
                             <td className="px-3 py-2 text-navy-300 max-w-[120px] truncate">{r.client_name}</td>
@@ -374,6 +433,81 @@ export default function ReportsPage() {
               </span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Edit modal */}
+      {editRow && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-navy-900 rounded-xl border border-navy-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-navy-800 sticky top-0 bg-navy-900">
+              <h2 className="font-semibold text-navy-200">Редактировать запись</h2>
+              <button onClick={() => setEditRow(null)} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="label">Дело *</label>
+                <select className="select" value={editForm.matter_id}
+                  onChange={e => setEditForm(f => ({ ...f, matter_id: e.target.value }))}>
+                  <option value="">— выберите —</option>
+                  {matters.map(m => (
+                    <option key={m.id} value={m.id}>{m.clients?.name} / {m.title}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">Дата *</label>
+                <input type="date" className="input" value={editForm.work_date}
+                  onChange={e => setEditForm(f => ({ ...f, work_date: e.target.value }))} />
+              </div>
+              <div>
+                <label className="label">Вид работы</label>
+                <select className="select" value={editForm.activity_type}
+                  onChange={e => setEditForm(f => ({ ...f, activity_type: e.target.value as ActivityType }))}>
+                  {(Object.entries(ACTIVITY_LABELS) as [ActivityType, string][]).map(([v, l]) =>
+                    <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Часов *</label>
+                <input type="number" min="0" className="input" value={editForm.hours}
+                  onChange={e => setEditForm(f => ({ ...f, hours: e.target.value }))} />
+              </div>
+              <div>
+                <label className="label">Минут</label>
+                <select className="select" value={editForm.minutes}
+                  onChange={e => setEditForm(f => ({ ...f, minutes: e.target.value }))}>
+                  {[0,15,30,45].map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className="label">Ставка, руб./ч *</label>
+                <input type="number" className="input" value={editForm.hourly_rate}
+                  onChange={e => setEditForm(f => ({ ...f, hourly_rate: e.target.value }))} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="label">Описание *</label>
+                <textarea className="input resize-none" rows={3} value={editForm.description}
+                  onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 accent-gold-500" checked={editForm.is_billable}
+                    onChange={e => setEditForm(f => ({ ...f, is_billable: e.target.checked }))} />
+                  <span className="text-sm text-navy-300">Оплачиваемо</span>
+                </label>
+              </div>
+            </div>
+            <div className="px-6 pb-6 flex gap-3">
+              <button onClick={saveEdit} disabled={editSaving} className="btn-primary">
+                <Check className="w-4 h-4" /> {editSaving ? 'Сохраняю...' : 'Сохранить'}
+              </button>
+              <button onClick={() => setEditRow(null)} className="btn-secondary">Отмена</button>
+              <button onClick={deleteEdit} className="btn-secondary text-red-400 hover:bg-red-900/20 ml-auto">
+                <Trash2 className="w-4 h-4" /> Удалить
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

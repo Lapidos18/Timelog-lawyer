@@ -33,14 +33,42 @@ export default function DashboardPage() {
   useEffect(() => {
     async function load() {
       try {
-        // 1. Month stats
-        const { data: monthData } = await supabase
-          .from('report_view')
-          .select('hours, amount, is_billable, hourly_rate')
-          .gte('work_date', monthStart)
-          .lte('work_date', monthEnd)
+        // Все независимые запросы отправляем ОДНОВРЕМЕННО, а не по очереди —
+        // это кратно ускоряет загрузку страницы
+        const [
+          monthRes,
+          mattersRes,
+          recentRes,
+          allEntriesRes,
+          allPaymentsRes,
+          allClientsRes,
+        ] = await Promise.all([
+          supabase
+            .from('report_view')
+            .select('hours, amount, is_billable, hourly_rate')
+            .gte('work_date', monthStart)
+            .lte('work_date', monthEnd),
+          supabase
+            .from('matters')
+            .select('id', { count: 'exact' })
+            .eq('status', 'active'),
+          supabase
+            .from('report_view')
+            .select('*')
+            .order('work_date', { ascending: false })
+            .limit(8),
+          supabase
+            .from('report_view')
+            .select('client_name, amount, is_billable'),
+          supabase
+            .from('payments')
+            .select('client_id, amount'),
+          supabase
+            .from('clients')
+            .select('id, name'),
+        ])
 
-        const entries = monthData ?? []
+        const entries = monthRes.data ?? []
         const totalHours = entries.reduce((s, r) => s + Number(r.hours), 0)
         const billable = entries.filter(r => r.is_billable)
         const totalRevenue = billable.reduce((s, r) => s + Number(r.amount), 0)
@@ -48,40 +76,18 @@ export default function DashboardPage() {
           ? billable.reduce((s, r) => s + Number(r.hourly_rate), 0) / billable.length
           : 0
 
-        // 2. Active matters
-        const { count: mattersCount } = await supabase
-          .from('matters')
-          .select('id', { count: 'exact' })
-          .eq('status', 'active')
-
         setStats({
           hoursThisMonth: Math.round(totalHours * 10) / 10,
           revenueThisMonth: totalRevenue,
-          activeMatters: mattersCount ?? 0,
+          activeMatters: mattersRes.count ?? 0,
           avgRate: Math.round(avgRate),
         })
 
-        // 3. Recent entries
-        const { data: recentData } = await supabase
-          .from('report_view')
-          .select('*')
-          .order('work_date', { ascending: false })
-          .limit(8)
-        setRecentEntries(recentData ?? [])
+        setRecentEntries(recentRes.data ?? [])
 
-        // 4. Client balances — separate queries to avoid RLS join issues
-        const { data: allEntries } = await supabase
-          .from('report_view')
-          .select('client_name, amount, is_billable')
-
-        const { data: allPayments } = await supabase
-          .from('payments')
-          .select('client_id, amount')
-
-        // Get client names for payments
-        const { data: allClients } = await supabase
-          .from('clients')
-          .select('id, name')
+        const allEntries = allEntriesRes.data
+        const allPayments = allPaymentsRes.data
+        const allClients = allClientsRes.data
 
         const clientMap: Record<string, string> = {}
         for (const c of (allClients ?? [])) {

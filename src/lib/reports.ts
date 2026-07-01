@@ -248,21 +248,17 @@ export function exportToPDF(
     alert('Браузер заблокировал всплывающее окно. Разрешите всплывающие окна для этого сайта и попробуйте снова.')
     return
   }
+  w.document.open()
   w.document.write(html)
   w.document.close()
+  w.focus()
 
-  // Ждём полной загрузки контента (шрифты, рендеринг) перед печатью
-  w.onload = () => {
-    w.focus()
-    setTimeout(() => {
-      w.print()
-    }, 300)
-  }
-
-  // Закрываем окно после печати/отмены, чтобы не оставался пустой белый таб
-  w.onafterprint = () => {
-    w.close()
-  }
+  // Печатаем с задержкой, достаточной для отрисовки — не полагаемся на onload,
+  // так как для окон, заполненных через document.write(), событие load
+  // срабатывает ненадёжно в части браузеров (даёт пустой белый экран)
+  setTimeout(() => {
+    w.print()
+  }, 400)
 }
 
 // ── Word (DOCX) — формат юридического отчёта ─────────────────
@@ -282,7 +278,6 @@ export async function exportToWord(
     Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun,
     WidthType, AlignmentType, BorderStyle, HeadingLevel, ShadingType,
   } = await import('docx')
-  const { saveAs } = await import('file-saver')
 
   const billableRows = rows.filter(r => r.is_billable)
   const totalHours  = billableRows.reduce((s, r) => s + Number(r.hours), 0)
@@ -443,5 +438,15 @@ export async function exportToWord(
   })
 
   const blob = await Packer.toBlob(doc)
-  saveAs(blob, `${title}.docx`)
+
+  // Нативное скачивание через Blob URL — не зависит от file-saver,
+  // что устраняет возможную несовместимость с динамическим импортом в Next.js
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${title}.docx`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }

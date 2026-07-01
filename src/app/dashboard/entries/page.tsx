@@ -90,20 +90,22 @@ export default function EntriesPage() {
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-        if (p) {
-          setProfile(p)
-          setSelectedUserId(p.id)
-          // Автозаполнение ставки из профиля
-          if (p.hourly_rate) setForm(f => ({ ...f, hourly_rate: String(p.hourly_rate) }))
-        }
+
+      // Независимые запросы отправляем параллельно
+      const [profileRes, mattersRes, allProfilesRes] = await Promise.all([
+        user ? supabase.from('profiles').select('*').eq('id', user.id).single() : Promise.resolve({ data: null }),
+        supabase.from('matters').select('*, clients(*)').eq('status', 'active').order('title'),
+        supabase.from('profiles').select('*').order('full_name'),
+      ])
+
+      const p = profileRes.data
+      if (p) {
+        setProfile(p)
+        setSelectedUserId(p.id)
+        if (p.hourly_rate) setForm(f => ({ ...f, hourly_rate: String(p.hourly_rate) }))
       }
-      const { data: m } = await supabase
-        .from('matters').select('*, clients(*)').eq('status', 'active').order('title')
-      setMatters((m ?? []) as (Matter & { clients: Client })[])
-      const { data: profData } = await supabase.from('profiles').select('*').order('full_name')
-      setProfiles(profData ?? [])
+      setMatters((mattersRes.data ?? []) as (Matter & { clients: Client })[])
+      setProfiles(allProfilesRes.data ?? [])
       loadEntries()
     }
     init()

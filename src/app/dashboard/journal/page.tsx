@@ -84,12 +84,13 @@ export default function JournalPage() {
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-        if (p) { setProfile(p); setForm(f => ({ ...f, hourly_rate: String(p.hourly_rate ?? '') })) }
-      }
-      const { data: m } = await supabase.from('matters').select('*, clients(*)').eq('status', 'active').order('title')
-      setMatters((m ?? []) as (Matter & { clients: Client })[])
+      const [profileRes, mattersRes] = await Promise.all([
+        user ? supabase.from('profiles').select('*').eq('id', user.id).single() : Promise.resolve({ data: null }),
+        supabase.from('matters').select('*, clients(*)').eq('status', 'active').order('title'),
+      ])
+      const p = profileRes.data
+      if (p) { setProfile(p); setForm(f => ({ ...f, hourly_rate: String(p.hourly_rate ?? '') })) }
+      setMatters((mattersRes.data ?? []) as (Matter & { clients: Client })[])
     }
     init()
   }, [])

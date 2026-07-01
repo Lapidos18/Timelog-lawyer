@@ -79,12 +79,12 @@ export default function ActsPage() {
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-        if (p) setProfile(p)
-      }
-      const { data: m } = await supabase.from('matters').select('*, clients(*)').order('title')
-      setMatters((m ?? []) as (Matter & { clients: Client })[])
+      const [profileRes, mattersRes] = await Promise.all([
+        user ? supabase.from('profiles').select('*').eq('id', user.id).single() : Promise.resolve({ data: null }),
+        supabase.from('matters').select('*, clients(*)').order('title'),
+      ])
+      if (profileRes.data) setProfile(profileRes.data)
+      setMatters((mattersRes.data ?? []) as (Matter & { clients: Client })[])
       loadActs()
     }
     init()

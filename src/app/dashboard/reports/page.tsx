@@ -155,49 +155,64 @@ export default function ReportsPage() {
 
   async function handleExcelExport() {
     if (rows.length === 0) { toast.error('Нет данных'); return }
-    const { exportToExcel } = await import('@/lib/reports')
-    await exportToExcel(rows, `Отчёт_${filters.date_from}_${filters.date_to}`)
-    toast.success('Excel сохранён')
+    try {
+      const { exportToExcel } = await import('@/lib/reports')
+      await exportToExcel(rows, `Отчёт_${filters.date_from}_${filters.date_to}`)
+      toast.success('Excel сохранён')
+    } catch (e) {
+      console.error('Excel export error:', e)
+      toast.error('Ошибка Excel: ' + (e instanceof Error ? e.message : String(e)))
+    }
   }
 
   async function handlePDFExport() {
     if (rows.length === 0) { toast.error('Нет данных'); return }
-    const { exportToPDF } = await import('@/lib/reports')
-    const client = clients.find(c => c.id === filters.client_id)
-    const matter = matters.find(m => m.id === filters.matter_id)
+    try {
+      const { exportToPDF } = await import('@/lib/reports')
+      const client = clients.find(c => c.id === filters.client_id)
+      const matter = matters.find(m => m.id === filters.matter_id)
 
-    // Формируем номер отчёта из даты
-    const reportDate = filters.date_to ?? new Date().toISOString().split('T')[0]
-    const reportNo = reportDate.replace(/-/g, '').slice(2) // YYMMDD
+      // Формируем номер отчёта из даты
+      const reportDate = filters.date_to ?? new Date().toISOString().split('T')[0]
+      const reportNo = reportDate.replace(/-/g, '').slice(2) // YYMMDD
 
-    const title = `Отчёт №${reportNo}`
+      const title = `Отчёт №${reportNo}`
 
-    exportToPDF(rows, title, undefined, {
-      agreementNo: matter?.agreement_no ?? undefined,
-      clientName: client?.name,
-      matterTitle: matter?.title,
-      dateFrom: filters.date_from,
-      dateTo: filters.date_to,
-    })
+      exportToPDF(rows, title, undefined, {
+        agreementNo: matter?.agreement_no ?? undefined,
+        clientName: client?.name,
+        matterTitle: matter?.title,
+        dateFrom: filters.date_from,
+        dateTo: filters.date_to,
+      })
+    } catch (e) {
+      console.error('PDF export error:', e)
+      toast.error('Ошибка PDF: ' + (e instanceof Error ? e.message : String(e)))
+    }
   }
 
   async function handleWordExport() {
     if (rows.length === 0) { toast.error('Нет данных'); return }
-    const { exportToWord } = await import('@/lib/reports')
-    const client = clients.find(c => c.id === filters.client_id)
-    const matter = matters.find(m => m.id === filters.matter_id)
-    const reportDate = filters.date_to ?? new Date().toISOString().split('T')[0]
-    const reportNo = reportDate.replace(/-/g, '').slice(2)
-    const title = `Отчёт №${reportNo}`
+    try {
+      const { exportToWord } = await import('@/lib/reports')
+      const client = clients.find(c => c.id === filters.client_id)
+      const matter = matters.find(m => m.id === filters.matter_id)
+      const reportDate = filters.date_to ?? new Date().toISOString().split('T')[0]
+      const reportNo = reportDate.replace(/-/g, '').slice(2)
+      const title = `Отчёт №${reportNo}`
 
-    await exportToWord(rows, title, {
-      agreementNo: matter?.agreement_no ?? undefined,
-      clientName: client?.name,
-      matterTitle: matter?.title,
-      dateFrom: filters.date_from,
-      dateTo: filters.date_to,
-    })
-    toast.success('Документ Word сохранён')
+      await exportToWord(rows, title, {
+        agreementNo: matter?.agreement_no ?? undefined,
+        clientName: client?.name,
+        matterTitle: matter?.title,
+        dateFrom: filters.date_from,
+        dateTo: filters.date_to,
+      })
+      toast.success('Документ Word сохранён')
+    } catch (e) {
+      console.error('Word export error:', e)
+      toast.error('Ошибка Word: ' + (e instanceof Error ? e.message : String(e)))
+    }
   }
 
   const totalHours = rows.reduce((s, r) => s + Number(r.hours), 0)

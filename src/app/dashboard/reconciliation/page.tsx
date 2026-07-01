@@ -203,13 +203,11 @@ export default function ReconciliationPage() {
       toast.error('Браузер заблокировал всплывающее окно. Разрешите всплывающие окна для сайта.')
       return
     }
+    w.document.open()
     w.document.write(html)
     w.document.close()
-    w.onload = () => {
-      w.focus()
-      setTimeout(() => { w.print() }, 300)
-    }
-    w.onafterprint = () => { w.close() }
+    w.focus()
+    setTimeout(() => { w.print() }, 400)
     toast.success('Откроется диалог печати — выберите «Сохранить как PDF»')
   }
 

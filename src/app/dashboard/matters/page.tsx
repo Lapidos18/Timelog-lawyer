@@ -188,6 +188,10 @@ export default function MattersPage() {
         ))}
       </div>
 
+      {!loading && matters.length > 0 && (
+        <p className="text-xs text-navy-600 mb-2">💡 Двойной клик по делу — редактировать</p>
+      )}
+
       <div className="card">
         {loading ? <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
           : matters.length === 0 ? (
@@ -195,7 +199,10 @@ export default function MattersPage() {
           ) : (
             <div className="grid gap-2">
               {matters.map(m => (
-                <div key={m.id} className="flex items-start gap-4 px-4 py-3 rounded-lg
+                <div key={m.id}
+                  onDoubleClick={() => startEdit(m)}
+                  title="Двойной клик — редактировать"
+                  className="flex items-start gap-4 px-4 py-3 rounded-lg cursor-pointer
                                             hover:bg-navy-800/50 transition-colors border border-transparent
                                             hover:border-navy-700/50">
                   <div className="w-8 h-8 rounded-full bg-navy-800 flex items-center justify-center flex-shrink-0 mt-0.5">

@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format } from 'date-fns'
-import { Plus, Pencil, Trash2, X, Check, ChevronDown } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, ChevronDown, Filter } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface EntryWithRelations {
@@ -59,6 +59,17 @@ export default function EntriesPage() {
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [selectedUserId, setSelectedUserId] = useState<string>('')
 
+  // Фильтры
+  const [showFilters, setShowFilters] = useState(false)
+  const [filters, setFilters] = useState({
+    date_from: '',
+    date_to: '',
+    matter_id: '',
+    activity_type: '' as ActivityType | '',
+    user_id: '',
+  })
+  const hasActiveFilters = Object.values(filters).some(v => v !== '')
+
   const [form, setForm] = useState({
     matter_id: '',
     work_date: format(new Date(), 'yyyy-MM-dd'),
@@ -76,16 +87,36 @@ export default function EntriesPage() {
     return ndfl ? Math.round(n / 0.85) : n
   }
 
-  const loadEntries = useCallback(async () => {
-    const { data } = await supabase
+  const loadEntries = useCallback(async (f?: typeof filters) => {
+    setLoading(true)
+    let query = supabase
       .from('time_entries')
       .select('*, matters(*, clients(*)), profiles(*)')
+
+    const active = f ?? filters
+    if (active.date_from) query = query.gte('work_date', active.date_from)
+    if (active.date_to) query = query.lte('work_date', active.date_to)
+    if (active.matter_id) query = query.eq('matter_id', active.matter_id)
+    if (active.activity_type) query = query.eq('activity_type', active.activity_type)
+    if (active.user_id) query = query.eq('user_id', active.user_id)
+
+    const { data } = await query
       .order('work_date', { ascending: false })
       .order('created_at', { ascending: false })
-      .limit(100)
+      .limit(200)
     setEntries((data ?? []) as EntryWithRelations[])
     setLoading(false)
-  }, [])
+  }, [filters])
+
+  function applyFilters() {
+    loadEntries(filters)
+  }
+
+  function resetFilters() {
+    const empty = { date_from: '', date_to: '', matter_id: '', activity_type: '' as ActivityType | '', user_id: '' }
+    setFilters(empty)
+    loadEntries(empty)
+  }
 
   useEffect(() => {
     async function init() {
@@ -106,9 +137,10 @@ export default function EntriesPage() {
       }
       setMatters((mattersRes.data ?? []) as (Matter & { clients: Client })[])
       setProfiles(allProfilesRes.data ?? [])
-      loadEntries()
+      loadEntries({ date_from: '', date_to: '', matter_id: '', activity_type: '' as ActivityType | '', user_id: '' })
     }
     init()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Автозаполнение ставки при выборе дела
@@ -196,12 +228,71 @@ export default function EntriesPage() {
 
   return (
     <div className="p-4 md:p-7">
-      <div className="flex items-center justify-between mb-7">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-semibold text-navy-100">Учёт времени</h1>
-        <button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
-          <Plus className="w-4 h-4" /> Новая запись
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setShowFilters(s => !s)}
+            className={`btn-secondary ${hasActiveFilters ? 'border-gold-600/50 text-gold-400' : ''}`}>
+            <Filter className="w-4 h-4" /> Фильтры{hasActiveFilters ? ' •' : ''}
+          </button>
+          <button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
+            <Plus className="w-4 h-4" /> Новая запись
+          </button>
+        </div>
       </div>
+
+      {showFilters && (
+        <div className="card mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <div>
+              <label className="label">Дата с</label>
+              <input type="date" className="input" value={filters.date_from}
+                onChange={e => setFilters(f => ({ ...f, date_from: e.target.value }))} />
+            </div>
+            <div>
+              <label className="label">Дата по</label>
+              <input type="date" className="input" value={filters.date_to}
+                onChange={e => setFilters(f => ({ ...f, date_to: e.target.value }))} />
+            </div>
+            <div>
+              <label className="label">Дело</label>
+              <select className="select" value={filters.matter_id}
+                onChange={e => setFilters(f => ({ ...f, matter_id: e.target.value }))}>
+                <option value="">Все дела</option>
+                {matters.map(m => (
+                  <option key={m.id} value={m.id}>{m.clients?.name} / {m.title}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Вид работы</label>
+              <select className="select" value={filters.activity_type}
+                onChange={e => setFilters(f => ({ ...f, activity_type: e.target.value as ActivityType | '' }))}>
+                <option value="">Все виды</option>
+                {ACTIVITY_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Исполнитель</label>
+              <select className="select" value={filters.user_id}
+                onChange={e => setFilters(f => ({ ...f, user_id: e.target.value }))}>
+                <option value="">Все</option>
+                {profiles.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-2 mt-4">
+            <button onClick={applyFilters} className="btn-primary text-sm">
+              <Check className="w-3.5 h-3.5" /> Применить
+            </button>
+            {hasActiveFilters && (
+              <button onClick={resetFilters} className="btn-secondary text-sm">
+                <X className="w-3.5 h-3.5" /> Сбросить
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div className="card mb-6 border-gold-800/40">
@@ -375,15 +466,22 @@ export default function EntriesPage() {
       )}
 
       {/* Table */}
+      {!loading && entries.length > 0 && (
+        <p className="text-xs text-navy-600 mb-2">💡 Двойной клик по записи — редактировать</p>
+      )}
       <div className="card">
         {loading ? (
           <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
         ) : entries.length === 0 ? (
           <p className="text-navy-500 text-sm text-center py-12">
-            Нет записей.{' '}
-            <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">
-              Добавить первую →
-            </button>
+            {hasActiveFilters ? 'Нет записей по заданным фильтрам.' : (
+              <>
+                Нет записей.{' '}
+                <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">
+                  Добавить первую →
+                </button>
+              </>
+            )}
           </p>
         ) : (
           <table className="w-full text-sm">
@@ -396,7 +494,10 @@ export default function EntriesPage() {
             </thead>
             <tbody>
               {entries.map(e => (
-                <tr key={e.id} className="border-b border-navy-800/40 table-row-hover">
+                <tr key={e.id}
+                  onDoubleClick={() => startEdit(e)}
+                  title="Двойной клик — редактировать"
+                  className="border-b border-navy-800/40 table-row-hover cursor-pointer">
                   <td className="py-3 pr-4 text-navy-400 font-mono text-xs whitespace-nowrap">
                     {format(new Date(e.work_date), 'dd.MM.yy')}
                   </td>

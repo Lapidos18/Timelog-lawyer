@@ -122,6 +122,10 @@ export default function ClientsPage() {
         </div>
       )}
 
+      {!loading && clients.length > 0 && (
+        <p className="text-xs text-navy-600 mb-2">💡 Двойной клик по клиенту — редактировать</p>
+      )}
+
       <div className="card">
         {loading ? <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
           : clients.length === 0 ? (
@@ -134,7 +138,10 @@ export default function ClientsPage() {
           ) : (
             <div className="grid gap-2">
               {clients.map(c => (
-                <div key={c.id} className="flex items-center gap-4 px-4 py-3 rounded-lg
+                <div key={c.id}
+                  onDoubleClick={() => startEdit(c)}
+                  title="Двойной клик — редактировать"
+                  className="flex items-center gap-4 px-4 py-3 rounded-lg cursor-pointer
                                             hover:bg-navy-800/50 transition-colors border border-transparent
                                             hover:border-navy-700/50">
                   <div className="w-8 h-8 rounded-full bg-navy-800 flex items-center justify-center flex-shrink-0">

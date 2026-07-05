@@ -62,6 +62,15 @@ export default function JournalPage() {
   const [ndfl, setNdfl] = useState(false)
   const effectiveRate = (base: string) => { const n = parseFloat(base || '0'); return ndfl ? Math.round(n / 0.85) : n }
 
+  // Даты с записями за отображаемый месяц (для подсветки в календаре)
+  const [datesWithEntries, setDatesWithEntries] = useState<Set<string>>(new Set())
+
+  // Режим множественного выбора дней
+  const [multiSelectMode, setMultiSelectMode] = useState(false)
+  const [selectedDates, setSelectedDates] = useState<string[]>([])
+  const [multiEntries, setMultiEntries] = useState<Record<string, DayEntry[]>>({})
+  const [multiLoading, setMultiLoading] = useState(false)
+
   const [form, setForm] = useState({
     matter_id: '',
     hours: '1',
@@ -97,6 +106,52 @@ export default function JournalPage() {
 
   useEffect(() => { loadDay() }, [dateStr])
 
+  // Подгружаем даты с записями при открытии/смене месяца в календаре
+  useEffect(() => {
+    if (showCal) loadMonthDates(calMonth)
+  }, [showCal, calMonth])
+
+  // Подгружаем записи для всех выбранных дней в режиме мульти-выбора
+  useEffect(() => {
+    if (multiSelectMode && selectedDates.length > 0) loadMultipleDays(selectedDates)
+  }, [multiSelectMode, selectedDates])
+
+  async function loadMonthDates(month: Date) {
+    const from = format(startOfMonth(month), 'yyyy-MM-dd')
+    const to = format(endOfMonth(month), 'yyyy-MM-dd')
+    const { data } = await supabase
+      .from('time_entries')
+      .select('work_date')
+      .gte('work_date', from)
+      .lte('work_date', to)
+    const set = new Set((data ?? []).map(r => r.work_date as string))
+    setDatesWithEntries(set)
+  }
+
+  async function loadMultipleDays(dates: string[]) {
+    setMultiLoading(true)
+    const { data } = await supabase
+      .from('time_entries')
+      .select('*, matters(*, clients(*)), profiles(*)')
+      .in('work_date', dates)
+      .order('work_date', { ascending: true })
+      .order('start_time', { ascending: true })
+    const grouped: Record<string, DayEntry[]> = {}
+    for (const d of dates) grouped[d] = []
+    for (const e of (data ?? []) as DayEntry[]) {
+      if (!grouped[e.work_date]) grouped[e.work_date] = []
+      grouped[e.work_date].push(e)
+    }
+    setMultiEntries(grouped)
+    setMultiLoading(false)
+  }
+
+  function toggleDateSelection(dStr: string) {
+    setSelectedDates(prev =>
+      prev.includes(dStr) ? prev.filter(x => x !== dStr) : [...prev, dStr].sort()
+    )
+  }
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (calRef.current && !calRef.current.contains(e.target as Node)) setShowCal(false)
@@ -117,6 +172,10 @@ export default function JournalPage() {
   }
 
   function selectDay(d: Date) {
+    if (multiSelectMode) {
+      toggleDateSelection(format(d, 'yyyy-MM-dd'))
+      return
+    }
     setDate(d); setCalMonth(d); setShowCal(false)
   }
 
@@ -232,7 +291,7 @@ export default function JournalPage() {
             </button>
             {showCal && (
               <div ref={calRef} className="absolute top-10 left-0 z-50 bg-navy-900 border border-navy-700
-                              rounded-xl shadow-2xl p-4 w-72">
+                              rounded-xl shadow-2xl p-4 w-80">
                 <div className="flex items-center justify-between mb-3">
                   <button onClick={() => setCalMonth(m => subMonths(m, 1))} className="btn-ghost p-1">
                     <ChevronLeft className="w-4 h-4" />
@@ -244,6 +303,23 @@ export default function JournalPage() {
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
+
+                {/* Переключатель режима выбора */}
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" className="w-3.5 h-3.5 accent-gold-500"
+                      checked={multiSelectMode}
+                      onChange={e => {
+                        setMultiSelectMode(e.target.checked)
+                        if (!e.target.checked) setSelectedDates([])
+                      }} />
+                    <span className="text-xs text-navy-400">Выбрать несколько дней</span>
+                  </label>
+                  {multiSelectMode && selectedDates.length > 0 && (
+                    <span className="text-xs text-gold-400 font-medium">{selectedDates.length} выбрано</span>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-7 mb-1">
                   {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => (
                     <div key={d} className="text-center text-xs text-navy-600 py-1">{d}</div>
@@ -252,23 +328,46 @@ export default function JournalPage() {
                 <div className="grid grid-cols-7 gap-0.5">
                   {Array.from({ length: firstDow }).map((_, i) => <div key={`e${i}`} />)}
                   {calDays.map(d => {
-                    const isSelected = isSameDay(d, date)
+                    const dStr = format(d, 'yyyy-MM-dd')
+                    const isSelected = !multiSelectMode && isSameDay(d, date)
+                    const isMultiSelected = multiSelectMode && selectedDates.includes(dStr)
                     const isToday = isSameDay(d, new Date())
                     const inMonth = isSameMonth(d, calMonth)
+                    const hasEntries = datesWithEntries.has(dStr)
                     return (
                       <button key={d.toISOString()} onClick={() => selectDay(d)}
-                        className={`h-8 w-full rounded-lg text-xs font-medium transition-colors
-                          ${isSelected ? 'bg-gold-500 text-navy-950'
+                        className={`relative h-8 w-full rounded-lg text-xs font-medium transition-colors
+                          ${isSelected || isMultiSelected ? 'bg-gold-500 text-navy-950'
                             : isToday ? 'bg-navy-700 text-gold-400 ring-1 ring-gold-500/50'
                             : inMonth ? 'text-navy-300 hover:bg-navy-800' : 'text-navy-700'}`}>
                         {format(d, 'd')}
+                        {hasEntries && !isSelected && !isMultiSelected && (
+                          <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-gold-500" />
+                        )}
                       </button>
                     )
                   })}
                 </div>
-                <button onClick={() => selectDay(new Date())} className="w-full mt-3 btn-secondary text-xs justify-center py-1.5">
-                  Сегодня
-                </button>
+
+                {multiSelectMode ? (
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={() => { setShowCal(false) }}
+                      disabled={selectedDates.length === 0}
+                      className="btn-primary text-xs flex-1 justify-center py-1.5 disabled:opacity-40">
+                      Показать выбранные ({selectedDates.length})
+                    </button>
+                    {selectedDates.length > 0 && (
+                      <button onClick={() => setSelectedDates([])} className="btn-secondary text-xs py-1.5">
+                        Сброс
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <button onClick={() => selectDay(new Date())} className="w-full mt-3 btn-secondary text-xs justify-center py-1.5">
+                    Сегодня
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -392,6 +491,85 @@ export default function JournalPage() {
         </div>
       )}
 
+      {/* Multi-day view */}
+      {multiSelectMode && selectedDates.length > 0 ? (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-medium text-navy-300">
+              Записи за {selectedDates.length} {selectedDates.length === 1 ? 'день' : 'дней'}
+            </h2>
+            <button onClick={() => { setMultiSelectMode(false); setSelectedDates([]) }} className="btn-secondary text-xs">
+              <X className="w-3.5 h-3.5" /> Закрыть сравнение
+            </button>
+          </div>
+
+          {multiLoading ? (
+            <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
+          ) : (
+            <div className="space-y-4">
+              {selectedDates.map(dStr => {
+                const dayEntries = multiEntries[dStr] ?? []
+                const dayHours = dayEntries.reduce((s, e) => s + e.duration_min / 60, 0)
+                const dayAmount = dayEntries.filter(e => e.is_billable).reduce((s, e) => s + Number(e.amount), 0)
+                return (
+                  <div key={dStr} className="card">
+                    <div className="flex items-center justify-between mb-3 pb-3 border-b border-navy-800">
+                      <h3 className="text-sm font-semibold text-navy-200 capitalize">
+                        {format(new Date(dStr), 'EEEE, d MMMM yyyy', { locale: ru })}
+                      </h3>
+                      <span className="text-xs text-navy-500">
+                        {dayEntries.length} записей · {dayHours.toFixed(1)} ч · {formatMoney(dayAmount)} ₽
+                      </span>
+                    </div>
+                    {dayEntries.length === 0 ? (
+                      <p className="text-navy-600 text-xs py-2">Нет записей за этот день</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {dayEntries.map(e => (
+                          <div key={e.id}
+                            onDoubleClick={() => { setDate(new Date(dStr)); setMultiSelectMode(false); setSelectedDates([]); setTimeout(() => openEdit(e), 100) }}
+                            title="Двойной клик — редактировать"
+                            className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg border cursor-pointer
+                                        hover:brightness-125 transition-all ${COLORS[e.activity_type]}`}>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-mono opacity-70">{e.start_time?.slice(0,5)}</span>
+                                <p className="text-xs font-semibold truncate">{e.matters?.clients?.name}</p>
+                                <span className="text-[10px] opacity-70">{ACTIVITY_LABELS[e.activity_type]}</span>
+                              </div>
+                              <p className="text-xs opacity-80 truncate mt-0.5">{e.description}</p>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-xs font-mono opacity-70">{(e.duration_min/60).toFixed(2)}ч</p>
+                              <p className="text-xs font-semibold">
+                                {e.is_billable ? formatMoney(e.amount) + ' ₽' : '—'}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+
+              {/* Итого по всем выбранным дням */}
+              <div className="card bg-navy-900/60">
+                <div className="flex justify-between text-sm">
+                  <span className="text-navy-400 font-medium">Итого за все выбранные дни:</span>
+                  <span className="text-navy-200">
+                    {Object.values(multiEntries).flat().reduce((s, e) => s + e.duration_min / 60, 0).toFixed(2)} ч ·{' '}
+                    <span className="text-gold-400 font-semibold">
+                      {formatMoney(Object.values(multiEntries).flat().filter(e => e.is_billable).reduce((s, e) => s + Number(e.amount), 0))} ₽
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+      <>
       {/* Hint */}
       {!showForm && entries.length > 0 && (
         <p className="text-xs text-navy-600 mb-3">💡 Двойной клик по записи — редактировать</p>
@@ -508,6 +686,8 @@ export default function JournalPage() {
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   )
 }

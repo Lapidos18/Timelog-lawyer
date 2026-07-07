@@ -657,34 +657,34 @@ export default function FinancePage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3">
                 <div>
                   <div className="text-navy-500 text-xs mb-1">Доход нараст. итогом</div>
-                  <div className="font-medium text-navy-100">{fmt(row.incomeCum)} ₽</div>
+                  <div className="font-medium text-navy-100">{fmt2(row.incomeCum)} ₽</div>
                 </div>
                 <div>
                   <div className="text-navy-500 text-xs mb-1">Вычеты нараст. итогом</div>
-                  <div className="font-medium text-navy-100">{fmt(row.expenseCum)} ₽</div>
+                  <div className="font-medium text-navy-100">{fmt2(row.expenseCum)} ₽</div>
                 </div>
                 <div>
                   <div className="text-navy-500 text-xs mb-1">Налоговая база</div>
-                  <div className="font-medium text-navy-100">{fmt(row.base)} ₽</div>
+                  <div className="font-medium text-navy-100">{fmt2(row.base)} ₽</div>
                 </div>
                 <div>
                   <div className="text-navy-500 text-xs mb-1">НДФЛ нараст. итогом</div>
-                  <div className="font-medium text-gold-400">{fmt(row.ndflCum)} ₽</div>
+                  <div className="font-medium text-gold-400">{fmt2(row.ndflCum)} ₽</div>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm pt-3 border-t border-navy-800">
                 <div>
                   <div className="text-navy-500 text-xs mb-1">Расчётный аванс к уплате</div>
-                  <div className="font-semibold text-navy-100">{fmt(row.advanceDue)} ₽</div>
+                  <div className="font-semibold text-navy-100">{fmt2(row.advanceDue)} ₽</div>
                 </div>
                 <div>
                   <div className="text-navy-500 text-xs mb-1">Фактически уплачено</div>
-                  <div className="font-semibold text-navy-100">{fmt(row.actuallyPaidThisQ)} ₽</div>
+                  <div className="font-semibold text-navy-100">{fmt2(row.actuallyPaidThisQ)} ₽</div>
                 </div>
                 <div>
                   <div className="text-navy-500 text-xs mb-1">Разница (уплачено − расчёт)</div>
                   <div className={`font-semibold ${row.diff < 0 ? 'text-red-400' : row.diff > 0 ? 'text-emerald-400' : 'text-navy-300'}`}>
-                    {row.diff > 0 ? '+' : ''}{fmt(row.diff)} ₽
+                    {row.diff > 0 ? '+' : ''}{fmt2(row.diff)} ₽
                   </div>
                 </div>
               </div>

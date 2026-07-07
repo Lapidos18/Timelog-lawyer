@@ -239,11 +239,25 @@ export interface IncomeRow {
   pay_date: string
   pay_year: number
   pay_quarter: number
-  client_id: string
+  client_id: string | null
   client_name: string
   matter_id: string | null
   matter_title: string | null
   amount: number
   description: string
   doc_no: string | null
+  source: 'payment' | 'manual'
+}
+
+export interface ManualIncome {
+  id: string
+  income_date: string
+  client_id: string | null
+  matter_id: string | null
+  amount: number
+  description: string
+  doc_no: string | null
+  created_at: string
+  clients?: { name: string } | null
+  matters?: { title: string } | null
 }

@@ -7,6 +7,9 @@ import toast from 'react-hot-toast'
 function fmt(n: number) {
   return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(Math.round(n))
 }
+function fmt2(n: number) {
+  return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+}
 type Mode = 'net_to_gross' | 'gross_to_net'
 
 export default function NdflCalcPage() {
@@ -154,15 +157,15 @@ export default function NdflCalcPage() {
               <span className="text-sm text-navy-500">
                 {mode === 'net_to_gross' ? 'Сумма к выставлению' : 'Начислено'}
               </span>
-              <span className="text-lg font-semibold text-navy-100">{fmt(calc.noDeduction.gross)} ₽</span>
+              <span className="text-lg font-semibold text-navy-100">{fmt2(calc.noDeduction.gross)} ₽</span>
             </div>
             <div className="flex justify-between items-baseline">
               <span className="text-sm text-navy-500">НДФЛ ({Math.round(rateNum*100)}%)</span>
-              <span className="text-base font-medium text-red-400">{fmt(calc.noDeduction.ndfl)} ₽</span>
+              <span className="text-base font-medium text-red-400">{fmt2(calc.noDeduction.ndfl)} ₽</span>
             </div>
             <div className="flex justify-between items-baseline pt-3 border-t border-navy-800">
               <span className="text-sm text-navy-400 font-medium">На руки</span>
-              <span className="text-xl font-bold text-emerald-400">{fmt(calc.noDeduction.net)} ₽</span>
+              <span className="text-xl font-bold text-emerald-400">{fmt2(calc.noDeduction.net)} ₽</span>
             </div>
           </div>
         </div>
@@ -177,19 +180,19 @@ export default function NdflCalcPage() {
               <span className="text-sm text-navy-500">
                 {mode === 'net_to_gross' ? 'Сумма к выставлению' : 'Начислено'}
               </span>
-              <span className="text-lg font-semibold text-navy-100">{fmt(calc.withDeduction.gross)} ₽</span>
+              <span className="text-lg font-semibold text-navy-100">{fmt2(calc.withDeduction.gross)} ₽</span>
             </div>
             <div className="flex justify-between items-baseline">
               <span className="text-sm text-navy-500">Вычет (расходы)</span>
-              <span className="text-base font-medium text-navy-400">{fmt(expensesNum)} ₽</span>
+              <span className="text-base font-medium text-navy-400">{fmt2(expensesNum)} ₽</span>
             </div>
             <div className="flex justify-between items-baseline">
               <span className="text-sm text-navy-500">НДФЛ ({Math.round(rateNum*100)}%)</span>
-              <span className="text-base font-medium text-red-400">{fmt(calc.withDeduction.ndfl)} ₽</span>
+              <span className="text-base font-medium text-red-400">{fmt2(calc.withDeduction.ndfl)} ₽</span>
             </div>
             <div className="flex justify-between items-baseline pt-3 border-t border-navy-800">
               <span className="text-sm text-navy-400 font-medium">На руки</span>
-              <span className="text-xl font-bold text-emerald-400">{fmt(calc.withDeduction.net)} ₽</span>
+              <span className="text-xl font-bold text-emerald-400">{fmt2(calc.withDeduction.net)} ₽</span>
             </div>
           </div>
         </div>

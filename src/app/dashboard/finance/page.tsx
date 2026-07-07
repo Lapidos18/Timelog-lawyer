@@ -4,12 +4,12 @@ import { createClient } from '@/lib/supabase'
 import {
   Expense, ExpenseCategory, EXPENSE_CATEGORY_LABELS, EXPENSE_CATEGORY_RISKY,
   TaxSettings, TaxPayment, TaxPaymentType, TAX_PAYMENT_TYPE_LABELS,
-  IncomeRow,
+  IncomeRow, ManualIncome, Client, Matter,
 } from '@/types'
 import { format } from 'date-fns'
 import {
   Wallet, Receipt, Calculator, ShieldCheck, Plus, Trash2, X, Check,
-  AlertTriangle, ChevronDown,
+  AlertTriangle, ChevronDown, Pencil,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -37,6 +37,15 @@ const emptyExpenseForm = {
   doc_no: '',
 }
 
+const emptyIncomeForm = {
+  income_date: format(new Date(), 'yyyy-MM-dd'),
+  client_id: '',
+  matter_id: '',
+  amount: '',
+  description: '',
+  doc_no: '',
+}
+
 export default function FinancePage() {
   const supabase = createClient()
   const [tab, setTab] = useState<Tab>('calc')
@@ -47,6 +56,13 @@ export default function FinancePage() {
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [taxSettings, setTaxSettings] = useState<TaxSettings | null>(null)
   const [taxPayments, setTaxPayments] = useState<TaxPayment[]>([])
+  const [clients, setClients] = useState<Client[]>([])
+  const [matters, setMatters] = useState<(Matter & { clients: Client })[]>([])
+
+  // manual income form state
+  const [showIncomeForm, setShowIncomeForm] = useState(false)
+  const [editIncomeId, setEditIncomeId] = useState<string | null>(null)
+  const [incomeForm, setIncomeForm] = useState(emptyIncomeForm)
 
   // expense form state
   const [showExpenseForm, setShowExpenseForm] = useState(false)
@@ -68,17 +84,23 @@ export default function FinancePage() {
     setLoading(true)
     const [
       { data: paymentsData },
+      { data: manualIncomeData },
       { data: expensesData },
       { data: settingsData },
       { data: taxPaymentsData },
+      { data: clientsData },
+      { data: mattersData },
     ] = await Promise.all([
       supabase.from('payments').select('*, clients(name), matters(title)').order('pay_date', { ascending: false }),
+      supabase.from('manual_income').select('*, clients(name), matters(title)').order('income_date', { ascending: false }),
       supabase.from('expenses').select('*, matters(title, clients(name))').order('expense_date', { ascending: false }),
       supabase.from('tax_settings').select('*').eq('year', year).single(),
       supabase.from('tax_payments').select('*').eq('period_year', year).order('payment_date', { ascending: false }),
+      supabase.from('clients').select('*').order('name'),
+      supabase.from('matters').select('*, clients(*)').order('title'),
     ])
 
-    const mappedIncomes: IncomeRow[] = (paymentsData || []).map((p: any) => ({
+    const fromPayments: IncomeRow[] = (paymentsData || []).map((p: any) => ({
       id: p.id,
       pay_date: p.pay_date,
       pay_year: new Date(p.pay_date).getFullYear(),
@@ -90,12 +112,34 @@ export default function FinancePage() {
       amount: p.amount,
       description: p.description,
       doc_no: p.doc_no,
+      source: 'payment' as const,
     }))
+
+    const fromManual: IncomeRow[] = (manualIncomeData || []).map((m: any) => ({
+      id: m.id,
+      pay_date: m.income_date,
+      pay_year: new Date(m.income_date).getFullYear(),
+      pay_quarter: quarterOf(m.income_date),
+      client_id: m.client_id,
+      client_name: m.clients?.name ?? '—',
+      matter_id: m.matter_id,
+      matter_title: m.matters?.title ?? null,
+      amount: m.amount,
+      description: m.description,
+      doc_no: m.doc_no,
+      source: 'manual' as const,
+    }))
+
+    const mappedIncomes = [...fromPayments, ...fromManual].sort(
+      (a, b) => new Date(b.pay_date).getTime() - new Date(a.pay_date).getTime()
+    )
 
     setIncomes(mappedIncomes.filter(i => i.pay_year === year))
     setExpenses(expensesData || [])
     setTaxSettings(settingsData || null)
     setTaxPayments(taxPaymentsData || [])
+    setClients(clientsData || [])
+    setMatters((mattersData || []) as (Matter & { clients: Client })[])
     setLoading(false)
   }, [supabase, year])
 
@@ -222,6 +266,60 @@ export default function FinancePage() {
     loadAll()
   }
 
+  // ------------------------------------------------------------
+  // CRUD ручных доходов
+  // ------------------------------------------------------------
+  function startEditIncome(row: IncomeRow) {
+    if (row.source !== 'manual') return // редактировать можно только ручные записи
+    setEditIncomeId(row.id)
+    setIncomeForm({
+      income_date: row.pay_date,
+      client_id: row.client_id ?? '',
+      matter_id: row.matter_id ?? '',
+      amount: String(row.amount),
+      description: row.description,
+      doc_no: row.doc_no || '',
+    })
+    setShowIncomeForm(true)
+  }
+
+  function resetIncomeForm() {
+    setIncomeForm(emptyIncomeForm)
+    setEditIncomeId(null)
+    setShowIncomeForm(false)
+  }
+
+  async function submitIncome() {
+    const amountNum = parseFloat(incomeForm.amount)
+    if (!amountNum || amountNum <= 0) { toast.error('Укажите сумму'); return }
+    setSubmitting(true)
+    const payload = {
+      income_date: incomeForm.income_date,
+      client_id: incomeForm.client_id || null,
+      matter_id: incomeForm.matter_id || null,
+      amount: amountNum,
+      description: incomeForm.description,
+      doc_no: incomeForm.doc_no || null,
+    }
+    const { error } = editIncomeId
+      ? await supabase.from('manual_income').update(payload).eq('id', editIncomeId)
+      : await supabase.from('manual_income').insert(payload)
+
+    setSubmitting(false)
+    if (error) { toast.error('Ошибка: ' + error.message); return }
+    toast.success(editIncomeId ? 'Доход обновлён' : 'Доход добавлен')
+    resetIncomeForm()
+    loadAll()
+  }
+
+  async function deleteIncome(id: string) {
+    if (!confirm('Удалить запись о доходе?')) return
+    const { error } = await supabase.from('manual_income').delete().eq('id', id)
+    if (error) { toast.error('Ошибка: ' + error.message); return }
+    toast.success('Удалено')
+    loadAll()
+  }
+
   async function submitTaxPayment() {
     const amountNum = parseFloat(paymentForm.amount)
     if (!amountNum || amountNum <= 0) { toast.error('Укажите сумму'); return }
@@ -301,9 +399,79 @@ export default function FinancePage() {
               <span className="text-xl font-bold text-emerald-400">{fmt(incomeTotal)} ₽</span>
             </div>
             <p className="text-xs text-navy-600 mt-2">
-              Данные подтягиваются автоматически из раздела «Акты / Оплаты» — отдельно вводить не нужно.
+              Оплаты по актам подтягиваются автоматически из раздела «Акты / Оплаты». Доходы, не проходящие через
+              акты (авансы наличными, доходы по отдельным договорам), можно добавить вручную ниже.
             </p>
           </div>
+
+          <div className="flex justify-between items-center mb-3">
+            <p className="text-xs text-navy-600">💡 Двойной клик по ручной записи — редактировать</p>
+            <button onClick={() => { resetIncomeForm(); setShowIncomeForm(true) }}
+              className="flex items-center gap-1.5 bg-gold-500 text-navy-950 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gold-400">
+              <Plus className="w-4 h-4" /> Добавить доход
+            </button>
+          </div>
+
+          {showIncomeForm && (
+            <div className="card mb-4 border-gold-800/40">
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="text-sm font-semibold text-gold-400">
+                  {editIncomeId ? 'Редактировать доход' : 'Новый доход (ручная запись)'}
+                </h2>
+                <button onClick={resetIncomeForm} className="text-navy-400 hover:text-navy-200">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="label">Дата</label>
+                  <input type="date" className="input" value={incomeForm.income_date}
+                    onChange={e => setIncomeForm(f => ({ ...f, income_date: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="label">Клиент</label>
+                  <select className="select" value={incomeForm.client_id}
+                    onChange={e => setIncomeForm(f => ({ ...f, client_id: e.target.value, matter_id: '' }))}>
+                    <option value="">— не указан —</option>
+                    {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Дело</label>
+                  <select className="select" value={incomeForm.matter_id}
+                    onChange={e => setIncomeForm(f => ({ ...f, matter_id: e.target.value }))}>
+                    <option value="">— не указано —</option>
+                    {matters
+                      .filter(m => !incomeForm.client_id || m.clients?.id === incomeForm.client_id)
+                      .map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Сумма</label>
+                  <input type="number" className="input" value={incomeForm.amount}
+                    onChange={e => setIncomeForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="label">Описание</label>
+                  <input type="text" className="input" value={incomeForm.description}
+                    onChange={e => setIncomeForm(f => ({ ...f, description: e.target.value }))}
+                    placeholder="Например: аванс наличными по устной договорённости" />
+                </div>
+                <div>
+                  <label className="label">№ документа</label>
+                  <input type="text" className="input" value={incomeForm.doc_no}
+                    onChange={e => setIncomeForm(f => ({ ...f, doc_no: e.target.value }))} />
+                </div>
+                <div className="flex items-end">
+                  <button onClick={submitIncome} disabled={submitting}
+                    className="flex items-center gap-1.5 bg-gold-500 text-navy-950 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gold-400 disabled:opacity-50 w-full justify-center">
+                    <Check className="w-4 h-4" /> {editIncomeId ? 'Сохранить' : 'Добавить'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="card overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -312,21 +480,40 @@ export default function FinancePage() {
                   <th className="pb-2 font-medium">Квартал</th>
                   <th className="pb-2 font-medium">Клиент</th>
                   <th className="pb-2 font-medium">Дело</th>
+                  <th className="pb-2 font-medium">Источник</th>
                   <th className="pb-2 font-medium text-right">Сумма</th>
+                  <th className="pb-2"></th>
                 </tr>
               </thead>
               <tbody>
                 {incomes.map(i => (
-                  <tr key={i.id} className="border-b border-navy-800/40 table-row-hover">
+                  <tr key={`${i.source}-${i.id}`}
+                    onDoubleClick={() => startEditIncome(i)}
+                    title={i.source === 'manual' ? 'Двойной клик — редактировать' : 'Из раздела Акты — редактируется там'}
+                    className={`border-b border-navy-800/40 table-row-hover ${i.source === 'manual' ? 'cursor-pointer' : ''}`}>
                     <td className="py-2">{format(new Date(i.pay_date), 'dd.MM.yyyy')}</td>
                     <td className="py-2 text-navy-500">{QUARTER_LABELS[i.pay_quarter - 1]}</td>
                     <td className="py-2">{i.client_name}</td>
                     <td className="py-2 text-navy-500">{i.matter_title || '—'}</td>
+                    <td className="py-2">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        i.source === 'manual' ? 'bg-navy-700 text-navy-300' : 'bg-emerald-900/40 text-emerald-400'
+                      }`}>
+                        {i.source === 'manual' ? 'Вручную' : 'Акт/Оплата'}
+                      </span>
+                    </td>
                     <td className="py-2 text-right font-medium">{fmt(i.amount)} ₽</td>
+                    <td className="py-2 text-right">
+                      {i.source === 'manual' && (
+                        <button onClick={() => deleteIncome(i.id)} className="text-navy-600 hover:text-red-400">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
                 {incomes.length === 0 && (
-                  <tr><td colSpan={5} className="py-6 text-center text-navy-600">Нет данных за {year} год</td></tr>
+                  <tr><td colSpan={7} className="py-6 text-center text-navy-600">Нет данных за {year} год</td></tr>
                 )}
               </tbody>
             </table>

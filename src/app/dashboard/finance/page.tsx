@@ -80,6 +80,15 @@ export default function FinancePage() {
     notes: '',
   })
 
+  // contributions payment form state (отдельная форма — своя вкладка, свой список)
+  const [showContribPaymentForm, setShowContribPaymentForm] = useState(false)
+  const [contribPaymentForm, setContribPaymentForm] = useState({
+    payment_date: format(new Date(), 'yyyy-MM-dd'),
+    payment_type: 'fixed_contributions' as TaxPaymentType,
+    amount: '',
+    doc_no: '',
+  })
+
   const loadAll = useCallback(async () => {
     setLoading(true)
     const [
@@ -337,6 +346,25 @@ export default function FinancePage() {
     toast.success('Платёж добавлен')
     setShowPaymentForm(false)
     setPaymentForm({ payment_date: format(new Date(), 'yyyy-MM-dd'), payment_type: 'ndfl_advance_q1', amount: '', doc_no: '', notes: '' })
+    loadAll()
+  }
+
+  async function submitContribPayment() {
+    const amountNum = parseFloat(contribPaymentForm.amount)
+    if (!amountNum || amountNum <= 0) { toast.error('Укажите сумму'); return }
+    setSubmitting(true)
+    const { error } = await supabase.from('tax_payments').insert({
+      payment_date: contribPaymentForm.payment_date,
+      payment_type: contribPaymentForm.payment_type,
+      period_year: year,
+      amount: amountNum,
+      doc_no: contribPaymentForm.doc_no || null,
+    })
+    setSubmitting(false)
+    if (error) { toast.error('Ошибка: ' + error.message); return }
+    toast.success('Платёж добавлен')
+    setShowContribPaymentForm(false)
+    setContribPaymentForm({ payment_date: format(new Date(), 'yyyy-MM-dd'), payment_type: 'fixed_contributions', amount: '', doc_no: '' })
     loadAll()
   }
 
@@ -831,10 +859,76 @@ export default function FinancePage() {
             </p>
           </div>
 
-          <button onClick={() => { setPaymentForm(f => ({ ...f, payment_type: 'fixed_contributions' })); setTab('calc'); setShowPaymentForm(true) }}
-            className="text-sm text-gold-400 hover:text-gold-300">
-            + Внести фактическую уплату взносов
-          </button>
+          <div className="card border-gold-800/40">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-sm font-semibold text-gold-400">Внести фактическую уплату взносов</h2>
+              <button onClick={() => setShowContribPaymentForm(v => !v)} className="text-navy-400 hover:text-navy-200">
+                <ChevronDown className={`w-4 h-4 transition-transform ${showContribPaymentForm ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
+            {showContribPaymentForm && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
+                <div>
+                  <label className="label">Дата платежа</label>
+                  <input type="date" className="input" value={contribPaymentForm.payment_date}
+                    onChange={e => setContribPaymentForm(f => ({ ...f, payment_date: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="label">Тип взноса</label>
+                  <select className="select" value={contribPaymentForm.payment_type}
+                    onChange={e => setContribPaymentForm(f => ({ ...f, payment_type: e.target.value as TaxPaymentType }))}>
+                    <option value="fixed_contributions">{TAX_PAYMENT_TYPE_LABELS['fixed_contributions']}</option>
+                    <option value="ops_one_percent">{TAX_PAYMENT_TYPE_LABELS['ops_one_percent']}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Сумма</label>
+                  <input type="number" className="input" value={contribPaymentForm.amount}
+                    onChange={e => setContribPaymentForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
+                </div>
+                <div>
+                  <label className="label">№ платёжки</label>
+                  <input type="text" className="input" value={contribPaymentForm.doc_no}
+                    onChange={e => setContribPaymentForm(f => ({ ...f, doc_no: e.target.value }))} />
+                </div>
+                <div className="md:col-span-4">
+                  <button onClick={submitContribPayment} disabled={submitting}
+                    className="flex items-center gap-1.5 bg-gold-500 text-navy-950 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gold-400 disabled:opacity-50">
+                    <Check className="w-4 h-4" /> Записать уплату
+                  </button>
+                </div>
+              </div>
+            )}
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-navy-500 border-b border-navy-800">
+                  <th className="pb-2 font-medium">Дата</th>
+                  <th className="pb-2 font-medium">Тип</th>
+                  <th className="pb-2 font-medium">№ документа</th>
+                  <th className="pb-2 font-medium text-right">Сумма</th>
+                  <th className="pb-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {taxPayments.filter(p => p.payment_type === 'fixed_contributions' || p.payment_type === 'ops_one_percent').map(p => (
+                  <tr key={p.id} className="border-b border-navy-800/40 table-row-hover">
+                    <td className="py-2">{format(new Date(p.payment_date), 'dd.MM.yyyy')}</td>
+                    <td className="py-2">{TAX_PAYMENT_TYPE_LABELS[p.payment_type]}</td>
+                    <td className="py-2 text-navy-500">{p.doc_no || '—'}</td>
+                    <td className="py-2 text-right font-medium">{fmt(p.amount)} ₽</td>
+                    <td className="py-2 text-right">
+                      <button onClick={() => deleteTaxPayment(p.id)} className="text-navy-600 hover:text-red-400">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {taxPayments.filter(p => p.payment_type === 'fixed_contributions' || p.payment_type === 'ops_one_percent').length === 0 && (
+                  <tr><td colSpan={5} className="py-6 text-center text-navy-600">Платежи по взносам ещё не внесены</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

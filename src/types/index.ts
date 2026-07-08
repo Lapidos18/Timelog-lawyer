@@ -261,3 +261,28 @@ export interface ManualIncome {
   clients?: { name: string } | null
   matters?: { title: string } | null
 }
+
+// Возмещаемые расходы по делу (такси, почта, госпошлина и т.п.) —
+// это компенсация издержек доверителем, юридически и экономически ОТДЕЛЬНАЯ
+// от вознаграждения адвоката категория (ст. 971 ГК РФ по аналогии, условия
+// договора об оказании юр. помощи). Не включается в акт об оказании услуг
+// как часть вознаграждения и не облагается НДФЛ как доход адвоката.
+export type ReimbursementStatus = 'pending' | 'invoiced' | 'reimbursed'
+
+export const REIMBURSEMENT_STATUS_LABELS: Record<ReimbursementStatus, string> = {
+  pending: 'Ожидает включения в счёт',
+  invoiced: 'Выставлено доверителю',
+  reimbursed: 'Компенсировано',
+}
+
+export interface ReimbursableExpense {
+  id: string
+  matter_id: string
+  expense_date: string
+  amount: number
+  description: string
+  status: ReimbursementStatus
+  doc_no: string | null
+  created_at: string
+  matters?: (Matter & { clients?: Client }) | null
+}

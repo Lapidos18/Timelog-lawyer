@@ -17,7 +17,7 @@ function fmt(n: number) {
   return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(Math.round(n))
 }
 function fmt2(n: number) {
-  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(n)
+  return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 }
 function quarterOf(dateStr: string) {
   const month = new Date(dateStr).getMonth() + 1

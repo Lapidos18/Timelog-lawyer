@@ -249,7 +249,10 @@ export default function ReconciliationPage() {
   return (
     <div className="p-4 md:p-7">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-navy-100">Акт сверки</h1>
+        <div>
+          <h1 className="text-2xl font-semibold text-navy-100">Платежи / Акт сверки</h1>
+          <p className="text-xs text-navy-500 mt-1">Внесение фактических платежей и сверка расчётов с клиентом</p>
+        </div>
         {generated && (
           <div className="flex gap-2">
             <button onClick={exportExcel} className="btn-secondary">
@@ -284,14 +287,16 @@ export default function ReconciliationPage() {
               onChange={e => { setDateTo(e.target.value); setGenerated(false) }} />
           </div>
         </div>
-        <div className="flex gap-3">
-          <button onClick={generate} disabled={loading} className="btn-primary">
-            {loading ? 'Загрузка...' : 'Сформировать акт'}
+        <div className="flex gap-3 items-center flex-wrap">
+          <button onClick={() => selectedClient ? setShowPayForm(true) : toast.error('Сначала выберите клиента вверху')}
+            className="btn-primary">
+            <Plus className="w-4 h-4" /> Добавить платёж
           </button>
-          {selectedClient && (
-            <button onClick={() => setShowPayForm(true)} className="btn-secondary">
-              <Plus className="w-4 h-4" /> Добавить платёж
-            </button>
+          <button onClick={generate} disabled={loading} className="btn-secondary">
+            {loading ? 'Загрузка...' : 'Сформировать акт сверки'}
+          </button>
+          {!selectedClient && (
+            <span className="text-xs text-navy-600">Выберите клиента, чтобы внести платёж или сформировать акт</span>
           )}
         </div>
       </div>

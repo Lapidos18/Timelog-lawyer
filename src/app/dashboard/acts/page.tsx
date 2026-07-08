@@ -56,6 +56,13 @@ export default function ActsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [previewAct, setPreviewAct] = useState<{act: Act; rows: ServiceRow[]} | null>(null)
 
+  // Подтверждение оплаты при переводе акта в статус "Оплачен"
+  const [payConfirmAct, setPayConfirmAct] = useState<Act | null>(null)
+  const [payConfirmDate, setPayConfirmDate] = useState('')
+  const [payConfirmAmount, setPayConfirmAmount] = useState('')
+  const [payConfirmDocNo, setPayConfirmDocNo] = useState('')
+  const [payConfirmSaving, setPayConfirmSaving] = useState(false)
+
   const [form, setForm] = useState({
     act_no: '',
     matter_id: '',
@@ -158,9 +165,71 @@ export default function ActsPage() {
   }
 
   async function changeStatus(id: string, status: Act['status']) {
+    const act = acts.find(a => a.id === id)
+
+    // При переводе в "Оплачен" — предложить сразу зафиксировать фактический платёж,
+    // чтобы задолженность на Обзоре и Доходы обновились автоматически, а не расходились с актом.
+    if (status === 'paid' && act) {
+      const { data: existing } = await supabase
+        .from('payments')
+        .select('id')
+        .eq('matter_id', act.matter_id)
+        .ilike('description', `%${act.act_no}%`)
+        .limit(1)
+
+      if (!existing || existing.length === 0) {
+        setPayConfirmAct(act)
+        setPayConfirmDate(format(new Date(), 'yyyy-MM-dd'))
+        setPayConfirmAmount(String(act.amount))
+        setPayConfirmDocNo('')
+        return // статус пока не меняем — дождёмся подтверждения в модалке
+      }
+    }
+
     await supabase.from('acts').update({ status }).eq('id', id)
     loadActs()
     toast.success('Статус обновлён')
+  }
+
+  async function confirmPaymentAndMarkPaid() {
+    if (!payConfirmAct) return
+    const amountNum = parseFloat(payConfirmAmount)
+    if (!amountNum || amountNum <= 0) { toast.error('Укажите сумму оплаты'); return }
+
+    setPayConfirmSaving(true)
+    const { error: payError } = await supabase.from('payments').insert({
+      client_id: payConfirmAct.client_id,
+      matter_id: payConfirmAct.matter_id,
+      pay_date: payConfirmDate,
+      amount: amountNum,
+      description: `Оплата по акту № ${payConfirmAct.act_no}`,
+      doc_no: payConfirmDocNo || null,
+    })
+
+    if (payError) {
+      setPayConfirmSaving(false)
+      toast.error('Ошибка при записи платежа: ' + payError.message)
+      return
+    }
+
+    const { error: statusError } = await supabase.from('acts').update({ status: 'paid' }).eq('id', payConfirmAct.id)
+    setPayConfirmSaving(false)
+
+    if (statusError) {
+      toast.error('Платёж записан, но не удалось обновить статус акта: ' + statusError.message)
+    } else {
+      toast.success('Оплата зафиксирована, статус акта обновлён')
+    }
+    setPayConfirmAct(null)
+    loadActs()
+  }
+
+  async function markPaidWithoutPayment() {
+    if (!payConfirmAct) return
+    await supabase.from('acts').update({ status: 'paid' }).eq('id', payConfirmAct.id)
+    toast.success('Статус обновлён без записи платежа')
+    setPayConfirmAct(null)
+    loadActs()
   }
 
   async function deleteAct(id: string) {
@@ -455,6 +524,51 @@ ${act.description ? `<p>${act.description}</p>` : ''}
                   </tr>
                 </tfoot>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Подтверждение фактической оплаты при переводе акта в статус "Оплачен" */}
+      {payConfirmAct && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-navy-900 rounded-xl border border-navy-700 w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-navy-800">
+              <h2 className="font-semibold text-navy-200">Зафиксировать оплату?</h2>
+              <button onClick={() => setPayConfirmAct(null)} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-navy-400">
+                Акт № <span className="text-gold-400 font-mono">{payConfirmAct.act_no}</span> переводится в статус «Оплачен».
+                Чтобы задолженность на Обзоре и Доходы обновились автоматически, зафиксируйте фактический платёж —
+                либо пропустите этот шаг, если оплата уже внесена вручную ранее.
+              </p>
+              <div>
+                <label className="label">Дата оплаты</label>
+                <input type="date" className="input" value={payConfirmDate}
+                  onChange={e => setPayConfirmDate(e.target.value)} />
+              </div>
+              <div>
+                <label className="label">Сумма</label>
+                <input type="number" className="input" value={payConfirmAmount}
+                  onChange={e => setPayConfirmAmount(e.target.value)} />
+              </div>
+              <div>
+                <label className="label">№ платёжного поручения (необязательно)</label>
+                <input type="text" className="input" value={payConfirmDocNo}
+                  onChange={e => setPayConfirmDocNo(e.target.value)} placeholder="напр. 512" />
+              </div>
+            </div>
+            <div className="px-6 pb-6 flex flex-wrap gap-3">
+              <button onClick={confirmPaymentAndMarkPaid} disabled={payConfirmSaving} className="btn-primary">
+                <Check className="w-4 h-4" /> {payConfirmSaving ? 'Сохраняю...' : 'Записать оплату и подтвердить'}
+              </button>
+              <button onClick={markPaidWithoutPayment} className="btn-secondary">
+                Без записи платежа
+              </button>
+              <button onClick={() => setPayConfirmAct(null)} className="btn-secondary text-navy-500">
+                Отмена
+              </button>
             </div>
           </div>
         </div>

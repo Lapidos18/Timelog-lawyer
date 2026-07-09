@@ -12,6 +12,7 @@ import {
   AlertTriangle, ChevronDown, Pencil,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import CalculatorTab from './CalculatorTab'
 
 function fmt(n: number) {
   return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(Math.round(n))
@@ -25,7 +26,7 @@ function quarterOf(dateStr: string) {
 }
 const QUARTER_LABELS = ['I квартал (янв–март)', 'II квартал (апр–июнь)', 'III квартал (июль–сент)', 'IV квартал (окт–дек)']
 
-type Tab = 'income' | 'expenses' | 'calc' | 'contributions'
+type Tab = 'income' | 'expenses' | 'calc' | 'contributions' | 'calculator'
 const EXPENSE_CATEGORY_OPTIONS = Object.entries(EXPENSE_CATEGORY_LABELS) as [ExpenseCategory, string][]
 
 const emptyExpenseForm = {
@@ -384,6 +385,7 @@ export default function FinancePage() {
     { id: 'expenses', label: 'Расходы', icon: Receipt },
     { id: 'calc', label: 'Расчёт НДФЛ', icon: Calculator },
     { id: 'contributions', label: 'Взносы', icon: ShieldCheck },
+    { id: 'calculator', label: 'Калькулятор', icon: Calculator },
   ]
 
   if (loading) {
@@ -931,6 +933,9 @@ export default function FinancePage() {
           </div>
         </div>
       )}
+
+      {/* ============ КАЛЬКУЛЯТОР НДФЛ (разовый расчёт) ============ */}
+      {tab === 'calculator' && <CalculatorTab />}
     </div>
   )
 }

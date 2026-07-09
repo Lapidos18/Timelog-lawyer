@@ -5,24 +5,22 @@ import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Profile } from '@/types'
 import {
-  LayoutDashboard, Clock, Users, Briefcase,
+  LayoutDashboard, Users, Briefcase,
   FileBarChart2, LogOut, Scale, ChevronRight,
-  BookOpen, ClipboardList, Menu, X, FileCheck, HardDrive, Calculator, Wallet, Receipt
+  BookOpen, ClipboardList, Menu, X, FileCheck, HardDrive, Wallet, Receipt
 } from 'lucide-react'
 
 const NAV = [
   { href: '/dashboard',                icon: LayoutDashboard, label: 'Обзор' },
-  { href: '/dashboard/journal',        icon: BookOpen,        label: 'Журнал' },
-  { href: '/dashboard/entries',        icon: Clock,           label: 'Записи' },
-  { href: '/dashboard/matters',        icon: Briefcase,       label: 'Дела' },
+  { href: '/dashboard/journal',        icon: BookOpen,        label: 'Журнал', group: 'Учёт времени' },
+  { href: '/dashboard/matters',        icon: Briefcase,       label: 'Дела', group: 'Клиенты и дела' },
   { href: '/dashboard/clients',        icon: Users,           label: 'Клиенты' },
-  { href: '/dashboard/reports',        icon: FileBarChart2,   label: 'Отчёты' },
+  { href: '/dashboard/reports',        icon: FileBarChart2,   label: 'Отчёты', group: 'Документы' },
   { href: '/dashboard/acts',           icon: FileCheck,       label: 'Акты' },
   { href: '/dashboard/reimbursements', icon: Receipt,         label: 'Возмещаемые расходы' },
-  { href: '/dashboard/reconciliation', icon: ClipboardList,   label: 'Платежи / Акт сверки' },
+  { href: '/dashboard/reconciliation', icon: ClipboardList,   label: 'Платежи / Акт сверки', group: 'Финансы' },
   { href: '/dashboard/finance',         icon: Wallet,          label: 'Доходы и налоги' },
-  { href: '/dashboard/ndfl-calc',       icon: Calculator,      label: 'Калькулятор НДФЛ' },
-  { href: '/dashboard/backup',          icon: HardDrive,       label: 'Бэкап' },
+  { href: '/dashboard/backup',          icon: HardDrive,       label: 'Бэкап', group: 'Система' },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -59,20 +57,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       <nav className="flex-1 space-y-0.5">
-        {NAV.map(({ href, icon: Icon, label }) => {
+        {NAV.map(({ href, icon: Icon, label, group }) => {
           const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
           return (
-            <Link key={href} href={href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
-                          transition-colors ${
-                active
-                  ? 'bg-gold-500/10 text-gold-400 font-medium'
-                  : 'text-navy-400 hover:text-navy-200 hover:bg-navy-800/60'
-              }`}>
-              <Icon className="w-4 h-4 flex-shrink-0" />
-              {label}
-              {active && <ChevronRight className="w-3 h-3 ml-auto opacity-60" />}
-            </Link>
+            <div key={href}>
+              {group && (
+                <div className="px-3 pt-4 pb-1.5 first:pt-0">
+                  <span className="text-[10px] font-semibold text-navy-600 uppercase tracking-wider">{group}</span>
+                </div>
+              )}
+              <Link href={href}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
+                            transition-colors ${
+                  active
+                    ? 'bg-gold-500/10 text-gold-400 font-medium'
+                    : 'text-navy-400 hover:text-navy-200 hover:bg-navy-800/60'
+                }`}>
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                {label}
+                {active && <ChevronRight className="w-3 h-3 ml-auto opacity-60" />}
+              </Link>
+            </div>
           )
         })}
       </nav>

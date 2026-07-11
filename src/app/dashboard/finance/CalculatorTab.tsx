@@ -4,9 +4,6 @@ import { useState, useMemo } from 'react'
 import { Info, Copy, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-function fmt(n: number) {
-  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(Math.round(n))
-}
 function fmt2(n: number) {
   return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 }
@@ -58,7 +55,7 @@ export default function CalculatorTab() {
     const sum = calc.withDeduction.gross
     const ndfl = calc.withDeduction.ndfl
     const ratePct = Math.round(rateNum * 100)
-    const text = `Вознаграждение Адвоката составляет ${fmt(sum)} (${numberToWordsRu(Math.round(sum))}) руб., в т.ч. НДФЛ (${ratePct}%) — ${fmt(ndfl)} руб., уплачиваемый Адвокатом самостоятельно в соответствии с пп. 2 п. 1 ст. 227 НК РФ.`
+    const text = `Вознаграждение Адвоката составляет ${fmt2(sum)} (${numberToWordsRu(Math.round(sum))}) руб., в т.ч. НДФЛ (${ratePct}%) — ${fmt2(ndfl)} руб., уплачиваемый Адвокатом самостоятельно в соответствии с пп. 2 п. 1 ст. 227 НК РФ.`
     navigator.clipboard.writeText(text)
     setCopied(true)
     toast.success('Текст скопирован')
@@ -203,8 +200,8 @@ export default function CalculatorTab() {
           </button>
         </div>
         <p className="text-sm text-navy-400 leading-relaxed">
-          Вознаграждение Адвоката составляет <span className="text-gold-400 font-medium">{fmt(calc.withDeduction.gross)} руб.</span>,
-          в т.ч. НДФЛ ({Math.round(rateNum*100)}%) — <span className="text-gold-400 font-medium">{fmt(calc.withDeduction.ndfl)} руб.</span>,
+          Вознаграждение Адвоката составляет <span className="text-gold-400 font-medium">{fmt2(calc.withDeduction.gross)} руб.</span>,
+          в т.ч. НДФЛ ({Math.round(rateNum*100)}%) — <span className="text-gold-400 font-medium">{fmt2(calc.withDeduction.ndfl)} руб.</span>,
           уплачиваемый Адвокатом самостоятельно в соответствии с пп. 2 п. 1 ст. 227 НК РФ.
         </p>
       </div>

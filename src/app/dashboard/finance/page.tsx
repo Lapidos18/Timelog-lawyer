@@ -14,9 +14,6 @@ import {
 import toast from 'react-hot-toast'
 import CalculatorTab from './CalculatorTab'
 
-function fmt(n: number) {
-  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(Math.round(n))
-}
 function fmt2(n: number) {
   return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 }
@@ -426,7 +423,7 @@ export default function FinancePage() {
           <div className="card mb-4">
             <div className="flex justify-between items-baseline">
               <span className="text-sm text-navy-500">Итого доходов за {year} год</span>
-              <span className="text-xl font-bold text-emerald-400">{fmt(incomeTotal)} ₽</span>
+              <span className="text-xl font-bold text-emerald-400">{fmt2(incomeTotal)} ₽</span>
             </div>
             <p className="text-xs text-navy-600 mt-2">
               Оплаты по актам подтягиваются автоматически из раздела «Акты / Оплаты». Доходы, не проходящие через
@@ -532,7 +529,7 @@ export default function FinancePage() {
                         {i.source === 'manual' ? 'Вручную' : 'Акт/Оплата'}
                       </span>
                     </td>
-                    <td className="py-2 text-right font-medium">{fmt(i.amount)} ₽</td>
+                    <td className="py-2 text-right font-medium">{fmt2(i.amount)} ₽</td>
                     <td className="py-2 text-right">
                       {i.source === 'manual' && (
                         <button onClick={() => deleteIncome(i.id)} className="text-navy-600 hover:text-red-400">
@@ -557,7 +554,7 @@ export default function FinancePage() {
           <div className="flex justify-between items-center mb-4">
             <div className="card !py-3 !px-4 inline-flex items-baseline gap-2">
               <span className="text-sm text-navy-500">Итого вычетов (документально подтверждённых)</span>
-              <span className="text-lg font-bold text-gold-400">{fmt(expensesTotal)} ₽</span>
+              <span className="text-lg font-bold text-gold-400">{fmt2(expensesTotal)} ₽</span>
             </div>
             <button
               onClick={() => { resetExpenseForm(); setShowExpenseForm(true) }}
@@ -658,7 +655,7 @@ export default function FinancePage() {
                         ? <Check className="w-4 h-4 text-emerald-400" />
                         : <X className="w-4 h-4 text-red-400" />}
                     </td>
-                    <td className="py-2 text-right font-medium">{fmt(e.amount)} ₽</td>
+                    <td className="py-2 text-right font-medium">{fmt2(e.amount)} ₽</td>
                     <td className="py-2 text-right">
                       <button onClick={(ev) => { ev.stopPropagation(); deleteExpense(e.id) }}
                         className="text-navy-600 hover:text-red-400">
@@ -778,7 +775,7 @@ export default function FinancePage() {
                     <td className="py-2">{format(new Date(p.payment_date), 'dd.MM.yyyy')}</td>
                     <td className="py-2">{TAX_PAYMENT_TYPE_LABELS[p.payment_type]}</td>
                     <td className="py-2 text-navy-500">{p.doc_no || '—'}</td>
-                    <td className="py-2 text-right font-medium">{fmt(p.amount)} ₽</td>
+                    <td className="py-2 text-right font-medium">{fmt2(p.amount)} ₽</td>
                     <td className="py-2 text-right">
                       <button onClick={() => deleteTaxPayment(p.id)} className="text-navy-600 hover:text-red-400">
                         <Trash2 className="w-4 h-4" />
@@ -811,7 +808,7 @@ export default function FinancePage() {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
               <div>
                 <div className="text-navy-500 text-xs mb-1">Полная годовая сумма</div>
-                <div className="font-medium text-navy-100">{fmt(taxSettings.fixed_contribution_total)} ₽</div>
+                <div className="font-medium text-navy-100">{fmt2(taxSettings.fixed_contribution_total)} ₽</div>
               </div>
               <div>
                 <div className="text-navy-500 text-xs mb-1">Месяцев деятельности</div>
@@ -824,7 +821,7 @@ export default function FinancePage() {
             </div>
             <div className="mt-3 pt-3 border-t border-navy-800 flex justify-between text-sm">
               <span className="text-navy-500">Уплачено фактически</span>
-              <span className="font-medium text-navy-100">{fmt(contributionsCalc.paidFixed)} ₽</span>
+              <span className="font-medium text-navy-100">{fmt2(contributionsCalc.paidFixed)} ₽</span>
             </div>
           </div>
 
@@ -835,15 +832,15 @@ export default function FinancePage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
               <div>
                 <div className="text-navy-500 text-xs mb-1">Совокупный доход за год</div>
-                <div className="font-medium text-navy-100">{fmt(contributionsCalc.totalIncome)} ₽</div>
+                <div className="font-medium text-navy-100">{fmt2(contributionsCalc.totalIncome)} ₽</div>
               </div>
               <div>
                 <div className="text-navy-500 text-xs mb-1">Порог</div>
-                <div className="font-medium text-navy-100">{fmt(taxSettings.ops_threshold)} ₽</div>
+                <div className="font-medium text-navy-100">{fmt2(taxSettings.ops_threshold)} ₽</div>
               </div>
               <div>
                 <div className="text-navy-500 text-xs mb-1">Предел взноса</div>
-                <div className="font-medium text-navy-100">{fmt(taxSettings.ops_one_percent_cap)} ₽</div>
+                <div className="font-medium text-navy-100">{fmt2(taxSettings.ops_one_percent_cap)} ₽</div>
               </div>
               <div>
                 <div className="text-navy-500 text-xs mb-1">К уплате</div>
@@ -852,7 +849,7 @@ export default function FinancePage() {
             </div>
             <div className="mt-3 pt-3 border-t border-navy-800 flex justify-between text-sm">
               <span className="text-navy-500">Уплачено фактически</span>
-              <span className="font-medium text-navy-100">{fmt(contributionsCalc.paidOps)} ₽</span>
+              <span className="font-medium text-navy-100">{fmt2(contributionsCalc.paidOps)} ₽</span>
             </div>
             <p className="text-xs text-navy-600 mt-3">
               Срок уплаты — не позднее {taxSettings.ops_deadline && format(new Date(taxSettings.ops_deadline), 'dd.MM.yyyy')} г.
@@ -917,7 +914,7 @@ export default function FinancePage() {
                     <td className="py-2">{format(new Date(p.payment_date), 'dd.MM.yyyy')}</td>
                     <td className="py-2">{TAX_PAYMENT_TYPE_LABELS[p.payment_type]}</td>
                     <td className="py-2 text-navy-500">{p.doc_no || '—'}</td>
-                    <td className="py-2 text-right font-medium">{fmt(p.amount)} ₽</td>
+                    <td className="py-2 text-right font-medium">{fmt2(p.amount)} ₽</td>
                     <td className="py-2 text-right">
                       <button onClick={() => deleteTaxPayment(p.id)} className="text-navy-600 hover:text-red-400">
                         <Trash2 className="w-4 h-4" />

@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { Clock, Banknote, Briefcase, TrendingUp, AlertCircle, ArrowRight } from 'lucide-react'
 
 function formatMoney(n: number) {
-  return new Intl.NumberFormat('ru-RU').format(Math.round(n))
+  return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 }
 
 export default function DashboardPage() {

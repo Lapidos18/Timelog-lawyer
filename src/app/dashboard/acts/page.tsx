@@ -40,7 +40,7 @@ const STATUS_COLORS = {
 }
 
 function fmt(n: number) {
-  return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2 }).format(n)
+  return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 }
 function fmtDate(s: string) {
   return format(new Date(s), 'dd.MM.yyyy')

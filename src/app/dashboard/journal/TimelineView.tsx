@@ -36,7 +36,7 @@ const COLORS: Record<ActivityType, string> = {
 }
 
 function formatMoney(n: number) {
-  return new Intl.NumberFormat('ru-RU').format(Math.round(n))
+  return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 }
 
 // "09:30:00" -> 9.5 (decimal hour for positioning)

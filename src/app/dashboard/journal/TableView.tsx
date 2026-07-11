@@ -42,7 +42,7 @@ function minutesToDisplay(min: number) {
   return m > 0 ? `${h}ч ${m}м` : `${h}ч`
 }
 function formatMoney(n: number) {
-  return new Intl.NumberFormat('ru-RU').format(Math.round(n))
+  return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 }
 
 export default function TableView() {

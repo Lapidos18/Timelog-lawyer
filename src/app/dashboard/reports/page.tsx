@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 type GroupBy = 'none' | 'client' | 'matter'
 
 function formatMoney(n: number) {
-  return new Intl.NumberFormat('ru-RU').format(Math.round(n))
+  return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 }
 
 function groupRows(rows: ReportRow[], groupBy: GroupBy): { key: string; label: string; sublabel?: string; rows: ReportRow[] }[] {

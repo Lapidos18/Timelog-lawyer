@@ -55,7 +55,7 @@ export default function CalculatorTab() {
     const sum = calc.withDeduction.gross
     const ndfl = calc.withDeduction.ndfl
     const ratePct = Math.round(rateNum * 100)
-    const text = `Вознаграждение Адвоката составляет ${fmt2(sum)} (${numberToWordsRu(Math.round(sum))}) руб., в т.ч. НДФЛ (${ratePct}%) — ${fmt2(ndfl)} руб., уплачиваемый Адвокатом самостоятельно в соответствии с пп. 2 п. 1 ст. 227 НК РФ.`
+    const text = `Вознаграждение Адвоката составляет ${fmtMoneyWords(sum)}, в т.ч. НДФЛ (${ratePct}%) — ${fmtMoneyWords(ndfl)}, уплачиваемый Адвокатом самостоятельно в соответствии с пп. 2 п. 1 ст. 227 НК РФ.`
     navigator.clipboard.writeText(text)
     setCopied(true)
     toast.success('Текст скопирован')
@@ -200,8 +200,10 @@ export default function CalculatorTab() {
           </button>
         </div>
         <p className="text-sm text-navy-400 leading-relaxed">
-          Вознаграждение Адвоката составляет <span className="text-gold-400 font-medium">{fmt2(calc.withDeduction.gross)} руб.</span>,
-          в т.ч. НДФЛ ({Math.round(rateNum*100)}%) — <span className="text-gold-400 font-medium">{fmt2(calc.withDeduction.ndfl)} руб.</span>,
+          Вознаграждение Адвоката составляет{' '}
+          <span className="text-gold-400 font-medium">{fmtMoneyWords(calc.withDeduction.gross)}</span>,
+          в т.ч. НДФЛ ({Math.round(rateNum*100)}%) —{' '}
+          <span className="text-gold-400 font-medium">{fmtMoneyWords(calc.withDeduction.ndfl)}</span>,
           уплачиваемый Адвокатом самостоятельно в соответствии с пп. 2 п. 1 ст. 227 НК РФ.
         </p>
       </div>
@@ -247,6 +249,27 @@ export default function CalculatorTab() {
 }
 
 // Простое число прописью (для актов до ~9 999 999)
+// Целые рубли (без копеек) — используется только для суммы прописью
+function fmt(n: number) {
+  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(Math.round(n))
+}
+
+// Формат для актов: "15 000 (пятнадцать тысяч) руб. 50 копеек"
+function fmtMoneyWords(n: number): string {
+  const rubles = Math.floor(n)
+  const kopecks = Math.round((n - rubles) * 100)
+  return `${fmt(rubles)} (${numberToWordsRu(rubles)}) руб. ${String(kopecks).padStart(2, '0')} ${kopeckWord(kopecks)}`
+}
+
+function kopeckWord(n: number): string {
+  const last2 = n % 100
+  const last1 = n % 10
+  if (last2 >= 11 && last2 <= 14) return 'копеек'
+  if (last1 === 1) return 'копейка'
+  if (last1 >= 2 && last1 <= 4) return 'копейки'
+  return 'копеек'
+}
+
 function numberToWordsRu(num: number): string {
   if (num === 0) return 'ноль'
   const ones = ['', 'один', 'два', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять']

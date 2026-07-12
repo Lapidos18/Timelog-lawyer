@@ -421,7 +421,7 @@ ${act.description ? `<p>${act.description}</p>` : ''}
       )}
 
       {/* List */}
-      <div className="card">
+      <div className="card overflow-x-auto">
         {loading ? (
           <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
         ) : acts.length === 0 ? (
@@ -486,13 +486,14 @@ ${act.description ? `<p>${act.description}</p>` : ''}
                 <button onClick={() => setPreviewAct(null)} className="btn-ghost p-2"><X className="w-4 h-4" /></button>
               </div>
             </div>
-            <div className="overflow-auto p-6">
+            <div className="overflow-y-auto p-6">
               <p className="text-xs text-navy-400 mb-3">
                 <b className="text-navy-300">Клиент:</b> {previewAct.act.matters.clients.name} &nbsp;·&nbsp;
                 <b className="text-navy-300">Дело:</b> {previewAct.act.matters.title} &nbsp;·&nbsp;
                 <b className="text-navy-300">Период:</b> {fmtDate(previewAct.act.period_from)} — {fmtDate(previewAct.act.period_to)}
               </p>
-              <table className="w-full text-xs mb-4">
+              <div className="overflow-x-auto -mx-6 px-6">
+              <table className="w-full text-xs mb-4 min-w-[640px]">
                 <thead>
                   <tr className="border-b border-navy-800">
                     {['№','Дата','Вид работы','Описание','Часов','Ставка','Сумма','Исполнитель'].map(h => (
@@ -524,6 +525,7 @@ ${act.description ? `<p>${act.description}</p>` : ''}
                   </tr>
                 </tfoot>
               </table>
+              </div>
             </div>
           </div>
         </div>

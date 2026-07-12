@@ -23,6 +23,16 @@ const NAV = [
   { href: '/dashboard/backup',          icon: HardDrive,       label: 'Бэкап', group: 'Система' },
 ]
 
+// Отдельный набор для нижнего мобильного меню — самые частые разделы для быстрого доступа с телефона,
+// не обязательно совпадает с первыми пятью пунктами общего меню.
+const MOBILE_BOTTOM_NAV = [
+  { href: '/dashboard',                icon: LayoutDashboard, label: 'Обзор' },
+  { href: '/dashboard/journal',        icon: BookOpen,        label: 'Журнал' },
+  { href: '/dashboard/matters',        icon: Briefcase,       label: 'Дела' },
+  { href: '/dashboard/acts',           icon: FileCheck,       label: 'Акты' },
+  { href: '/dashboard/finance',        icon: Wallet,          label: 'Финансы' },
+]
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -142,7 +152,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* ── Bottom nav for mobile (quick access) ── */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-20
                       bg-navy-950 border-t border-navy-800 flex">
-        {NAV.slice(0, 5).map(({ href, icon: Icon, label }) => {
+        {MOBILE_BOTTOM_NAV.map(({ href, icon: Icon, label }) => {
           const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
           return (
             <Link key={href} href={href}

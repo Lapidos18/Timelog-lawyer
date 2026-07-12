@@ -291,7 +291,7 @@ export default function TimelineView() {
             </button>
             {showCal && (
               <div ref={calRef} className="absolute top-10 left-0 z-50 bg-navy-900 border border-navy-700
-                              rounded-xl shadow-2xl p-4 w-80">
+                              rounded-xl shadow-2xl p-4 w-[min(20rem,calc(100vw-2rem))]">
                 <div className="flex items-center justify-between mb-3">
                   <button onClick={() => setCalMonth(m => subMonths(m, 1))} className="btn-ghost p-1">
                     <ChevronLeft className="w-4 h-4" />
@@ -577,67 +577,71 @@ export default function TimelineView() {
 
       {/* Day view */}
       <div className="card p-0 overflow-hidden">
-        <div className="flex">
-          {/* Timeline */}
-          <div className="w-16 flex-shrink-0 border-r border-navy-800">
-            {HOURS.map(h => (
-              <div key={h} className="h-16 border-b border-navy-800/50 px-2 py-1
-                                       text-xs text-navy-600 font-mono">
-                {h}:00
-              </div>
-            ))}
-          </div>
-
-          {/* Entries column */}
-          <div className="flex-1 relative" style={{ height: `${HOURS.length * 64}px` }}>
-            {/* Hour grid lines (clickable to add) */}
-            {HOURS.map((h, i) => (
-              <div key={h}
-                onClick={() => openFormAtHour(h)}
-                className="absolute left-0 right-0 border-b border-navy-800/50
-                           hover:bg-navy-800/30 cursor-pointer transition-colors"
-                style={{ top: `${i * 64}px`, height: '64px' }}
-              />
-            ))}
-
-            {/* Entry blocks positioned by real start_time */}
-            {entries.map(e => {
-              const startDec = timeToDecimal(e.start_time)
-              const top = Math.max(0, (startDec - 8) * 64)
-              const heightPx = Math.max(28, (e.duration_min / 60) * 64)
-              const startLabel = e.start_time ? e.start_time.slice(0,5) : '—'
-              const endDec = startDec + e.duration_min / 60
-              const endH = Math.floor(endDec)
-              const endM = Math.round((endDec - endH) * 60)
-              const endLabel = `${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`
-
-              return (
-                <div
-                  key={e.id}
-                  onDoubleClick={() => openEdit(e)}
-                  title="Двойной клик — редактировать"
-                  className={`absolute left-2 right-2 rounded-lg border px-3 py-1.5
-                              cursor-pointer hover:brightness-125 transition-all overflow-hidden
-                              ${COLORS[e.activity_type]}`}
-                  style={{ top: `${top}px`, height: `${heightPx}px`, zIndex: 5 }}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-semibold truncate">{e.matters?.clients?.name}</p>
-                    <span className="text-[10px] font-mono opacity-70 flex-shrink-0">
-                      {startLabel}–{endLabel}
-                    </span>
-                  </div>
-                  {heightPx > 30 && (
-                    <p className="text-xs opacity-80 truncate">{e.description}</p>
-                  )}
+        <div className="flex flex-col md:flex-row">
+          {/* Timeline + entries row (scale + positioned cards) */}
+          <div className="flex flex-1 min-w-0">
+            {/* Timeline */}
+            <div className="w-12 md:w-16 flex-shrink-0 border-r border-navy-800">
+              {HOURS.map(h => (
+                <div key={h} className="h-16 border-b border-navy-800/50 px-1 md:px-2 py-1
+                                         text-[10px] md:text-xs text-navy-600 font-mono">
+                  {h}:00
                 </div>
-              )
-            })}
+              ))}
+            </div>
+
+            {/* Entries column */}
+            <div className="flex-1 relative min-w-0" style={{ height: `${HOURS.length * 64}px` }}>
+              {/* Hour grid lines (clickable to add) */}
+              {HOURS.map((h, i) => (
+                <div key={h}
+                  onClick={() => openFormAtHour(h)}
+                  className="absolute left-0 right-0 border-b border-navy-800/50
+                             hover:bg-navy-800/30 cursor-pointer transition-colors"
+                  style={{ top: `${i * 64}px`, height: '64px' }}
+                />
+              ))}
+
+              {/* Entry blocks positioned by real start_time */}
+              {entries.map(e => {
+                const startDec = timeToDecimal(e.start_time)
+                const top = Math.max(0, (startDec - 8) * 64)
+                const heightPx = Math.max(28, (e.duration_min / 60) * 64)
+                const startLabel = e.start_time ? e.start_time.slice(0,5) : '—'
+                const endDec = startDec + e.duration_min / 60
+                const endH = Math.floor(endDec)
+                const endM = Math.round((endDec - endH) * 60)
+                const endLabel = `${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`
+
+                return (
+                  <div
+                    key={e.id}
+                    onDoubleClick={() => openEdit(e)}
+                    title="Двойной клик — редактировать"
+                    className={`absolute left-1 right-1 md:left-2 md:right-2 rounded-lg border px-2 md:px-3 py-1.5
+                                cursor-pointer hover:brightness-125 transition-all overflow-hidden
+                                ${COLORS[e.activity_type]}`}
+                    style={{ top: `${top}px`, height: `${heightPx}px`, zIndex: 5 }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold truncate">{e.matters?.clients?.name}</p>
+                      <span className="text-[10px] font-mono opacity-70 flex-shrink-0">
+                        {startLabel}–{endLabel}
+                      </span>
+                    </div>
+                    {heightPx > 30 && (
+                      <p className="text-xs opacity-80 truncate">{e.description}</p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
 
           {/* Side list */}
-          <div className="w-72 flex-shrink-0 border-l border-navy-800 p-4 overflow-y-auto"
-               style={{ maxHeight: `${HOURS.length * 64}px` }}>
+          <div className="w-full md:w-72 flex-shrink-0 border-t md:border-t-0 md:border-l border-navy-800 p-4
+                          md:overflow-y-auto"
+               style={{ maxHeight: undefined }}>
             <h3 className="text-xs font-medium text-navy-500 mb-3 uppercase tracking-wide">Записи дня</h3>
             {loading ? (
               <p className="text-navy-600 text-xs">Загрузка...</p>

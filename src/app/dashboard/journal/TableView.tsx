@@ -464,11 +464,8 @@ export default function TableView() {
         </div>
       )}
 
-      {/* Table */}
-      {!loading && entries.length > 0 && (
-        <p className="text-xs text-navy-600 mb-2">💡 Двойной клик по записи — редактировать</p>
-      )}
-      <div className="card">
+      {/* Table (desktop) */}
+      <div className="card hidden md:block">
         {loading ? (
           <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
         ) : entries.length === 0 ? (
@@ -543,6 +540,61 @@ export default function TableView() {
               ))}
             </tbody>
           </table>
+        )}
+      </div>
+
+      {/* Card list (mobile) — то же содержимое, без горизонтальной прокрутки */}
+      <div className="md:hidden">
+        {loading ? (
+          <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
+        ) : entries.length === 0 ? (
+          <p className="text-navy-500 text-sm text-center py-12">
+            {hasActiveFilters ? 'Нет записей по заданным фильтрам.' : (
+              <>
+                Нет записей.{' '}
+                <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">
+                  Добавить первую →
+                </button>
+              </>
+            )}
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {entries.map(e => (
+              <div key={e.id}
+                onClick={() => startEdit(e)}
+                className="card p-3 active:bg-navy-800/60 transition-colors">
+                <div className="flex items-start justify-between gap-2 mb-1.5">
+                  <div className="min-w-0">
+                    <p className="text-navy-200 text-sm font-medium truncate">{e.matters?.clients?.name}</p>
+                    <p className="text-navy-500 text-xs truncate">{e.matters?.title}</p>
+                  </div>
+                  <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
+                    {format(new Date(e.work_date), 'dd.MM.yy')}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="badge-gold text-xs">{ACTIVITY_LABELS[e.activity_type]}</span>
+                  <span className="text-navy-400 font-mono text-xs">{minutesToDisplay(e.duration_min)}</span>
+                </div>
+                <p className="text-navy-300 text-xs mb-2 line-clamp-2">{e.description}</p>
+                <div className="flex items-center justify-between pt-2 border-t border-navy-800/60">
+                  <span className="text-navy-500 text-xs truncate">{e.profiles?.full_name}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-sm">
+                      {e.is_billable
+                        ? <span className="text-gold-400 font-semibold">{formatMoney(e.amount)} ₽</span>
+                        : <span className="text-navy-600">—</span>}
+                    </span>
+                    <button onClick={ev => { ev.stopPropagation(); handleDelete(e.id) }}
+                      className="btn-ghost p-1.5 hover:text-red-400 hover:bg-red-900/10">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

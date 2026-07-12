@@ -374,7 +374,8 @@ export default function ReconciliationPage() {
             {services.length === 0 ? (
               <p className="text-navy-500 text-sm text-center py-6">Нет оказанных услуг за период</p>
             ) : (
-              <table className="w-full text-xs">
+              <div className="overflow-x-auto">
+              <table className="w-full text-xs min-w-[640px]">
                 <thead>
                   <tr className="border-b border-navy-800">
                     {['№','Дата','Дело','Вид работы','Описание','Часов','Ставка','Сумма'].map(h => (
@@ -401,6 +402,7 @@ export default function ReconciliationPage() {
                   </tr>
                 </tbody>
               </table>
+              </div>
             )}
           </div>
 
@@ -415,7 +417,8 @@ export default function ReconciliationPage() {
                 </button>
               </p>
             ) : (
-              <table className="w-full text-xs">
+              <div className="overflow-x-auto">
+              <table className="w-full text-xs min-w-[480px]">
                 <thead>
                   <tr className="border-b border-navy-800">
                     {['№','Дата','№ документа','Назначение','Сумма',''].map(h => (
@@ -446,6 +449,7 @@ export default function ReconciliationPage() {
                   </tr>
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </>

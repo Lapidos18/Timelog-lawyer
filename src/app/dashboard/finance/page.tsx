@@ -499,7 +499,8 @@ export default function FinancePage() {
             </div>
           )}
 
-          <div className="card overflow-x-auto">
+          {/* Desktop table */}
+          <div className="card overflow-x-auto hidden md:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-navy-500 border-b border-navy-800">
@@ -544,6 +545,47 @@ export default function FinancePage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile card list */}
+          <div className="md:hidden">
+            {incomes.length === 0 ? (
+              <p className="card text-center text-navy-600 text-sm py-6">Нет данных за {year} год</p>
+            ) : (
+              <div className="space-y-2">
+                {incomes.map(i => (
+                  <div key={`${i.source}-${i.id}`}
+                    onClick={() => i.source === 'manual' && startEditIncome(i)}
+                    className={`card p-3 ${i.source === 'manual' ? 'active:bg-navy-800/60' : ''} transition-colors`}>
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <div className="min-w-0">
+                        <p className="text-navy-200 text-sm font-medium truncate">{i.client_name}</p>
+                        <p className="text-navy-500 text-xs truncate">{i.matter_title || '—'}</p>
+                      </div>
+                      <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
+                        {format(new Date(i.pay_date), 'dd.MM.yy')}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-navy-800/60">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        i.source === 'manual' ? 'bg-navy-700 text-navy-300' : 'bg-emerald-900/40 text-emerald-400'
+                      }`}>
+                        {i.source === 'manual' ? 'Вручную' : 'Акт/Оплата'}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm font-semibold">{fmt2(i.amount)} ₽</span>
+                        {i.source === 'manual' && (
+                          <button onClick={ev => { ev.stopPropagation(); deleteIncome(i.id) }}
+                            className="text-navy-600 hover:text-red-400">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -628,8 +670,13 @@ export default function FinancePage() {
             </div>
           )}
 
-          <p className="text-xs text-navy-600 mb-2">Двойной клик по строке — редактировать</p>
-          <div className="card overflow-x-auto">
+          <p className="text-xs text-navy-600 mb-2">
+            <span className="hidden md:inline">Двойной клик по строке — редактировать</span>
+            <span className="md:hidden">Нажмите на расход — редактировать</span>
+          </p>
+
+          {/* Desktop table */}
+          <div className="card overflow-x-auto hidden md:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-navy-500 border-b border-navy-800">
@@ -669,6 +716,45 @@ export default function FinancePage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile card list */}
+          <div className="md:hidden">
+            {expenses.length === 0 ? (
+              <p className="card text-center text-navy-600 text-sm py-6">Пока нет расходов</p>
+            ) : (
+              <div className="space-y-2">
+                {expenses.map(e => (
+                  <div key={e.id}
+                    onClick={() => startEditExpense(e)}
+                    className="card p-3 active:bg-navy-800/60 transition-colors">
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <div className="min-w-0">
+                        <p className="text-navy-200 text-sm font-medium truncate">{EXPENSE_CATEGORY_LABELS[e.category]}</p>
+                        <p className="text-navy-500 text-xs truncate">{e.description || '—'}</p>
+                      </div>
+                      <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
+                        {format(new Date(e.expense_date), 'dd.MM.yy')}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-navy-800/60">
+                      <span className="flex items-center gap-1 text-xs text-navy-500">
+                        {e.is_documented
+                          ? <><Check className="w-3.5 h-3.5 text-emerald-400" /> Подтверждено</>
+                          : <><X className="w-3.5 h-3.5 text-red-400" /> Без подтверждения</>}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm font-semibold">{fmt2(e.amount)} ₽</span>
+                        <button onClick={ev => { ev.stopPropagation(); deleteExpense(e.id) }}
+                          className="text-navy-600 hover:text-red-400">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -759,7 +845,8 @@ export default function FinancePage() {
                 </div>
               </div>
             )}
-            <table className="w-full text-sm">
+            {/* Desktop table */}
+            <table className="w-full text-sm hidden md:table">
               <thead>
                 <tr className="text-left text-navy-500 border-b border-navy-800">
                   <th className="pb-2 font-medium">Дата</th>
@@ -785,6 +872,33 @@ export default function FinancePage() {
                 ))}
               </tbody>
             </table>
+
+            {/* Mobile card list */}
+            <div className="md:hidden space-y-2">
+              {taxPayments.filter(p => p.payment_type.startsWith('ndfl')).length === 0 ? (
+                <p className="text-navy-600 text-sm text-center py-4">Платежи по НДФЛ ещё не внесены</p>
+              ) : (
+                taxPayments.filter(p => p.payment_type.startsWith('ndfl')).map(p => (
+                  <div key={p.id} className="rounded-lg border border-navy-800 p-3">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <p className="text-navy-200 text-sm">{TAX_PAYMENT_TYPE_LABELS[p.payment_type]}</p>
+                      <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
+                        {format(new Date(p.payment_date), 'dd.MM.yy')}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-navy-500 text-xs">{p.doc_no || '—'}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm font-semibold">{fmt2(p.amount)} ₽</span>
+                        <button onClick={() => deleteTaxPayment(p.id)} className="text-navy-600 hover:text-red-400">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
           {taxSettings && (
@@ -898,7 +1012,8 @@ export default function FinancePage() {
                 </div>
               </div>
             )}
-            <table className="w-full text-sm">
+            {/* Desktop table */}
+            <table className="w-full text-sm hidden md:table">
               <thead>
                 <tr className="text-left text-navy-500 border-b border-navy-800">
                   <th className="pb-2 font-medium">Дата</th>
@@ -927,6 +1042,33 @@ export default function FinancePage() {
                 )}
               </tbody>
             </table>
+
+            {/* Mobile card list */}
+            <div className="md:hidden space-y-2">
+              {taxPayments.filter(p => p.payment_type === 'fixed_contributions' || p.payment_type === 'ops_one_percent').length === 0 ? (
+                <p className="text-navy-600 text-sm text-center py-4">Платежи по взносам ещё не внесены</p>
+              ) : (
+                taxPayments.filter(p => p.payment_type === 'fixed_contributions' || p.payment_type === 'ops_one_percent').map(p => (
+                  <div key={p.id} className="rounded-lg border border-navy-800 p-3">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <p className="text-navy-200 text-sm">{TAX_PAYMENT_TYPE_LABELS[p.payment_type]}</p>
+                      <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
+                        {format(new Date(p.payment_date), 'dd.MM.yy')}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-navy-500 text-xs">{p.doc_no || '—'}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm font-semibold">{fmt2(p.amount)} ₽</span>
+                        <button onClick={() => deleteTaxPayment(p.id)} className="text-navy-600 hover:text-red-400">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}

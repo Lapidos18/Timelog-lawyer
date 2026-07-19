@@ -42,6 +42,10 @@ const STATUS_COLORS = {
 function fmt(n: number) {
   return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 }
+// В актах для доверителя показываем роль вместо полного ФИО адвоката
+function displayPerformer(fullName: string): string {
+  return 'Адвокат'
+}
 function fmtDate(s: string) {
   return format(new Date(s), 'dd.MM.yyyy')
 }
@@ -248,7 +252,7 @@ export default function ActsPage() {
         <td style="text-align:right">${r.hours.toFixed(2)}</td>
         <td style="text-align:right">${fmt(r.hourly_rate)}</td>
         <td style="text-align:right">${fmt(r.amount)}</td>
-        <td>${r.performed_by}</td>
+        <td>${displayPerformer(r.performed_by)}</td>
       </tr>`).join('')
 
     const total = rows.reduce((s, r) => s + r.amount, 0)
@@ -400,7 +404,7 @@ ${act.description ? `<p>${act.description}</p>` : ''}
                             <td className="px-3 py-1.5 text-right font-mono text-navy-300">{r.hours.toFixed(2)}</td>
                             <td className="px-3 py-1.5 text-right font-mono text-navy-400">{fmt(r.hourly_rate)}</td>
                             <td className="px-3 py-1.5 text-right font-mono text-gold-400">{fmt(r.amount)}</td>
-                            <td className="px-3 py-1.5 text-navy-500">{r.performed_by}</td>
+                            <td className="px-3 py-1.5 text-navy-500">{displayPerformer(r.performed_by)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -511,7 +515,7 @@ ${act.description ? `<p>${act.description}</p>` : ''}
                       <td className="py-1.5 pr-3 text-right font-mono text-navy-300">{r.hours.toFixed(2)}</td>
                       <td className="py-1.5 pr-3 text-right font-mono text-navy-400">{fmt(r.hourly_rate)}</td>
                       <td className="py-1.5 pr-3 text-right font-mono text-gold-400">{fmt(r.amount)}</td>
-                      <td className="py-1.5 text-navy-500">{r.performed_by}</td>
+                      <td className="py-1.5 text-navy-500">{displayPerformer(r.performed_by)}</td>
                     </tr>
                   ))}
                 </tbody>

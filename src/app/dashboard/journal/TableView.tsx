@@ -84,7 +84,7 @@ export default function TableView() {
 
   const effectiveRate = (base: string) => {
     const n = parseFloat(base || '0')
-    return ndfl ? Math.round(n / 0.85) : n
+    return ndfl ? n / 0.85 : n
   }
 
   const loadEntries = useCallback(async (f?: typeof filters) => {
@@ -187,6 +187,7 @@ export default function TableView() {
       notes: e.notes ?? '',
     })
     setEditId(e.id)
+    setSelectedUserId(e.user_id)
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }

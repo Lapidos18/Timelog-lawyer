@@ -171,23 +171,20 @@ export default function ActsPage() {
   async function changeStatus(id: string, status: Act['status']) {
     const act = acts.find(a => a.id === id)
 
-    // При переводе в "Оплачен" — предложить сразу зафиксировать фактический платёж,
-    // чтобы задолженность на Обзоре и Доходы обновились автоматически, а не расходились с актом.
+    // При переводе в "Оплачен" — всегда предложить зафиксировать фактический платёж
+    // через модалку (пользователь может отказаться, если уже внёс оплату вручную).
+    // Раньше здесь была эвристика поиска "уже существующего" платежа по подстроке
+    // номера акта в описании — она ненадёжна в обе стороны (не находит платёж,
+    // если он был создан через "Акт сверки" с типовым описанием без номера акта;
+    // либо ложно находит чужой платёж при коротком номере акта) и могла как создать
+    // задвоение, так и молча пропустить фиксацию платежа. Решение по факту оплаты
+    // теперь всегда принимает пользователь в модалке, а не автоматика.
     if (status === 'paid' && act) {
-      const { data: existing } = await supabase
-        .from('payments')
-        .select('id')
-        .eq('matter_id', act.matter_id)
-        .ilike('description', `%${act.act_no}%`)
-        .limit(1)
-
-      if (!existing || existing.length === 0) {
-        setPayConfirmAct(act)
-        setPayConfirmDate(format(new Date(), 'yyyy-MM-dd'))
-        setPayConfirmAmount(String(act.amount))
-        setPayConfirmDocNo('')
-        return // статус пока не меняем — дождёмся подтверждения в модалке
-      }
+      setPayConfirmAct(act)
+      setPayConfirmDate(format(new Date(), 'yyyy-MM-dd'))
+      setPayConfirmAmount(String(act.amount))
+      setPayConfirmDocNo('')
+      return // статус пока не меняем — дождёмся подтверждения в модалке
     }
 
     await supabase.from('acts').update({ status }).eq('id', id)

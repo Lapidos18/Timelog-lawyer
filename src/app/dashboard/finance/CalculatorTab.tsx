@@ -28,7 +28,7 @@ export default function CalculatorTab() {
       const netCheckNoDeduction = baseNoDeduction - ndflNoDeduction
 
       const baseWithDeduction = (amountNum - expensesNum * rateNum) / (1 - rateNum)
-      const ndflWithDeduction = baseWithDeduction * rateNum
+      const ndflWithDeduction = (baseWithDeduction - expensesNum) * rateNum
       const netCheckWithDeduction = baseWithDeduction - ndflWithDeduction
 
       return {

@@ -55,12 +55,13 @@ export default function TimelineView() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
+  const [editUserId, setEditUserId] = useState<string | null>(null)
   const [showCal, setShowCal] = useState(false)
   const calRef = useRef<HTMLDivElement>(null)
   const [calMonth, setCalMonth] = useState(new Date())
   const [submitting, setSubmitting] = useState(false)
   const [ndfl, setNdfl] = useState(false)
-  const effectiveRate = (base: string) => { const n = parseFloat(base || '0'); return ndfl ? Math.round(n / 0.85) : n }
+  const effectiveRate = (base: string) => { const n = parseFloat(base || '0'); return ndfl ? n / 0.85 : n }
 
   // Даты с записями за отображаемый месяц (для подсветки в календаре)
   const [datesWithEntries, setDatesWithEntries] = useState<Set<string>>(new Set())
@@ -188,6 +189,7 @@ export default function TimelineView() {
       is_billable: true, notes: '',
     })
     setEditId(null)
+    setEditUserId(null)
     setShowForm(false)
     setNdfl(false)
   }
@@ -219,6 +221,7 @@ export default function TimelineView() {
       notes: entry.notes ?? '',
     })
     setEditId(entry.id)
+    setEditUserId(entry.user_id)
     setNdfl(false)
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -235,7 +238,7 @@ export default function TimelineView() {
 
     const payload = {
       matter_id: form.matter_id,
-      user_id: user!.id,
+      user_id: editUserId ?? user!.id,
       work_date: dateStr,
       start_time: startTime,
       duration_min: dmin,
@@ -483,7 +486,7 @@ export default function TimelineView() {
             <span className="text-sm">
               {ndfl
                 ? <span className="text-amber-400 font-semibold">
-                    {parseFloat(form.hourly_rate).toLocaleString('ru-RU')} ÷ 0,85 = {Math.round(parseFloat(form.hourly_rate)/0.85).toLocaleString('ru-RU')} ₽/ч
+                    {parseFloat(form.hourly_rate).toLocaleString('ru-RU')} ÷ 0,85 = {formatMoney(parseFloat(form.hourly_rate)/0.85)} ₽/ч
                   </span>
                 : <span className="text-navy-400">{parseFloat(form.hourly_rate).toLocaleString('ru-RU')} ₽/ч</span>}
             </span>

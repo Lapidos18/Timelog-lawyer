@@ -30,6 +30,11 @@ export default function BackupPage() {
       'payments',
       'acts',
       'profiles',
+      'expenses',
+      'tax_settings',
+      'tax_payments',
+      'manual_income',
+      'reimbursable_expenses',
     ]
 
     for (const table of tables) {
@@ -73,12 +78,17 @@ export default function BackupPage() {
   const totalRecords = results.filter(r => r.status === 'ok').reduce((s, r) => s + r.count, 0)
 
   const TABLE_LABELS: Record<string, string> = {
-    clients:      'Клиенты',
-    matters:      'Дела',
-    time_entries: 'Записи времени',
-    payments:     'Платежи',
-    acts:         'Акты',
-    profiles:     'Пользователи',
+    clients:               'Клиенты',
+    matters:               'Дела',
+    time_entries:          'Записи времени',
+    payments:              'Платежи',
+    acts:                  'Акты',
+    profiles:              'Пользователи',
+    expenses:              'Расходы',
+    tax_settings:          'Налоговые настройки',
+    tax_payments:          'Уплата налогов и взносов',
+    manual_income:         'Ручные доходы',
+    reimbursable_expenses: 'Возмещаемые расходы',
   }
 
   return (
@@ -134,7 +144,7 @@ export default function BackupPage() {
               </div>
             ))}
           </div>
-          {!loading && results.length === 6 && (
+          {!loading && results.length === Object.keys(TABLE_LABELS).length && (
             <div className="mt-4 pt-4 border-t border-navy-800 flex items-center justify-between">
               <span className="text-sm text-navy-400">
                 Итого: <strong className="text-navy-200">{totalRecords} записей</strong>

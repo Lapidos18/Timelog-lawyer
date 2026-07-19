@@ -197,6 +197,7 @@ export default function TableView() {
     if (!form.matter_id) { toast.error('Выберите дело'); return }
     const dmin = (parseInt(form.hours || '0') * 60) + parseInt(form.minutes || '0')
     if (dmin <= 0) { toast.error('Укажите время'); return }
+    if (dmin > 1440) { toast.error('Длительность одной записи не может превышать 24 часа'); return }
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
     const payload = {
@@ -365,7 +366,7 @@ export default function TableView() {
             <div className="flex gap-3 items-end">
               <div className="flex-1">
                 <label className="label">Часов *</label>
-                <input type="number" min="0" max="24" inputMode="numeric" className="input" placeholder="0"
+                <input type="number" min="0" max="23" inputMode="numeric" className="input" placeholder="0"
                   value={form.hours} onChange={e => setForm(f => ({ ...f, hours: e.target.value }))} />
               </div>
               <div className="flex-1">

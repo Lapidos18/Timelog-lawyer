@@ -232,6 +232,7 @@ export default function TimelineView() {
     if (!form.matter_id) { toast.error('Выберите дело'); return }
     const dmin = parseInt(form.hours || '0') * 60 + parseInt(form.minutes || '0')
     if (dmin <= 0) { toast.error('Укажите время'); return }
+    if (dmin > 1440) { toast.error('Длительность одной записи не может превышать 24 часа'); return }
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
     const startTime = `${form.start_hour.padStart(2,'0')}:${form.start_minute.padStart(2,'0')}:00`
@@ -439,8 +440,8 @@ export default function TimelineView() {
               </select>
             </div>
             <div>
-              <label className="label">Ставка ₽/ч</label>
-              <input type="number" inputMode="decimal" className="input" value={form.hourly_rate}
+              <label className="label">Ставка ₽/ч *</label>
+              <input type="number" min="0" required inputMode="decimal" className="input" value={form.hourly_rate}
                 onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))} />
             </div>
             <div className="flex items-end pb-1">

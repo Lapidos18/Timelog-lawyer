@@ -46,11 +46,10 @@ export default function ClientsPage() {
     ev.preventDefault(); setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
     const payload = { ...form, inn: form.inn || null, phone: form.phone || null,
-      email: form.email || null, address: form.address || null, notes: form.notes || null,
-      created_by: user!.id }
+      email: form.email || null, address: form.address || null, notes: form.notes || null }
     const { error } = editId
       ? await supabase.from('clients').update(payload).eq('id', editId)
-      : await supabase.from('clients').insert(payload)
+      : await supabase.from('clients').insert({ ...payload, created_by: user!.id })
     if (error) { toast.error('Ошибка: ' + error.message) }
     else { toast.success(editId ? 'Клиент обновлён' : 'Клиент добавлен'); resetForm(); loadClients() }
     setSubmitting(false)
@@ -112,6 +111,15 @@ export default function ClientsPage() {
               <textarea className="input resize-none" rows={2} value={form.notes}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
+            {editId && (
+              <div className="col-span-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 accent-gold-500" checked={form.is_active}
+                    onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
+                  <span className="text-sm text-navy-300">Клиент активен (снять — перевести в архив)</span>
+                </label>
+              </div>
+            )}
             <div className="col-span-2 flex gap-3">
               <button type="submit" disabled={submitting} className="btn-primary">
                 <Check className="w-4 h-4" /> {submitting ? 'Сохраняю...' : (editId ? 'Сохранить' : 'Добавить')}

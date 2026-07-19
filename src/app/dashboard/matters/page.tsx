@@ -66,11 +66,11 @@ export default function MattersPage() {
       hourly_rate: form.hourly_rate ? parseFloat(form.hourly_rate) : null,
       fixed_fee: form.fixed_fee ? parseFloat(form.fixed_fee) : null,
       started_at: form.started_at || null, closed_at: form.closed_at || null,
-      notes: form.notes || null, created_by: user!.id,
+      notes: form.notes || null,
     }
     const { error } = editId
       ? await supabase.from('matters').update(payload).eq('id', editId)
-      : await supabase.from('matters').insert(payload)
+      : await supabase.from('matters').insert({ ...payload, created_by: user!.id })
     if (error) { toast.error('Ошибка: ' + error.message) }
     else { toast.success(editId ? 'Дело обновлено' : 'Дело добавлено'); resetForm(); loadMatters() }
     setSubmitting(false)

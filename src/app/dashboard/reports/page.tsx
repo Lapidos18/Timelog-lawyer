@@ -226,10 +226,6 @@ export default function ReportsPage() {
       <div className="flex items-center justify-between mb-7">
         <h1 className="text-2xl font-semibold text-navy-100">Отчёты</h1>
         {searched && rows.length > 0 && (
-        <p className="text-xs text-navy-600 mb-2 hidden md:block">💡 Двойной клик по строке — редактировать запись</p>
-      )}
-
-      {searched && rows.length > 0 && (
           <div className="flex gap-2">
             <button onClick={handleExcelExport} className="btn-secondary">
               <FileSpreadsheet className="w-4 h-4" /> Excel
@@ -351,6 +347,8 @@ export default function ReportsPage() {
       )}
 
       {searched && rows.length > 0 && (
+        <>
+        <p className="text-xs text-navy-600 mb-2 hidden md:block">💡 Двойной клик по строке — редактировать запись</p>
         <div className="space-y-4">
           {groups.map(group => {
             const collapsed = collapsedGroups.has(group.key)
@@ -489,6 +487,7 @@ export default function ReportsPage() {
             </div>
           )}
         </div>
+        </>
       )}
 
       {/* Edit modal */}

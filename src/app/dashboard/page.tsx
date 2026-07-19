@@ -21,7 +21,7 @@ export default function DashboardPage() {
   })
   const [recentEntries, setRecentEntries] = useState<ReportRow[]>([])
   const [clientBalances, setClientBalances] = useState<{
-    name: string; billed: number; paid: number; debt: number
+    id: string; name: string; billed: number; paid: number; debt: number
   }[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -42,6 +42,7 @@ export default function DashboardPage() {
           allEntriesRes,
           allPaymentsRes,
           allClientsRes,
+          allMattersRes,
         ] = await Promise.all([
           supabase
             .from('report_view')
@@ -58,14 +59,17 @@ export default function DashboardPage() {
             .order('work_date', { ascending: false })
             .limit(8),
           supabase
-            .from('report_view')
-            .select('client_name, amount, is_billable'),
+            .from('time_entries')
+            .select('matter_id, amount, is_billable'),
           supabase
             .from('payments')
             .select('client_id, amount'),
           supabase
             .from('clients')
             .select('id, name'),
+          supabase
+            .from('matters')
+            .select('id, client_id'),
         ])
 
         const entries = monthRes.data ?? []
@@ -80,7 +84,7 @@ export default function DashboardPage() {
           hoursThisMonth: Math.round(totalHours * 10) / 10,
           revenueThisMonth: totalRevenue,
           activeMatters: mattersRes.count ?? 0,
-          avgRate: Math.round(avgRate),
+          avgRate,
         })
 
         setRecentEntries(recentRes.data ?? [])
@@ -88,31 +92,40 @@ export default function DashboardPage() {
         const allEntries = allEntriesRes.data
         const allPayments = allPaymentsRes.data
         const allClients = allClientsRes.data
+        const allMatters = allMattersRes.data
 
         const clientMap: Record<string, string> = {}
         for (const c of (allClients ?? [])) {
           clientMap[c.id] = c.name
         }
 
+        const matterClientMap: Record<string, string> = {}
+        for (const m of (allMatters ?? [])) {
+          matterClientMap[m.id] = m.client_id
+        }
+
+        // Ключуем по client_id, а не по имени — иначе тёзки (два разных
+        // клиента с одинаковым именем) задваиваются в одну строку.
         const billedMap: Record<string, number> = {}
         for (const r of (allEntries ?? [])) {
-          if (r.is_billable) {
-            billedMap[r.client_name] = (billedMap[r.client_name] ?? 0) + Number(r.amount)
+          const clientId = matterClientMap[r.matter_id]
+          if (clientId && r.is_billable) {
+            billedMap[clientId] = (billedMap[clientId] ?? 0) + Number(r.amount)
           }
         }
 
         const paidMap: Record<string, number> = {}
         for (const p of (allPayments ?? [])) {
-          const name = clientMap[p.client_id]
-          if (name) paidMap[name] = (paidMap[name] ?? 0) + Number(p.amount)
+          paidMap[p.client_id] = (paidMap[p.client_id] ?? 0) + Number(p.amount)
         }
 
         const balances = Object.entries(billedMap)
-          .map(([name, billed]) => ({
-            name,
+          .map(([clientId, billed]) => ({
+            id: clientId,
+            name: clientMap[clientId] ?? '—',
             billed,
-            paid: paidMap[name] ?? 0,
-            debt: billed - (paidMap[name] ?? 0),
+            paid: paidMap[clientId] ?? 0,
+            debt: billed - (paidMap[clientId] ?? 0),
           }))
           .filter(b => b.debt > 0.01)
           .sort((a, b) => b.debt - a.debt)
@@ -194,7 +207,7 @@ export default function DashboardPage() {
           </h2>
           <div className="space-y-3">
             {clientBalances.map(b => (
-              <div key={b.name} className="flex items-center gap-3 flex-wrap">
+              <div key={b.id} className="flex items-center gap-3 flex-wrap">
                 <span className="text-sm text-navy-200 flex-1 min-w-[120px] truncate">{b.name}</span>
                 <span className="text-xs text-navy-500">начислено {formatMoney(b.billed)} ₽</span>
                 <span className="text-xs text-emerald-400">оплачено {formatMoney(b.paid)} ₽</span>

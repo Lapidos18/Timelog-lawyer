@@ -198,6 +198,7 @@ export default function ActsPage() {
     if (!amountNum || amountNum <= 0) { toast.error('Укажите сумму оплаты'); return }
 
     setPayConfirmSaving(true)
+    const { data: { user } } = await supabase.auth.getUser()
     const { error: payError } = await supabase.from('payments').insert({
       client_id: payConfirmAct.client_id,
       matter_id: payConfirmAct.matter_id,
@@ -205,6 +206,7 @@ export default function ActsPage() {
       amount: amountNum,
       description: `Оплата по акту № ${payConfirmAct.act_no}`,
       doc_no: payConfirmDocNo || null,
+      created_by: user?.id,
     })
 
     if (payError) {

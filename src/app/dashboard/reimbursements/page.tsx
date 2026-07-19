@@ -77,6 +77,7 @@ export default function ReimbursementsPage() {
     if (!form.matter_id) { toast.error('Выберите дело'); return }
     const amountNum = parseFloat(form.amount)
     if (!amountNum || amountNum <= 0) { toast.error('Укажите сумму'); return }
+    if (!form.description.trim()) { toast.error('Укажите описание расхода'); return }
     setSubmitting(true)
     const payload = {
       matter_id: form.matter_id,

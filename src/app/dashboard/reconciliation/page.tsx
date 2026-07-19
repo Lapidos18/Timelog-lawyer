@@ -316,7 +316,7 @@ export default function ReconciliationPage() {
             </div>
             <div>
               <label className="label">Сумма, руб. *</label>
-              <input type="number" className="input" required placeholder="50000"
+              <input type="number" inputMode="decimal" className="input" required placeholder="50000"
                 value={payForm.amount} onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))} />
             </div>
             <div>

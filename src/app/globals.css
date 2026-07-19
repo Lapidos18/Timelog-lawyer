@@ -57,4 +57,11 @@
   .input, .select {
     font-size: 16px;
   }
+  /* Icon-only buttons (close/edit/delete) are ~28-32px — bump the tap target to
+     the ~44px minimum on touch screens without growing them visually on desktop */
+  .btn-ghost {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+  }
 }

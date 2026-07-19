@@ -146,7 +146,7 @@ export default function MattersPage() {
             </div>
             <div>
               <label className="label">Ставка, руб./ч</label>
-              <input type="number" className="input" value={form.hourly_rate}
+              <input type="number" inputMode="decimal" className="input" value={form.hourly_rate}
                 onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))} placeholder="1290" />
             </div>
             <div>

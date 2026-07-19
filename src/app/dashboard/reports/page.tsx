@@ -525,7 +525,7 @@ export default function ReportsPage() {
               </div>
               <div>
                 <label className="label">Часов *</label>
-                <input type="number" min="0" className="input" value={editForm.hours}
+                <input type="number" min="0" inputMode="numeric" className="input" value={editForm.hours}
                   onChange={e => setEditForm(f => ({ ...f, hours: e.target.value }))} />
               </div>
               <div>
@@ -537,7 +537,7 @@ export default function ReportsPage() {
               </div>
               <div className="md:col-span-2">
                 <label className="label">Ставка, руб./ч *</label>
-                <input type="number" className="input" value={editForm.hourly_rate}
+                <input type="number" inputMode="decimal" className="input" value={editForm.hourly_rate}
                   onChange={e => setEditForm(f => ({ ...f, hourly_rate: e.target.value }))} />
               </div>
               <div className="md:col-span-2">

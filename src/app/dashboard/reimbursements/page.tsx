@@ -190,7 +190,7 @@ export default function ReimbursementsPage() {
             </div>
             <div>
               <label className="label">Сумма *</label>
-              <input type="number" className="input" value={form.amount}
+              <input type="number" inputMode="decimal" className="input" value={form.amount}
                 onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
             </div>
             <div className="md:col-span-2">

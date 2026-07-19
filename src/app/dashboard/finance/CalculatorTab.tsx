@@ -103,6 +103,7 @@ export default function CalculatorTab() {
             <div className="relative">
               <input
                 type="number"
+                inputMode="decimal"
                 className="input pr-10"
                 value={amount}
                 onChange={e => setAmount(e.target.value)}
@@ -126,6 +127,7 @@ export default function CalculatorTab() {
             <div className="relative">
               <input
                 type="number"
+                inputMode="decimal"
                 className="input pr-10"
                 value={monthlyExpenses}
                 onChange={e => setMonthlyExpenses(e.target.value)}

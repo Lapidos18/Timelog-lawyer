@@ -603,7 +603,7 @@ ${act.description ? `<p>${act.description}</p>` : ''}
               </div>
               <div>
                 <label className="label">Сумма</label>
-                <input type="number" className="input" value={payConfirmAmount}
+                <input type="number" inputMode="decimal" className="input" value={payConfirmAmount}
                   onChange={e => setPayConfirmAmount(e.target.value)} />
               </div>
               <div>

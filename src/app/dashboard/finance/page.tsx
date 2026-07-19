@@ -475,7 +475,7 @@ export default function FinancePage() {
                 </div>
                 <div>
                   <label className="label">Сумма</label>
-                  <input type="number" className="input" value={incomeForm.amount}
+                  <input type="number" inputMode="decimal" className="input" value={incomeForm.amount}
                     onChange={e => setIncomeForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
                 </div>
                 <div className="md:col-span-2">
@@ -626,7 +626,7 @@ export default function FinancePage() {
                 <div>
                   <label className="label">Сумма</label>
                   <div className="relative">
-                    <input type="number" className="input pr-10" value={expenseForm.amount}
+                    <input type="number" inputMode="decimal" className="input pr-10" value={expenseForm.amount}
                       onChange={e => setExpenseForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-navy-500 text-sm">₽</span>
                   </div>
@@ -829,7 +829,7 @@ export default function FinancePage() {
                 </div>
                 <div>
                   <label className="label">Сумма</label>
-                  <input type="number" className="input" value={paymentForm.amount}
+                  <input type="number" inputMode="decimal" className="input" value={paymentForm.amount}
                     onChange={e => setPaymentForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
                 </div>
                 <div>
@@ -996,7 +996,7 @@ export default function FinancePage() {
                 </div>
                 <div>
                   <label className="label">Сумма</label>
-                  <input type="number" className="input" value={contribPaymentForm.amount}
+                  <input type="number" inputMode="decimal" className="input" value={contribPaymentForm.amount}
                     onChange={e => setContribPaymentForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
                 </div>
                 <div>

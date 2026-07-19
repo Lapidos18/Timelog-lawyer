@@ -364,7 +364,7 @@ export default function TableView() {
             <div className="flex gap-3 items-end">
               <div className="flex-1">
                 <label className="label">Часов *</label>
-                <input type="number" min="0" max="24" className="input" placeholder="0"
+                <input type="number" min="0" max="24" inputMode="numeric" className="input" placeholder="0"
                   value={form.hours} onChange={e => setForm(f => ({ ...f, hours: e.target.value }))} />
               </div>
               <div className="flex-1">
@@ -401,7 +401,7 @@ export default function TableView() {
                   </span>
                 )}
               </label>
-              <input type="number" min="0" className="input" placeholder="7000"
+              <input type="number" min="0" inputMode="decimal" className="input" placeholder="7000"
                 value={form.hourly_rate}
                 onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))} required />
             </div>

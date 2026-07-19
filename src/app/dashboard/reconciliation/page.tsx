@@ -308,7 +308,7 @@ export default function ReconciliationPage() {
             <h2 className="font-medium text-navy-200 text-sm">Новый платёж</h2>
             <button onClick={() => setShowPayForm(false)} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
           </div>
-          <form onSubmit={addPayment} className="grid grid-cols-4 gap-3">
+          <form onSubmit={addPayment} className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
               <label className="label">Дата *</label>
               <input type="date" className="input" required value={payForm.pay_date}
@@ -332,12 +332,12 @@ export default function ReconciliationPage() {
                 {clientMatters.map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
               </select>
             </div>
-            <div className="col-span-4">
+            <div className="md:col-span-4">
               <label className="label">Назначение платежа</label>
               <input type="text" className="input" value={payForm.description}
                 onChange={e => setPayForm(f => ({ ...f, description: e.target.value }))} />
             </div>
-            <div className="col-span-4 flex gap-3">
+            <div className="md:col-span-4 flex gap-3">
               <button type="submit" disabled={savingPay} className="btn-primary">
                 <Check className="w-4 h-4" /> {savingPay ? 'Сохраняю...' : 'Добавить платёж'}
               </button>
@@ -351,7 +351,7 @@ export default function ReconciliationPage() {
       {generated && (
         <>
           {/* Summary */}
-          <div className="grid grid-cols-3 gap-3 mb-4 md:mb-5">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4 md:mb-5">
             <div className="stat-card">
               <p className="text-xs text-navy-400">Оказано услуг</p>
               <p className="text-2xl font-semibold text-navy-100">{fmt(totalServices)} ₽</p>

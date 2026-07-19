@@ -51,3 +51,10 @@
   .badge-inactive { @apply badge bg-navy-800 text-navy-400 border border-navy-700; }
   .badge-gold     { @apply badge bg-gold-900/30 text-gold-400 border border-gold-800/50; }
 }
+
+/* iOS Safari zooms the page in on focus when a field's font-size is under 16px */
+@media (max-width: 767px) {
+  .input, .select {
+    font-size: 16px;
+  }
+}

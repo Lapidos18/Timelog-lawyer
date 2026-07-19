@@ -327,7 +327,7 @@ export default function ReportsPage() {
 
       {/* Summary */}
       {searched && (
-        <div className="grid grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-5">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-5">
           <div className="stat-card">
             <p className="text-xs text-navy-400">Записей</p>
             <p className="text-2xl font-semibold text-navy-100">{rows.length}</p>

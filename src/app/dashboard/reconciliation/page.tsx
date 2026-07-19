@@ -374,7 +374,9 @@ export default function ReconciliationPage() {
             {services.length === 0 ? (
               <p className="text-navy-500 text-sm text-center py-6">Нет оказанных услуг за период</p>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+              {/* Table (desktop) */}
+              <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-xs min-w-[640px]">
                 <thead>
                   <tr className="border-b border-navy-800">
@@ -403,6 +405,31 @@ export default function ReconciliationPage() {
                 </tbody>
               </table>
               </div>
+
+              {/* Card list (mobile) */}
+              <div className="md:hidden">
+                {services.map(r => (
+                  <div key={r.id} className="py-2.5 border-b border-navy-800/40">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <p className="text-navy-300 text-xs max-w-[70%] truncate">{r.matter_title}</p>
+                      <span className="text-navy-400 font-mono text-xs whitespace-nowrap">{fmtDate(r.work_date)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-navy-400 text-xs">{ACTIVITY_LABELS[r.activity_type as keyof typeof ACTIVITY_LABELS]}</span>
+                      <span className="text-navy-400 font-mono text-xs">{r.hours.toFixed(2)} ч</span>
+                    </div>
+                    <p className="text-navy-300 text-xs mb-1.5 line-clamp-2">{r.description}</p>
+                    <div className="flex justify-end">
+                      <span className="font-mono text-sm text-gold-400 font-semibold">{fmt(r.amount)} ₽</span>
+                    </div>
+                  </div>
+                ))}
+                <div className="pt-2.5 flex items-center justify-between text-xs">
+                  <span className="text-navy-400 font-medium">Итого:</span>
+                  <span className="font-mono font-semibold text-gold-400">{fmt(totalServices)} ₽</span>
+                </div>
+              </div>
+              </>
             )}
           </div>
 
@@ -417,7 +444,9 @@ export default function ReconciliationPage() {
                 </button>
               </p>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+              {/* Table (desktop) */}
+              <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-xs min-w-[480px]">
                 <thead>
                   <tr className="border-b border-navy-800">
@@ -450,6 +479,33 @@ export default function ReconciliationPage() {
                 </tbody>
               </table>
               </div>
+
+              {/* Card list (mobile) */}
+              <div className="md:hidden">
+                {payments.map(p => (
+                  <div key={p.id} className="py-2.5 border-b border-navy-800/40">
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <div className="min-w-0">
+                        <p className="text-navy-300 text-xs truncate">{p.description}</p>
+                        {p.doc_no && <p className="text-navy-500 text-xs">№ {p.doc_no}</p>}
+                      </div>
+                      <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">{fmtDate(p.pay_date)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-sm text-emerald-400 font-semibold">{fmt(p.amount)} ₽</span>
+                      <button onClick={() => deletePayment(p.id)}
+                        className="btn-ghost p-1.5 hover:text-red-400 hover:bg-red-900/10">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <div className="pt-2.5 flex items-center justify-between text-xs">
+                  <span className="text-navy-400 font-medium">Итого:</span>
+                  <span className="font-mono font-semibold text-emerald-400">{fmt(totalPayments)} ₽</span>
+                </div>
+              </div>
+              </>
             )}
           </div>
         </>

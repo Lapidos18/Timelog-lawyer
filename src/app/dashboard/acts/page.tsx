@@ -424,8 +424,8 @@ ${act.description ? `<p>${act.description}</p>` : ''}
         </div>
       )}
 
-      {/* List */}
-      <div className="card overflow-x-auto">
+      {/* List (desktop) */}
+      <div className="card hidden md:block">
         {loading ? (
           <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
         ) : acts.length === 0 ? (
@@ -474,6 +474,53 @@ ${act.description ? `<p>${act.description}</p>` : ''}
               ))}
             </tbody>
           </table>
+        )}
+      </div>
+
+      {/* List (mobile) — card list, тап по карточке открывает предпросмотр/печать */}
+      <div className="md:hidden">
+        {loading ? (
+          <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
+        ) : acts.length === 0 ? (
+          <p className="text-navy-500 text-sm text-center py-12">Нет актов. <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">Создать первый →</button></p>
+        ) : (
+          <div className="space-y-2">
+            {acts.map(act => (
+              <div key={act.id}
+                onClick={() => openPreview(act)}
+                className="card p-3 active:bg-navy-800/60 transition-colors">
+                <div className="flex items-start justify-between gap-2 mb-1.5">
+                  <div className="min-w-0">
+                    <p className="text-navy-200 text-sm font-medium truncate">{act.matters?.clients?.name}</p>
+                    <p className="text-navy-500 text-xs truncate">{act.matters?.title}</p>
+                  </div>
+                  <span className="text-gold-400 font-mono text-xs whitespace-nowrap flex-shrink-0">{act.act_no}</span>
+                </div>
+                <p className="text-navy-400 text-xs mb-2">
+                  {fmtDate(act.period_from)} — {fmtDate(act.period_to)}
+                </p>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <select value={act.status}
+                    onClick={ev => ev.stopPropagation()}
+                    onChange={e => changeStatus(act.id, e.target.value as Act['status'])}
+                    className={`text-xs px-2 py-1 rounded-md border-0 cursor-pointer ${STATUS_COLORS[act.status]}`}>
+                    {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                  <span className="font-mono text-sm text-gold-400 font-semibold">{fmt(act.amount)} ₽</span>
+                </div>
+                <div className="flex items-center justify-end gap-1 pt-2 border-t border-navy-800/60">
+                  <button onClick={ev => { ev.stopPropagation(); openPreview(act) }}
+                    className="btn-ghost p-1.5" title="Просмотр / печать">
+                    <Printer className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={ev => { ev.stopPropagation(); deleteAct(act.id) }}
+                    className="btn-ghost p-1.5 hover:text-red-400 hover:bg-red-900/10">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 

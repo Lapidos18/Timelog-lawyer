@@ -226,7 +226,7 @@ export default function ReportsPage() {
       <div className="flex items-center justify-between mb-7">
         <h1 className="text-2xl font-semibold text-navy-100">Отчёты</h1>
         {searched && rows.length > 0 && (
-        <p className="text-xs text-navy-600 mb-2">💡 Двойной клик по строке — редактировать запись</p>
+        <p className="text-xs text-navy-600 mb-2 hidden md:block">💡 Двойной клик по строке — редактировать запись</p>
       )}
 
       {searched && rows.length > 0 && (
@@ -382,9 +382,9 @@ export default function ReportsPage() {
                   </button>
                 )}
 
-                {/* Group rows */}
+                {/* Group rows — table (desktop) */}
                 {!collapsed && (
-                  <div className="overflow-x-auto">
+                  <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-xs min-w-[800px]">
                       <thead>
                         <tr className="border-b border-navy-800">
@@ -431,6 +431,46 @@ export default function ReportsPage() {
                         </tr>
                       </tfoot>
                     </table>
+                  </div>
+                )}
+
+                {/* Group rows — card list (mobile) */}
+                {!collapsed && (
+                  <div className="md:hidden">
+                    {group.rows.map(r => (
+                      <div key={r.id}
+                        onClick={() => openEdit(r)}
+                        className="p-3 border-b border-navy-800/40 active:bg-navy-800/60 transition-colors">
+                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                          <div className="min-w-0">
+                            <p className="text-navy-200 text-sm font-medium truncate">{r.client_name}</p>
+                            <p className="text-navy-500 text-xs truncate">{r.matter_title}</p>
+                          </div>
+                          <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
+                            {fmtDate(r.work_date)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="badge-gold text-xs">{ACTIVITY_LABELS[r.activity_type]}</span>
+                          <span className="text-navy-400 font-mono text-xs">{Number(r.hours).toFixed(2)} ч</span>
+                        </div>
+                        <p className="text-navy-300 text-xs mb-2 line-clamp-2">{r.description}</p>
+                        <div className="flex items-center justify-between pt-2 border-t border-navy-800/60">
+                          <span className="text-navy-500 text-xs truncate">{r.performed_by}</span>
+                          <span className="font-mono text-sm">
+                            {r.is_billable
+                              ? <span className="text-gold-400 font-semibold">{formatMoney(r.amount)} ₽</span>
+                              : <span className="text-navy-600">—</span>}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="px-3 py-2.5 flex items-center justify-between bg-navy-800/30 text-xs">
+                      <span className="text-navy-400 font-medium">
+                        {groupBy !== 'none' ? 'Итого по группе:' : 'Итого:'} {groupHours.toFixed(2)} ч
+                      </span>
+                      <span className="text-gold-400 font-mono font-semibold">{formatMoney(groupAmount)} ₽</span>
+                    </div>
                   </div>
                 )}
               </div>

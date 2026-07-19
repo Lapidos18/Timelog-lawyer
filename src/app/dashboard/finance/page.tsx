@@ -48,7 +48,7 @@ export default function FinancePage() {
   const supabase = createClient()
   const [tab, setTab] = useState<Tab>('calc')
   const [loading, setLoading] = useState(true)
-  const [year] = useState(2026)
+  const [year] = useState(() => new Date().getFullYear())
 
   const [incomes, setIncomes] = useState<IncomeRow[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
@@ -142,7 +142,7 @@ export default function FinancePage() {
     )
 
     setIncomes(mappedIncomes.filter(i => i.pay_year === year))
-    setExpenses(expensesData || [])
+    setExpenses((expensesData || []).filter((e: Expense) => new Date(e.expense_date).getFullYear() === year))
     setTaxSettings(settingsData || null)
     setTaxPayments(taxPaymentsData || [])
     setClients(clientsData || [])
@@ -595,7 +595,7 @@ export default function FinancePage() {
         <div>
           <div className="flex justify-between items-center mb-4">
             <div className="card !py-3 !px-4 inline-flex items-baseline gap-2">
-              <span className="text-sm text-navy-500">Итого вычетов (документально подтверждённых)</span>
+              <span className="text-sm text-navy-500">Итого вычетов за {year} год (документально подтверждённых)</span>
               <span className="text-lg font-bold text-gold-400">{fmt2(expensesTotal)} ₽</span>
             </div>
             <button
@@ -760,6 +760,15 @@ export default function FinancePage() {
       )}
 
       {/* ============ РАСЧЁТ НДФЛ ============ */}
+      {tab === 'calc' && !loading && !taxSettings && (
+        <div className="card">
+          <p className="text-navy-400 text-sm text-center py-8">
+            Налоговые настройки на {year} год ещё не заведены в базе (ставки НДФЛ, пороги и сроки
+            меняются законодателем каждый год). Добавьте строку в таблицу <code className="text-xs">tax_settings</code>{' '}
+            для {year} года через Supabase SQL Editor — после этого расчёт появится здесь автоматически.
+          </p>
+        </div>
+      )}
       {tab === 'calc' && quarterlyCalc && (
         <div className="space-y-4">
           {quarterlyCalc.map(row => (
@@ -913,6 +922,15 @@ export default function FinancePage() {
       )}
 
       {/* ============ ВЗНОСЫ ============ */}
+      {tab === 'contributions' && !loading && !taxSettings && (
+        <div className="card">
+          <p className="text-navy-400 text-sm text-center py-8">
+            Налоговые настройки на {year} год ещё не заведены в базе. Добавьте строку в таблицу{' '}
+            <code className="text-xs">tax_settings</code> для {year} года через Supabase SQL Editor —
+            после этого расчёт взносов появится здесь автоматически.
+          </p>
+        </div>
+      )}
       {tab === 'contributions' && contributionsCalc && taxSettings && (
         <div className="space-y-4">
           <div className="card">

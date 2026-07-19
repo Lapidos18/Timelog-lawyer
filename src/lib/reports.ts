@@ -12,6 +12,13 @@ function formatMinutes(min: number) {
 function formatMoney(n: number) {
   return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 }
+
+// В отчётах для клиента показываем роль вместо полного ФИО.
+// Группировка по специалистам всё равно ведётся по реальному имени (r.performed_by),
+// чтобы разные исполнители не схлопывались в одну строку — здесь только замена подписи.
+function displayPerformer(fullName: string): string {
+  return 'Адвокат'
+}
 function formatHours(h: number) {
   return h.toFixed(2).replace('.', ',')
 }
@@ -77,7 +84,7 @@ export function exportToPDF(
   const servicesRows = billableRows.map((r, i) => `
     <tr>
       <td>${formatDate(r.work_date)}</td>
-      <td>${r.performed_by}</td>
+      <td>${displayPerformer(r.performed_by)}</td>
       <td>${r.description || ACTIVITY_LABELS[r.activity_type]}</td>
       <td class="num">${formatHours(Number(r.hours))}</td>
     </tr>`).join('')
@@ -85,7 +92,7 @@ export function exportToPDF(
   // Детализация по специалистам
   const executorRows = Object.entries(byExecutor).map(([name, d]) => `
     <tr>
-      <td>${name}</td>
+      <td>${displayPerformer(name)}</td>
       <td class="num">${formatMoney(d.rate)}</td>
       <td class="num">${formatHours(d.hours)}</td>
       <td class="num">${formatMoney(d.amount)}</td>
@@ -338,7 +345,7 @@ export async function exportToWord(
   const servicesRows = billableRows.map(r => new TableRow({
     children: [
       cell(formatDate(r.work_date), 1200),
-      cell(r.performed_by, 2200),
+      cell(displayPerformer(r.performed_by), 2200),
       cell(r.description || ACTIVITY_LABELS[r.activity_type], 4800),
       cell(formatHours(Number(r.hours)), 900, AlignmentType.RIGHT),
     ],
@@ -367,7 +374,7 @@ export async function exportToWord(
   })
   const execRows = Object.entries(byExecutor).map(([name, d]) => new TableRow({
     children: [
-      cell(name, 3500),
+      cell(displayPerformer(name), 3500),
       cell(formatMoney(d.rate), 1500, AlignmentType.RIGHT),
       cell(formatHours(d.hours), 1100, AlignmentType.RIGHT),
       cell(formatMoney(d.amount), 1500, AlignmentType.RIGHT),

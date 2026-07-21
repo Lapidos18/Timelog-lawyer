@@ -143,16 +143,13 @@ export default function TableView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Автозаполнение ставки при выборе дела
-  useEffect(() => {
-    if (!form.matter_id) return
-    const m = matters.find(x => x.id === form.matter_id)
-    if (m?.hourly_rate) {
-      setForm(f => ({ ...f, hourly_rate: String(m.hourly_rate) }))
-    } else if (profile?.hourly_rate) {
-      setForm(f => ({ ...f, hourly_rate: String(profile.hourly_rate) }))
-    }
-  }, [form.matter_id])
+  // Автозаполнение ставки при выборе дела вручную (не при открытии формы на редактирование —
+  // там ставка уже зафиксирована в самой записи и не должна подменяться текущей ставкой дела)
+  function selectMatter(matterId: string) {
+    const m = matters.find(x => x.id === matterId)
+    const rate = m?.hourly_rate ?? profile?.hourly_rate
+    setForm(f => ({ ...f, matter_id: matterId, hourly_rate: rate ? String(rate) : f.hourly_rate }))
+  }
 
   function resetForm() {
     setForm({
@@ -308,7 +305,7 @@ export default function TableView() {
             <div className="col-span-3 md:col-span-1">
               <label className="label">Дело *</label>
               <select className="select" value={form.matter_id}
-                onChange={e => setForm(f => ({ ...f, matter_id: e.target.value }))} required>
+                onChange={e => selectMatter(e.target.value)} required>
                 <option value="">— выберите дело —</option>
                 {matters.map(m => (
                   <option key={m.id} value={m.id}>

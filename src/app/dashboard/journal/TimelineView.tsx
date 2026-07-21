@@ -180,6 +180,14 @@ export default function TimelineView() {
     setDate(d); setCalMonth(d); setShowCal(false)
   }
 
+  // Автозаполнение ставки при выборе дела вручную (не при открытии формы на редактирование —
+  // там ставка уже зафиксирована в самой записи и не должна подменяться текущей ставкой дела)
+  function selectMatter(matterId: string) {
+    const m = matters.find(x => x.id === matterId)
+    const rate = m?.hourly_rate ?? profile?.hourly_rate
+    setForm(f => ({ ...f, matter_id: matterId, hourly_rate: rate ? String(rate) : f.hourly_rate }))
+  }
+
   function resetForm() {
     setForm({
       matter_id: '', hours: '1', minutes: '0',
@@ -396,7 +404,7 @@ export default function TimelineView() {
             <div className="md:col-span-2">
               <label className="label">Дело *</label>
               <select className="select" required value={form.matter_id}
-                onChange={e => setForm(f => ({ ...f, matter_id: e.target.value }))}>
+                onChange={e => selectMatter(e.target.value)}>
                 <option value="">— выберите —</option>
                 {matters.map(m => (
                   <option key={m.id} value={m.id}>{m.clients?.name} / {m.title}</option>

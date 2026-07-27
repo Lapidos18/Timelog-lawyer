@@ -37,8 +37,14 @@ export default function BackupPage() {
       'reimbursable_expenses',
     ]
 
+    // tax_settings не имеет столбца created_at (первичный ключ — year, дата
+    // строки не нужна), поэтому для неё сортируем по году, а не по умолчанию
+    const orderColumn: Record<string, string> = {
+      tax_settings: 'year',
+    }
+
     for (const table of tables) {
-      const { data, error } = await supabase.from(table).select('*').order('created_at' as any)
+      const { data, error } = await supabase.from(table).select('*').order((orderColumn[table] ?? 'created_at') as any)
       if (error) {
         newResults.push({ table, count: 0, status: 'error' })
       } else {

@@ -11,9 +11,9 @@ type Mode = 'net_to_gross' | 'gross_to_net'
 
 export default function CalculatorTab() {
   const [mode, setMode] = useState<Mode>('net_to_gross')
-  const [amount, setAmount] = useState('40000')
+  const [amount, setAmount] = useState('')
   const [rate, setRate] = useState('0.15')
-  const [monthlyExpenses, setMonthlyExpenses] = useState('9600')
+  const [monthlyExpenses, setMonthlyExpenses] = useState('')
   const [copied, setCopied] = useState(false)
 
   const rateNum = parseFloat(rate) || 0

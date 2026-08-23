@@ -42,8 +42,15 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="label">Email</label>
+              {/* autoComplete username + current-password — по этой паре связка
+                  ключей iCloud и менеджеры паролей предлагают сохранённый вход */}
               <input
                 type="email"
+                name="username"
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 className="input"
                 placeholder="you@example.com"
                 value={email}
@@ -55,6 +62,8 @@ export default function LoginPage() {
               <label className="label">Пароль</label>
               <input
                 type="password"
+                name="password"
+                autoComplete="current-password"
                 className="input"
                 placeholder="••••••••"
                 value={password}

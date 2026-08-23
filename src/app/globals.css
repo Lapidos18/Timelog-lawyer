@@ -64,4 +64,13 @@
     min-height: 44px;
     justify-content: center;
   }
+  /* Fields land at 38px and buttons at 36px from their padding alone, both under
+     the same 44px minimum — a miss here costs a mis-tap on every form in the app */
+  .input, .select, .btn-primary, .btn-secondary {
+    min-height: 44px;
+  }
+  /* textarea uses .input too: keep it growing from its rows, not pinned to 44px */
+  textarea.input {
+    min-height: 0;
+  }
 }

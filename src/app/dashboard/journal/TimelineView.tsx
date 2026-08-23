@@ -56,6 +56,18 @@ export default function TimelineView() {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [editUserId, setEditUserId] = useState<string | null>(null)
+
+  // На сенсорном экране двойной тап — это жест масштабирования, а не «открыть»,
+  // поэтому там запись открывается на редактирование одиночным касанием.
+  // На мыши оставляем привычный по остальным разделам двойной клик.
+  const [isTouch, setIsTouch] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(pointer: coarse)')
+    const sync = () => setIsTouch(mq.matches)
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
   const [showCal, setShowCal] = useState(false)
   const calRef = useRef<HTMLDivElement>(null)
   const [calMonth, setCalMonth] = useState(new Date())
@@ -157,8 +169,14 @@ export default function TimelineView() {
     function handleClickOutside(e: MouseEvent) {
       if (calRef.current && !calRef.current.contains(e.target as Node)) setShowCal(false)
     }
-    if (showCal) document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    if (showCal) {
+      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('touchstart', handleClickOutside as unknown as EventListener)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside as unknown as EventListener)
+    }
   }, [showCal])
 
   async function loadDay() {
@@ -282,12 +300,12 @@ export default function TimelineView() {
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3 flex-wrap min-w-0">
           <button onClick={() => setDate(d => subDays(d, 1))} className="btn-ghost p-2">
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <div>
-            <h1 className="text-xl font-semibold text-navy-100 capitalize">{dateLabel}</h1>
+          <div className="min-w-0">
+            <h1 className="text-lg md:text-xl font-semibold text-navy-100 capitalize">{dateLabel}</h1>
             <p className="text-xs text-navy-500">
               {entries.length} записей · {totalHours.toFixed(1)} ч · {formatMoney(totalAmount)} ₽
             </p>
@@ -301,9 +319,13 @@ export default function TimelineView() {
               className="btn-ghost text-xs px-3 py-1.5 ml-1 gap-1.5">
               <Calendar className="w-3.5 h-3.5" /> Календарь
             </button>
+            {/* На телефоне поповер прижат к краям экрана: раньше он висел на
+                left-0 от кнопки и при переносе шапки уезжал за правый край */}
             {showCal && (
-              <div ref={calRef} className="absolute top-10 left-0 z-50 bg-navy-900 border border-navy-700
-                              rounded-xl shadow-2xl p-4 w-[min(20rem,calc(100vw-2rem))]">
+              <div ref={calRef} className="fixed left-4 right-4 top-20 w-auto
+                              md:absolute md:left-0 md:right-auto md:top-10 md:w-80
+                              z-50 bg-navy-900 border border-navy-700
+                              rounded-xl shadow-2xl p-4">
                 <div className="flex items-center justify-between mb-3">
                   <button onClick={() => setCalMonth(m => subMonths(m, 1))} className="btn-ghost p-1">
                     <ChevronLeft className="w-4 h-4" />
@@ -348,7 +370,7 @@ export default function TimelineView() {
                     const hasEntries = datesWithEntries.has(dStr)
                     return (
                       <button key={d.toISOString()} onClick={() => selectDay(d)}
-                        className={`relative h-8 w-full rounded-lg text-xs font-medium transition-colors
+                        className={`relative h-11 md:h-8 w-full rounded-lg text-xs font-medium transition-colors
                           ${isSelected || isMultiSelected ? 'bg-gold-500 text-navy-950'
                             : isToday ? 'bg-navy-700 text-gold-400 ring-1 ring-gold-500/50'
                             : inMonth ? 'text-navy-300 hover:bg-navy-800' : 'text-navy-700'}`}>
@@ -540,7 +562,8 @@ export default function TimelineView() {
                         {dayEntries.map(e => (
                           <div key={e.id}
                             onDoubleClick={() => { setDate(new Date(dStr)); setMultiSelectMode(false); setSelectedDates([]); setTimeout(() => openEdit(e), 100) }}
-                            title="Двойной клик — редактировать"
+                            onClick={isTouch ? () => { setDate(new Date(dStr)); setMultiSelectMode(false); setSelectedDates([]); setTimeout(() => openEdit(e), 100) } : undefined}
+                            title={isTouch ? 'Нажмите — редактировать' : 'Двойной клик — редактировать'}
                             className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg border cursor-pointer
                                         hover:brightness-125 transition-all ${COLORS[e.activity_type]}`}>
                             <div className="min-w-0 flex-1">
@@ -584,7 +607,10 @@ export default function TimelineView() {
       <>
       {/* Hint */}
       {!showForm && entries.length > 0 && (
-        <p className="text-xs text-navy-600 mb-3">💡 Двойной клик по записи — редактировать</p>
+        <p className="text-xs text-navy-600 mb-3">
+          💡 <span className="hidden md:inline">Двойной клик по записи — редактировать</span>
+          <span className="md:hidden">Нажмите на запись — редактировать</span>
+        </p>
       )}
 
       {/* Day view */}
@@ -629,7 +655,8 @@ export default function TimelineView() {
                   <div
                     key={e.id}
                     onDoubleClick={() => openEdit(e)}
-                    title="Двойной клик — редактировать"
+                    onClick={isTouch ? () => openEdit(e) : undefined}
+                    title={isTouch ? 'Нажмите — редактировать' : 'Двойной клик — редактировать'}
                     className={`absolute left-1 right-1 md:left-2 md:right-2 rounded-lg border px-2 md:px-3 py-1.5
                                 cursor-pointer hover:brightness-125 transition-all overflow-hidden
                                 ${COLORS[e.activity_type]}`}
@@ -658,18 +685,24 @@ export default function TimelineView() {
             {loading ? (
               <p className="text-navy-600 text-xs">Загрузка...</p>
             ) : entries.length === 0 ? (
-              <p className="text-navy-600 text-xs">Нет записей. Кликни на временной слот чтобы добавить.</p>
+              <p className="text-navy-600 text-xs">Нет записей. Нажмите на временной слот, чтобы добавить.</p>
             ) : (
               <div className="space-y-2">
                 {entries.map(e => (
                   <div key={e.id}
                     onDoubleClick={() => openEdit(e)}
+                    onClick={isTouch ? () => openEdit(e) : undefined}
                     className={`p-2.5 rounded-lg border cursor-pointer hover:brightness-125 transition-all
                                 ${COLORS[e.activity_type]}`}
-                    title="Двойной клик — редактировать">
-                    <div className="flex items-center justify-between mb-0.5">
+                    title={isTouch ? 'Нажмите — редактировать' : 'Двойной клик — редактировать'}>
+                    <div className="flex items-center justify-between gap-2 mb-0.5">
                       <p className="text-xs font-semibold truncate">{e.matters?.clients?.name}</p>
-                      <Pencil className="w-3 h-3 opacity-50 flex-shrink-0" />
+                      {/* Карандаш раньше был просто картинкой — выглядел кнопкой, но не нажимался */}
+                      <button type="button" aria-label="Редактировать запись"
+                        onClick={ev => { ev.stopPropagation(); openEdit(e) }}
+                        className="btn-ghost p-1.5 -m-1.5 flex-shrink-0 opacity-60 hover:opacity-100">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                     <p className="text-xs opacity-90">{ACTIVITY_LABELS[e.activity_type]}</p>
                     <p className="text-xs opacity-70 truncate mt-0.5">{e.description}</p>

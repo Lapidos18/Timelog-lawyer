@@ -223,7 +223,7 @@ export default function ReportsPage() {
 
   return (
     <div className="p-4 md:p-7">
-      <div className="flex items-center justify-between mb-7">
+      <div className="flex items-center justify-between mb-7 flex-wrap gap-3">
         <h1 className="text-2xl font-semibold text-navy-100">Отчёты</h1>
         {searched && rows.length > 0 && (
           <div className="flex gap-2">

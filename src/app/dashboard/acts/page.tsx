@@ -323,8 +323,8 @@ ${act.description ? `<p>${act.description}</p>` : ''}
 
   return (
     <div className="p-4 md:p-7">
-      <div className="flex items-center justify-between mb-5 md:mb-7">
-        <h1 className="text-2xl font-semibold text-navy-100">Акты об оказании помощи</h1>
+      <div className="flex items-center justify-between mb-5 md:mb-7 flex-wrap gap-3">
+        <h1 className="text-xl md:text-2xl font-semibold text-navy-100">Акты об оказании помощи</h1>
         <button onClick={() => setShowForm(s => !s)} className="btn-primary">
           <Plus className="w-4 h-4" /> Новый акт
         </button>
@@ -527,22 +527,23 @@ ${act.description ? `<p>${act.description}</p>` : ''}
       {previewAct && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
           <div className="bg-navy-900 rounded-xl border border-navy-700 w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-navy-800">
-              <h2 className="font-semibold text-navy-200">{previewAct.act.act_no}</h2>
-              <div className="flex gap-2">
+            <div className="flex items-center justify-between gap-2 px-4 md:px-6 py-4 border-b border-navy-800">
+              <h2 className="font-semibold text-navy-200 truncate">{previewAct.act.act_no}</h2>
+              <div className="flex gap-2 flex-shrink-0">
                 <button onClick={() => printAct(previewAct.act, previewAct.rows)} className="btn-primary">
-                  <Printer className="w-4 h-4" /> Печать / PDF
+                  <Printer className="w-4 h-4" /> <span className="hidden sm:inline">Печать / </span>PDF
                 </button>
                 <button onClick={() => setPreviewAct(null)} className="btn-ghost p-2"><X className="w-4 h-4" /></button>
               </div>
             </div>
-            <div className="overflow-y-auto p-6">
+            <div className="overflow-y-auto p-4 md:p-6">
               <p className="text-xs text-navy-400 mb-3">
                 <b className="text-navy-300">Клиент:</b> {previewAct.act.matters.clients.name} &nbsp;·&nbsp;
                 <b className="text-navy-300">Дело:</b> {previewAct.act.matters.title} &nbsp;·&nbsp;
                 <b className="text-navy-300">Период:</b> {fmtDate(previewAct.act.period_from)} — {fmtDate(previewAct.act.period_to)}
               </p>
-              <div className="overflow-x-auto -mx-6 px-6">
+              {/* Таблица (десктоп) */}
+              <div className="hidden md:block overflow-x-auto -mx-6 px-6">
               <table className="w-full text-xs mb-4 min-w-[640px]">
                 <thead>
                   <tr className="border-b border-navy-800">
@@ -575,6 +576,37 @@ ${act.description ? `<p>${act.description}</p>` : ''}
                   </tr>
                 </tfoot>
               </table>
+              </div>
+
+              {/* Список карточек (мобильный) — то же содержимое, без прокрутки вбок */}
+              <div className="md:hidden mb-4 divide-y divide-navy-800/40">
+                {previewAct.rows.map((r, i) => (
+                  <div key={r.id} className="py-2.5 first:pt-0">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <span className="text-navy-300 text-xs">
+                        <span className="text-navy-600 mr-1.5">{i+1}.</span>
+                        {ACTIVITY_LABELS[r.activity_type]}
+                      </span>
+                      <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
+                        {fmtDate(r.work_date)}
+                      </span>
+                    </div>
+                    <p className="text-navy-300 text-xs mb-1.5">{r.description}</p>
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className="text-navy-500 font-mono">
+                        {r.hours.toFixed(2)} ч × {fmt(r.hourly_rate)} ₽
+                      </span>
+                      <span className="font-mono text-gold-400 font-semibold">{fmt(r.amount)} ₽</span>
+                    </div>
+                    <p className="text-navy-600 text-xs mt-0.5">{displayPerformer(r.performed_by)}</p>
+                  </div>
+                ))}
+                <div className="pt-2.5 flex items-center justify-between text-xs">
+                  <span className="text-navy-400 font-medium">Итого:</span>
+                  <span className="font-mono font-bold text-gold-400">
+                    {fmt(previewAct.rows.reduce((s,r) => s+r.amount, 0))} ₽
+                  </span>
+                </div>
               </div>
             </div>
           </div>

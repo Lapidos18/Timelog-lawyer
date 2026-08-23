@@ -239,7 +239,9 @@ export default function DashboardPage() {
             </Link>
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Table (desktop) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-xs min-w-[600px]">
               <thead>
                 <tr className="border-b border-navy-800">
@@ -274,6 +276,37 @@ export default function DashboardPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Card list (mobile) — то же содержимое, без горизонтальной прокрутки */}
+          <div className="md:hidden divide-y divide-navy-800/40">
+            {recentEntries.map(e => (
+              <div key={e.id} className="py-2.5 first:pt-0 last:pb-0">
+                <div className="flex items-start justify-between gap-2 mb-1.5">
+                  <div className="min-w-0">
+                    <p className="text-navy-200 text-sm font-medium truncate">{e.client_name}</p>
+                    <p className="text-navy-500 text-xs truncate">{e.matter_title}</p>
+                  </div>
+                  <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
+                    {format(new Date(e.work_date), 'dd.MM.yy')}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="badge-gold text-xs">{ACTIVITY_LABELS[e.activity_type] ?? e.activity_type}</span>
+                  <span className="text-navy-400 font-mono text-xs">{Number(e.hours).toFixed(2)} ч</span>
+                </div>
+                <p className="text-navy-300 text-xs mb-1.5 line-clamp-2">{e.description}</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-navy-500 text-xs truncate">{e.performed_by}</span>
+                  <span className="font-mono text-sm">
+                    {e.is_billable
+                      ? <span className="text-gold-400 font-semibold">{formatMoney(e.amount)} ₽</span>
+                      : <span className="text-navy-600">—</span>}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          </>
         )}
       </div>
     </div>

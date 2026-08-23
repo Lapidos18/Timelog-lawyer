@@ -248,9 +248,9 @@ export default function ReconciliationPage() {
 
   return (
     <div className="p-4 md:p-7">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-navy-100">Платежи / Акт сверки</h1>
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-semibold text-navy-100">Платежи / Акт сверки</h1>
           <p className="text-xs text-navy-500 mt-1">Внесение фактических платежей и сверка расчётов с клиентом</p>
         </div>
         {generated && (

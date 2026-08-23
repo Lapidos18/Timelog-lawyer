@@ -493,7 +493,7 @@ export default function ReportsPage() {
       {/* Edit modal */}
       {editRow && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="bg-navy-900 rounded-xl border border-navy-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-navy-900 rounded-xl border border-navy-700 w-full max-w-2xl max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-navy-800 sticky top-0 bg-navy-900">
               <h2 className="font-semibold text-navy-200">Редактировать запись</h2>
               <button onClick={() => setEditRow(null)} className="btn-ghost p-1"><X className="w-4 h-4" /></button>

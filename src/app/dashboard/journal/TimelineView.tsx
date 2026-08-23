@@ -681,13 +681,15 @@ export default function TimelineView() {
           <div className="w-full md:w-72 flex-shrink-0 border-t md:border-t-0 md:border-l border-navy-800 p-4
                           md:overflow-y-auto"
                style={{ maxHeight: undefined }}>
-            <h3 className="text-xs font-medium text-navy-500 mb-3 uppercase tracking-wide">Записи дня</h3>
+            {/* На телефоне список скрыт: те же записи уже видны на шкале дня выше
+                и открываются одним касанием — здесь остаются только итоги */}
+            <h3 className="hidden md:block text-xs font-medium text-navy-500 mb-3 uppercase tracking-wide">Записи дня</h3>
             {loading ? (
-              <p className="text-navy-600 text-xs">Загрузка...</p>
+              <p className="hidden md:block text-navy-600 text-xs">Загрузка...</p>
             ) : entries.length === 0 ? (
               <p className="text-navy-600 text-xs">Нет записей. Нажмите на временной слот, чтобы добавить.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="hidden md:block space-y-2">
                 {entries.map(e => (
                   <div key={e.id}
                     onDoubleClick={() => openEdit(e)}
@@ -721,7 +723,7 @@ export default function TimelineView() {
             )}
 
             {entries.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-navy-800 flex justify-between text-xs">
+              <div className="md:mt-4 md:pt-4 md:border-t border-navy-800 flex justify-between text-xs">
                 <span className="text-navy-500">Итого часов:</span>
                 <span className="text-navy-200 font-semibold">{totalHours.toFixed(2)}</span>
               </div>

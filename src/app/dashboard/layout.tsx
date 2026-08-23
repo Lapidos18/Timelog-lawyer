@@ -111,7 +111,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   )
 
   return (
-    <div className="flex min-h-screen bg-navy-950">
+    <div className="flex min-h-dvh bg-navy-950">
 
       {/* ── Desktop sidebar ── */}
       <aside className="hidden md:flex w-56 flex-shrink-0 bg-navy-950 border-r border-navy-800
@@ -121,7 +121,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* ── Mobile top bar ── */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-20 bg-navy-950 border-b border-navy-800
-                      flex items-center justify-between px-4 h-14">
+                      flex items-center justify-between px-4
+                      h-[calc(3.5rem_+_env(safe-area-inset-top))] pt-[env(safe-area-inset-top)]">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-gold-500/15 border border-gold-500/30
                           flex items-center justify-center">
@@ -142,16 +143,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="md:hidden fixed inset-0 z-30 bg-black/60"
             onClick={() => setMobileOpen(false)} />
           {/* Drawer */}
-          <div className="md:hidden fixed top-0 left-0 bottom-0 z-40 w-64
-                          bg-navy-950 border-r border-navy-800 flex flex-col py-5 px-3">
+          <div className="md:hidden fixed top-0 left-0 bottom-0 z-40 w-64 overflow-y-auto
+                          bg-navy-950 border-r border-navy-800 flex flex-col px-3
+                          pt-[calc(1.25rem_+_env(safe-area-inset-top))]
+                          pb-[calc(1.25rem_+_env(safe-area-inset-bottom))]
+                          pl-[calc(0.75rem_+_env(safe-area-inset-left))]">
             <NavContent />
           </div>
         </>
       )}
 
       {/* ── Bottom nav for mobile (quick access) ── */}
+      {/* Отступ снизу — под «полоску» home indicator на iPhone, иначе подписи
+          пунктов оказываются прямо под ней в режиме «на экран Домой» */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-20
-                      bg-navy-950 border-t border-navy-800 flex">
+                      bg-navy-950 border-t border-navy-800 flex
+                      pb-[env(safe-area-inset-bottom)]
+                      pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
         {MOBILE_BOTTOM_NAV.map(({ href, icon: Icon, label }) => {
           const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
           return (
@@ -168,8 +176,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       {/* ── Main content ── */}
-      <main className="flex-1 md:ml-56 min-h-screen
-                       pt-14 md:pt-0 pb-16 md:pb-0">
+      <main className="flex-1 md:ml-56 min-h-dvh
+                       pt-[calc(3.5rem_+_env(safe-area-inset-top))] md:pt-0
+                       pb-[calc(4rem_+_env(safe-area-inset-bottom))] md:pb-0">
         {children}
       </main>
     </div>

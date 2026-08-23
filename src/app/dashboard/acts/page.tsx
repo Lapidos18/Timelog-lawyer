@@ -526,7 +526,7 @@ ${act.description ? `<p>${act.description}</p>` : ''}
       {/* Print preview modal */}
       {previewAct && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="bg-navy-900 rounded-xl border border-navy-700 w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-navy-900 rounded-xl border border-navy-700 w-full max-w-3xl max-h-[90dvh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between gap-2 px-4 md:px-6 py-4 border-b border-navy-800">
               <h2 className="font-semibold text-navy-200 truncate">{previewAct.act.act_no}</h2>
               <div className="flex gap-2 flex-shrink-0">

@@ -443,7 +443,7 @@ export default function FinancePage() {
           <div className="card mb-4">
             <div className="flex justify-between items-baseline">
               <span className="text-sm text-navy-500">Итого доходов за {year} год</span>
-              <span className="text-xl font-bold text-emerald-400">{fmt2(incomeTotal)} ₽</span>
+              <span className="text-xl font-bold text-emerald-400 whitespace-nowrap">{fmt2(incomeTotal)} ₽</span>
             </div>
             <p className="text-xs text-navy-600 mt-2">
               Оплаты по актам подтягиваются автоматически из раздела «Акты / Оплаты». Доходы, не проходящие через
@@ -451,8 +451,11 @@ export default function FinancePage() {
             </p>
           </div>
 
-          <div className="flex justify-between items-center mb-3">
-            <p className="text-xs text-navy-600">💡 Двойной клик по ручной записи — редактировать</p>
+          <div className="flex justify-between items-center gap-3 flex-wrap mb-3">
+            <p className="text-xs text-navy-600">
+              💡 <span className="hidden md:inline">Двойной клик по ручной записи — редактировать</span>
+              <span className="md:hidden">Нажмите на ручную запись — редактировать</span>
+            </p>
             <button onClick={() => { resetIncomeForm(); setShowIncomeForm(true) }}
               className="flex items-center gap-1.5 bg-gold-500 text-navy-950 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gold-400">
               <Plus className="w-4 h-4" /> Добавить доход
@@ -613,10 +616,10 @@ export default function FinancePage() {
       {/* ============ РАСХОДЫ ============ */}
       {tab === 'expenses' && (
         <div>
-          <div className="flex justify-between items-center mb-4">
-            <div className="card !py-3 !px-4 inline-flex items-baseline gap-2">
+          <div className="flex justify-between items-center gap-3 flex-wrap mb-4">
+            <div className="card !py-3 !px-4 inline-flex items-baseline gap-2 flex-wrap">
               <span className="text-sm text-navy-500">Итого вычетов за {year} год (документально подтверждённых)</span>
-              <span className="text-lg font-bold text-gold-400">{fmt2(expensesTotal)} ₽</span>
+              <span className="text-lg font-bold text-gold-400 whitespace-nowrap">{fmt2(expensesTotal)} ₽</span>
             </div>
             <button
               onClick={() => { resetExpenseForm(); setShowExpenseForm(true) }}
@@ -799,29 +802,29 @@ export default function FinancePage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3">
                 <div>
                   <div className="text-navy-500 text-xs mb-1">Доход нараст. итогом</div>
-                  <div className="font-medium text-navy-100">{fmt2(row.incomeCum)} ₽</div>
+                  <div className="font-medium text-navy-100 whitespace-nowrap">{fmt2(row.incomeCum)} ₽</div>
                 </div>
                 <div>
                   <div className="text-navy-500 text-xs mb-1">Вычеты нараст. итогом</div>
-                  <div className="font-medium text-navy-100">{fmt2(row.expenseCum)} ₽</div>
+                  <div className="font-medium text-navy-100 whitespace-nowrap">{fmt2(row.expenseCum)} ₽</div>
                 </div>
                 <div>
                   <div className="text-navy-500 text-xs mb-1">Налоговая база</div>
-                  <div className="font-medium text-navy-100">{fmt2(row.base)} ₽</div>
+                  <div className="font-medium text-navy-100 whitespace-nowrap">{fmt2(row.base)} ₽</div>
                 </div>
                 <div>
                   <div className="text-navy-500 text-xs mb-1">НДФЛ нараст. итогом</div>
-                  <div className="font-medium text-gold-400">{fmt2(row.ndflCum)} ₽</div>
+                  <div className="font-medium text-gold-400 whitespace-nowrap">{fmt2(row.ndflCum)} ₽</div>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm pt-3 border-t border-navy-800">
                 <div>
                   <div className="text-navy-500 text-xs mb-1">Расчётный аванс к уплате</div>
-                  <div className="font-semibold text-navy-100">{fmt2(row.advanceDue)} ₽</div>
+                  <div className="font-semibold text-navy-100 whitespace-nowrap">{fmt2(row.advanceDue)} ₽</div>
                 </div>
                 <div>
                   <div className="text-navy-500 text-xs mb-1">Фактически уплачено</div>
-                  <div className="font-semibold text-navy-100">{fmt2(row.actuallyPaidThisQ)} ₽</div>
+                  <div className="font-semibold text-navy-100 whitespace-nowrap">{fmt2(row.actuallyPaidThisQ)} ₽</div>
                 </div>
                 <div>
                   <div className="text-navy-500 text-xs mb-1">Разница (уплачено − расчёт)</div>
@@ -960,7 +963,7 @@ export default function FinancePage() {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
               <div>
                 <div className="text-navy-500 text-xs mb-1">Полная годовая сумма</div>
-                <div className="font-medium text-navy-100">{fmt2(taxSettings.fixed_contribution_total)} ₽</div>
+                <div className="font-medium text-navy-100 whitespace-nowrap">{fmt2(taxSettings.fixed_contribution_total)} ₽</div>
               </div>
               <div>
                 <div className="text-navy-500 text-xs mb-1">Месяцев деятельности</div>
@@ -968,7 +971,7 @@ export default function FinancePage() {
               </div>
               <div>
                 <div className="text-navy-500 text-xs mb-1">К уплате (пропорционально)</div>
-                <div className="font-semibold text-gold-400">{fmt2(contributionsCalc.fixedDue)} ₽</div>
+                <div className="font-semibold text-gold-400 whitespace-nowrap">{fmt2(contributionsCalc.fixedDue)} ₽</div>
               </div>
             </div>
             <div className="mt-3 pt-3 border-t border-navy-800 flex justify-between text-sm">
@@ -984,7 +987,7 @@ export default function FinancePage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
               <div>
                 <div className="text-navy-500 text-xs mb-1">Доход за год</div>
-                <div className="font-medium text-navy-100">{fmt2(contributionsCalc.totalIncome)} ₽</div>
+                <div className="font-medium text-navy-100 whitespace-nowrap">{fmt2(contributionsCalc.totalIncome)} ₽</div>
               </div>
               <div>
                 <div className="text-navy-500 text-xs mb-1">Минус расходы (подтверждённые)</div>
@@ -992,7 +995,7 @@ export default function FinancePage() {
               </div>
               <div>
                 <div className="text-navy-500 text-xs mb-1">База</div>
-                <div className="font-medium text-navy-100">{fmt2(contributionsCalc.opsIncomeBase)} ₽</div>
+                <div className="font-medium text-navy-100 whitespace-nowrap">{fmt2(contributionsCalc.opsIncomeBase)} ₽</div>
               </div>
               <div>
                 <div className="text-navy-500 text-xs mb-1">Минус порог</div>
@@ -1000,15 +1003,15 @@ export default function FinancePage() {
               </div>
               <div>
                 <div className="text-navy-500 text-xs mb-1">Сверх порога</div>
-                <div className="font-medium text-navy-100">{fmt2(contributionsCalc.opsBase)} ₽</div>
+                <div className="font-medium text-navy-100 whitespace-nowrap">{fmt2(contributionsCalc.opsBase)} ₽</div>
               </div>
               <div>
                 <div className="text-navy-500 text-xs mb-1">Предел взноса</div>
-                <div className="font-medium text-navy-100">{fmt2(taxSettings.ops_one_percent_cap)} ₽</div>
+                <div className="font-medium text-navy-100 whitespace-nowrap">{fmt2(taxSettings.ops_one_percent_cap)} ₽</div>
               </div>
               <div className="col-span-2">
                 <div className="text-navy-500 text-xs mb-1">К уплате (1% сверх порога)</div>
-                <div className="font-semibold text-gold-400 text-base">{fmt2(contributionsCalc.opsDue)} ₽</div>
+                <div className="font-semibold text-gold-400 text-base whitespace-nowrap">{fmt2(contributionsCalc.opsDue)} ₽</div>
               </div>
             </div>
             <p className="text-xs text-navy-600 mt-3 leading-relaxed">

@@ -2,6 +2,7 @@ import { ReportRow, ACTIVITY_LABELS } from '@/types'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { escapeHtml } from '@/lib/html'
+import toast from 'react-hot-toast'
 
 function formatDate(d: string) {
   return format(new Date(d), 'dd.MM.yyyy', { locale: ru })
@@ -253,7 +254,7 @@ export function exportToPDF(
 
   const w = window.open('', '_blank', 'width=900,height=700')
   if (!w) {
-    alert('Браузер заблокировал всплывающее окно. Разрешите всплывающие окна для этого сайта и попробуйте снова.')
+    toast.error('Браузер заблокировал всплывающее окно. Разрешите всплывающие окна для этого сайта и попробуйте снова.')
     return
   }
   w.document.open()

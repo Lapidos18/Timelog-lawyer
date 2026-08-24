@@ -1,6 +1,7 @@
 import { ReportRow, ACTIVITY_LABELS } from '@/types'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
+import { escapeHtml } from '@/lib/html'
 
 function formatDate(d: string) {
   return format(new Date(d), 'dd.MM.yyyy', { locale: ru })
@@ -84,15 +85,15 @@ export function exportToPDF(
   const servicesRows = billableRows.map((r, i) => `
     <tr>
       <td>${formatDate(r.work_date)}</td>
-      <td>${displayPerformer(r.performed_by)}</td>
-      <td>${r.description || ACTIVITY_LABELS[r.activity_type]}</td>
+      <td>${escapeHtml(displayPerformer(r.performed_by))}</td>
+      <td>${escapeHtml(r.description || ACTIVITY_LABELS[r.activity_type])}</td>
       <td class="num">${formatHours(Number(r.hours))}</td>
     </tr>`).join('')
 
   // Детализация по специалистам
   const executorRows = Object.entries(byExecutor).map(([name, d]) => `
     <tr>
-      <td>${displayPerformer(name)}</td>
+      <td>${escapeHtml(displayPerformer(name))}</td>
       <td class="num">${formatMoney(d.rate)}</td>
       <td class="num">${formatHours(d.hours)}</td>
       <td class="num">${formatMoney(d.amount)}</td>
@@ -100,10 +101,10 @@ export function exportToPDF(
 
   const periodStr = meta?.dateFrom && meta?.dateTo
     ? `с ${formatDate(meta.dateFrom)} по ${formatDate(meta.dateTo)}`
-    : subtitle ?? ''
+    : escapeHtml(subtitle ?? '')
 
   const agreementStr = meta?.agreementNo
-    ? `Соглашение ${meta.agreementNo}${meta.agreementDate ? ` от ${meta.agreementDate} г.` : ''}`
+    ? `Соглашение ${escapeHtml(meta.agreementNo)}${meta.agreementDate ? ` от ${escapeHtml(meta.agreementDate)} г.` : ''}`
     : '—'
 
   const reportNo = title.replace(/[^0-9]/g, '') || '1'
@@ -113,7 +114,7 @@ export function exportToPDF(
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>${title}</title>
+<title>${escapeHtml(title)}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -243,7 +244,7 @@ export function exportToPDF(
 </table>
 
 <div class="footer">
-  <span>Отчёт №${reportNo} от ${reportDate} по Договору №${meta?.agreementNo ?? '—'}</span>
+  <span>Отчёт №${reportNo} от ${reportDate} по Договору №${escapeHtml(meta?.agreementNo ?? '—')}</span>
   <span>Стр. 1 из 1</span>
 </div>
 

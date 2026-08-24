@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { FileDown, FileSpreadsheet, Plus, Trash2, X, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { escapeHtml } from '@/lib/html'
 
 interface Payment {
   id: string
@@ -134,9 +135,9 @@ export default function ReconciliationPage() {
 
     const svcRows = services.map((r, i) => `
       <tr>
-        <td>${i+1}</td><td>${fmtDate(r.work_date)}</td><td>${r.matter_title}</td>
-        <td>${ACTIVITY_LABELS[r.activity_type as keyof typeof ACTIVITY_LABELS]}</td>
-        <td>${r.description}</td>
+        <td>${i+1}</td><td>${fmtDate(r.work_date)}</td><td>${escapeHtml(r.matter_title)}</td>
+        <td>${escapeHtml(ACTIVITY_LABELS[r.activity_type as keyof typeof ACTIVITY_LABELS])}</td>
+        <td>${escapeHtml(r.description)}</td>
         <td style="text-align:right">${r.hours.toFixed(2)}</td>
         <td style="text-align:right">${fmt(r.hourly_rate)}</td>
         <td style="text-align:right">${fmt(r.amount)}</td>
@@ -145,7 +146,7 @@ export default function ReconciliationPage() {
     const payRows = payments.map((p, i) => `
       <tr>
         <td>${i+1}</td><td>${fmtDate(p.pay_date)}</td>
-        <td>${p.doc_no ?? '—'}</td><td>${p.description}</td>
+        <td>${escapeHtml(p.doc_no ?? '—')}</td><td>${escapeHtml(p.description)}</td>
         <td style="text-align:right">${fmt(p.amount)}</td>
       </tr>`).join('')
 
@@ -171,7 +172,7 @@ export default function ReconciliationPage() {
 <div class="sub">за период: ${period}</div>
 <div class="meta">
   <b>Адвокат:</b> Адвокатский кабинет Бухмина Антона Андреевича, рег. № 54/1831, ИНН 540233730471<br>
-  <b>Доверитель:</b> ${client?.name ?? ''}${client?.inn ? `, ИНН ${client.inn}` : ''}
+  <b>Доверитель:</b> ${escapeHtml(client?.name ?? '')}${client?.inn ? `, ИНН ${escapeHtml(client.inn)}` : ''}
 </div>
 <h3>Оказанные услуги</h3>
 <table>
@@ -193,7 +194,7 @@ export default function ReconciliationPage() {
   </div>
   <div class="sign-block">
     <b>Доверитель:</b><br><br>
-    _________________________ /${client?.name ?? ''}/
+    _________________________ /${escapeHtml(client?.name ?? '')}/
   </div>
 </div>
 </body></html>`

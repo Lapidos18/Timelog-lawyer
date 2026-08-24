@@ -6,6 +6,8 @@ import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { Plus, X, Check, Printer, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { escapeHtml } from '@/lib/html'
+import { fmtMoneyWords } from '@/lib/money-words'
 
 interface Act {
   id: string
@@ -135,8 +137,9 @@ export default function ActsPage() {
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
     const m = matters.find(x => x.id === form.matter_id)!
+    const actNo = form.act_no || `АКТ-${format(new Date(), 'yyyyMMdd-HHmm')}`
     const { error } = await supabase.from('acts').insert({
-      act_no: form.act_no || `АКТ-${format(new Date(), 'yyyyMMdd-HHmm')}`,
+      act_no: actNo,
       matter_id: form.matter_id,
       client_id: m.client_id,
       period_from: form.period_from,
@@ -145,7 +148,15 @@ export default function ActsPage() {
       description: form.description || null,
       created_by: user!.id,
     })
-    if (error) { toast.error('Ошибка: ' + error.message) }
+    if (error) {
+      // 23505 — нарушение уникальности: акт с таким номером уже существует.
+      // Показываем это по-человечески, а не текстом ошибки базы.
+      if (error.code === '23505') {
+        toast.error(`Акт № ${actNo} уже существует. Укажите другой номер.`)
+      } else {
+        toast.error('Ошибка: ' + error.message)
+      }
+    }
     else { toast.success('Акт создан'); setShowForm(false); loadActs() }
     setSubmitting(false)
   }
@@ -246,19 +257,18 @@ export default function ActsPage() {
       <tr>
         <td>${i+1}</td>
         <td>${fmtDate(r.work_date)}</td>
-        <td>${ACTIVITY_LABELS[r.activity_type]}</td>
-        <td>${r.description}</td>
+        <td>${escapeHtml(ACTIVITY_LABELS[r.activity_type])}</td>
+        <td>${escapeHtml(r.description)}</td>
         <td style="text-align:right">${r.hours.toFixed(2)}</td>
         <td style="text-align:right">${fmt(r.hourly_rate)}</td>
         <td style="text-align:right">${fmt(r.amount)}</td>
-        <td>${displayPerformer(r.performed_by)}</td>
+        <td>${escapeHtml(displayPerformer(r.performed_by))}</td>
       </tr>`).join('')
 
     const total = rows.reduce((s, r) => s + r.amount, 0)
-    const amountWords = fmt(total) // TODO: прописью
 
     const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">
-<title>${act.act_no}</title>
+<title>${escapeHtml(act.act_no)}</title>
 <style>
   body{font-family:Arial,sans-serif;font-size:10pt;margin:20mm;color:#000}
   h2{text-align:center;font-size:13pt;margin-bottom:4px}
@@ -268,17 +278,18 @@ export default function ActsPage() {
   th{background:#1e3a5f;color:#fff;padding:5px 4px;font-size:9pt;text-align:left;border:1px solid #ccc}
   td{padding:4px;border:1px solid #ddd;font-size:9pt}
   tfoot td{font-weight:bold;background:#f5f5f5}
-  .total{font-size:11pt;font-weight:bold;margin:12px 0}
+  .total{font-size:11pt;font-weight:bold;margin:12px 0 4px}
+  .total-words{font-size:10pt;margin-bottom:12px}
   .signs{margin-top:40px;display:flex;justify-content:space-between}
   .sign{width:45%}
   @media print{body{margin:15mm}}
 </style></head><body>
 <h2>АКТ ОБ ОКАЗАНИИ ЮРИДИЧЕСКОЙ ПОМОЩИ</h2>
-<div class="sub">${act.act_no} от ${fmtDate(act.created_at.split('T')[0])}</div>
+<div class="sub">${escapeHtml(act.act_no)} от ${fmtDate(act.created_at.split('T')[0])}</div>
 <div class="meta">
   <b>Адвокат:</b> Адвокатский кабинет Бухмина Антона Андреевича, рег. № 54/1831, ИНН 540233730471<br>
-  <b>Доверитель:</b> ${act.matters.clients.name}${act.matters.clients.inn ? `, ИНН ${act.matters.clients.inn}` : ''}<br>
-  <b>Дело:</b> ${act.matters.title}${act.matters.agreement_no ? ` по соглашению № ${act.matters.agreement_no}` : ''}<br>
+  <b>Доверитель:</b> ${escapeHtml(act.matters.clients.name)}${act.matters.clients.inn ? `, ИНН ${escapeHtml(act.matters.clients.inn)}` : ''}<br>
+  <b>Дело:</b> ${escapeHtml(act.matters.title)}${act.matters.agreement_no ? ` по соглашению № ${escapeHtml(act.matters.agreement_no)}` : ''}<br>
   <b>Период:</b> ${fmtDate(act.period_from)} — ${fmtDate(act.period_to)}
 </div>
 <p>Адвокатский кабинет Бухмина А.А. оказал, а Доверитель принял следующую юридическую помощь:</p>
@@ -294,7 +305,8 @@ export default function ActsPage() {
   </tr></tfoot>
 </table>
 <div class="total">Итого к оплате: ${fmt(total)} руб. (НДС не облагается)</div>
-${act.description ? `<p>${act.description}</p>` : ''}
+<div class="total-words">Сумма прописью: ${fmtMoneyWords(total)}</div>
+${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
 <p>Доверитель не имеет претензий к объёму, качеству и срокам оказанной юридической помощи.</p>
 <div class="signs">
   <div class="sign">
@@ -303,7 +315,7 @@ ${act.description ? `<p>${act.description}</p>` : ''}
   </div>
   <div class="sign">
     <b>Доверитель:</b><br><br><br>
-    _________________ /${act.matters.clients.name}/
+    _________________ /${escapeHtml(act.matters.clients.name)}/
   </div>
 </div>
 </body></html>`

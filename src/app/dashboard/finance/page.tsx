@@ -211,14 +211,26 @@ export default function FinancePage() {
       }
     }
     const fixedDue = taxSettings.fixed_contribution_total * months / 12
-    const opsBase = Math.max(0, totalIncome - taxSettings.ops_threshold)
+
+    // 1% ОПС считается от той же базы, что и НДФЛ: доход за вычетом расходов.
+    // Учитываются только документально подтверждённые расходы — как в ст. 221 НК РФ
+    // и как в квартальном расчёте НДФЛ выше, иначе базы разошлись бы.
+    const documentedExpenses = expenses
+      .filter(e => e.is_documented)
+      .reduce((a, b) => a + b.amount, 0)
+    const opsIncomeBase = Math.max(0, totalIncome - documentedExpenses)
+    const opsBase = Math.max(0, opsIncomeBase - taxSettings.ops_threshold)
     const opsDue = Math.min(opsBase * 0.01, taxSettings.ops_one_percent_cap)
 
     const paidFixed = taxPayments.filter(p => p.payment_type === 'fixed_contributions').reduce((a, b) => a + b.amount, 0)
     const paidOps = taxPayments.filter(p => p.payment_type === 'ops_one_percent').reduce((a, b) => a + b.amount, 0)
 
-    return { totalIncome, months, fixedDue, opsBase, opsDue, paidFixed, paidOps }
-  }, [incomes, taxPayments, taxSettings, year])
+    return {
+      totalIncome, months, fixedDue,
+      documentedExpenses, opsIncomeBase, opsBase, opsDue,
+      paidFixed, paidOps,
+    }
+  }, [incomes, expenses, taxPayments, taxSettings, year])
 
   // ------------------------------------------------------------
   // CRUD расходов
@@ -959,26 +971,43 @@ export default function FinancePage() {
 
           <div className="card">
             <h2 className="text-sm font-semibold text-navy-200 mb-3 pb-3 border-b border-navy-800">
-              1% ОПС с дохода свыше 300 000 ₽ (п. 1 ст. 430 НК РФ)
+              1% ОПС с дохода за вычетом расходов свыше 300 000 ₽ (п. 1 ст. 430 НК РФ)
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
               <div>
-                <div className="text-navy-500 text-xs mb-1">Совокупный доход за год</div>
+                <div className="text-navy-500 text-xs mb-1">Доход за год</div>
                 <div className="font-medium text-navy-100">{fmt2(contributionsCalc.totalIncome)} ₽</div>
               </div>
               <div>
-                <div className="text-navy-500 text-xs mb-1">Порог</div>
-                <div className="font-medium text-navy-100">{fmt2(taxSettings.ops_threshold)} ₽</div>
+                <div className="text-navy-500 text-xs mb-1">Минус расходы (подтверждённые)</div>
+                <div className="font-medium text-navy-100">−{fmt2(contributionsCalc.documentedExpenses)} ₽</div>
+              </div>
+              <div>
+                <div className="text-navy-500 text-xs mb-1">База</div>
+                <div className="font-medium text-navy-100">{fmt2(contributionsCalc.opsIncomeBase)} ₽</div>
+              </div>
+              <div>
+                <div className="text-navy-500 text-xs mb-1">Минус порог</div>
+                <div className="font-medium text-navy-100">−{fmt2(taxSettings.ops_threshold)} ₽</div>
+              </div>
+              <div>
+                <div className="text-navy-500 text-xs mb-1">Сверх порога</div>
+                <div className="font-medium text-navy-100">{fmt2(contributionsCalc.opsBase)} ₽</div>
               </div>
               <div>
                 <div className="text-navy-500 text-xs mb-1">Предел взноса</div>
                 <div className="font-medium text-navy-100">{fmt2(taxSettings.ops_one_percent_cap)} ₽</div>
               </div>
-              <div>
-                <div className="text-navy-500 text-xs mb-1">К уплате</div>
-                <div className="font-semibold text-gold-400">{fmt2(contributionsCalc.opsDue)} ₽</div>
+              <div className="col-span-2">
+                <div className="text-navy-500 text-xs mb-1">К уплате (1% сверх порога)</div>
+                <div className="font-semibold text-gold-400 text-base">{fmt2(contributionsCalc.opsDue)} ₽</div>
               </div>
             </div>
+            <p className="text-xs text-navy-600 mt-3 leading-relaxed">
+              База совпадает с базой по НДФЛ — доход за вычетом документально подтверждённых
+              расходов (постановление КС РФ № 27-П, письма ФНС по применению вычета к взносам).
+              Неподтверждённые расходы базу не уменьшают.
+            </p>
             <div className="mt-3 pt-3 border-t border-navy-800 flex justify-between text-sm">
               <span className="text-navy-500">Уплачено фактически</span>
               <span className="font-medium text-navy-100">{fmt2(contributionsCalc.paidOps)} ₽</span>

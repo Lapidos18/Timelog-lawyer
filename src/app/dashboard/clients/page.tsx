@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { Client, ClientType } from '@/types'
 import { Plus, Pencil, X, Check, Building2, User } from 'lucide-react'
 import toast from 'react-hot-toast'
+import LoadError from '@/components/LoadError'
 
 const TYPE_LABELS: Record<ClientType, string> = {
   individual: 'Физическое лицо',
@@ -14,6 +15,7 @@ export default function ClientsPage() {
   const supabase = createClient()
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -24,7 +26,9 @@ export default function ClientsPage() {
   })
 
   const loadClients = useCallback(async () => {
-    const { data } = await supabase.from('clients').select('*').order('name')
+    setLoading(true)
+    const { data, error } = await supabase.from('clients').select('*').order('name')
+    setLoadError(!!error)
     setClients(data ?? []); setLoading(false)
   }, [])
 
@@ -134,6 +138,9 @@ export default function ClientsPage() {
         <p className="text-xs text-navy-600 mb-2">💡 Двойной клик по клиенту — редактировать</p>
       )}
 
+      {loadError && !loading && <LoadError onRetry={loadClients} />}
+
+      {!loadError && (
       <div className="card">
         {loading ? <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
           : clients.length === 0 ? (
@@ -176,6 +183,7 @@ export default function ClientsPage() {
             </div>
           )}
       </div>
+      )}
     </div>
   )
 }

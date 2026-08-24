@@ -6,6 +6,7 @@ import { format, startOfMonth, endOfMonth } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import Link from 'next/link'
 import { Clock, Banknote, Briefcase, TrendingUp, AlertCircle, ArrowRight } from 'lucide-react'
+import LoadError from '@/components/LoadError'
 
 function formatMoney(n: number) {
   return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
@@ -24,6 +25,7 @@ export default function DashboardPage() {
     id: string; name: string; billed: number; paid: number; debt: number
   }[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
   const now = new Date()
   const monthStart = format(startOfMonth(now), 'yyyy-MM-dd')
@@ -132,8 +134,13 @@ export default function DashboardPage() {
           .slice(0, 5)
 
         setClientBalances(balances)
+        // Ошибку любого из запросов показываем явно: иначе Обзор просто
+        // рисует нули, и это выглядит как «все данные пропали»
+        setLoadError(!!(monthRes.error || recentRes.error || allEntriesRes.error
+          || allPaymentsRes.error || allClientsRes.error || allMattersRes.error))
       } catch (e) {
         console.error('Dashboard load error:', e)
+        setLoadError(true)
       } finally {
         setLoading(false)
       }
@@ -157,6 +164,12 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-semibold text-navy-100">Обзор</h1>
         <p className="text-sm text-navy-500 capitalize">{monthLabel}</p>
       </div>
+
+      {loadError && !loading && (
+        <div className="mb-5">
+          <LoadError onRetry={() => window.location.reload()} />
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-5 md:mb-6">

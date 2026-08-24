@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { Matter, Client, MatterType, MatterStatus, MATTER_TYPE_LABELS, MATTER_STATUS_LABELS } from '@/types'
 import { Plus, Pencil, X, Check, Gavel } from 'lucide-react'
 import toast from 'react-hot-toast'
+import LoadError from '@/components/LoadError'
 
 interface MatterWithClient extends Matter { clients: Client }
 
@@ -12,6 +13,7 @@ export default function MattersPage() {
   const [matters, setMatters] = useState<MatterWithClient[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -25,8 +27,10 @@ export default function MattersPage() {
   })
 
   const loadMatters = useCallback(async () => {
+    setLoading(true)
     const q = supabase.from('matters').select('*, clients(*)').order('created_at', { ascending: false })
-    const { data } = filterStatus === 'all' ? await q : await q.eq('status', filterStatus)
+    const { data, error } = filterStatus === 'all' ? await q : await q.eq('status', filterStatus)
+    setLoadError(!!error)
     setMatters((data ?? []) as MatterWithClient[]); setLoading(false)
   }, [filterStatus])
 
@@ -188,10 +192,13 @@ export default function MattersPage() {
         ))}
       </div>
 
-      {!loading && matters.length > 0 && (
+      {!loading && !loadError && matters.length > 0 && (
         <p className="text-xs text-navy-600 mb-2">💡 Двойной клик по делу — редактировать</p>
       )}
 
+      {loadError && !loading && <LoadError onRetry={loadMatters} />}
+
+      {!loadError && (
       <div className="card">
         {loading ? <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
           : matters.length === 0 ? (
@@ -232,6 +239,7 @@ export default function MattersPage() {
             </div>
           )}
       </div>
+      )}
     </div>
   )
 }

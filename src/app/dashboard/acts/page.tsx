@@ -7,6 +7,7 @@ import { ru } from 'date-fns/locale'
 import { Plus, X, Check, Printer, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { escapeHtml } from '@/lib/html'
+import LoadError from '@/components/LoadError'
 import { fmtMoneyWords } from '@/lib/money-words'
 
 interface Act {
@@ -58,6 +59,7 @@ export default function ActsPage() {
   const [matters, setMatters] = useState<(Matter & { clients: Client })[]>([])
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [previewAct, setPreviewAct] = useState<{act: Act; rows: ServiceRow[]} | null>(null)
@@ -81,10 +83,12 @@ export default function ActsPage() {
   const [loadingPreview, setLoadingPreview] = useState(false)
 
   const loadActs = useCallback(async () => {
-    const { data } = await supabase
+    setLoading(true)
+    const { data, error } = await supabase
       .from('acts')
       .select('*, matters(*, clients(*))')
       .order('created_at', { ascending: false })
+    setLoadError(!!error)
     setActs((data ?? []) as Act[])
     setLoading(false)
   }, [])
@@ -162,12 +166,16 @@ export default function ActsPage() {
   }
 
   async function openPreview(act: Act) {
-    const { data } = await supabase.from('report_view').select('*')
+    const { data, error } = await supabase.from('report_view').select('*')
       .eq('matter_title', act.matters.title)
       .gte('work_date', act.period_from)
       .lte('work_date', act.period_to)
       .eq('is_billable', true)
       .order('work_date')
+    if (error) {
+      toast.error('Не удалось загрузить содержание акта. Проверьте связь и попробуйте снова.')
+      return
+    }
     setPreviewAct({
       act,
       rows: (data ?? []).map((r: any) => ({
@@ -435,8 +443,10 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
         </div>
       )}
 
+      {loadError && !loading && <LoadError onRetry={loadActs} />}
+
       {/* List (desktop) */}
-      <div className="card hidden md:block">
+      <div className={`card hidden ${loadError ? '' : 'md:block'}`}>
         {loading ? (
           <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
         ) : acts.length === 0 ? (
@@ -489,7 +499,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
       </div>
 
       {/* List (mobile) — card list, тап по карточке открывает предпросмотр/печать */}
-      <div className="md:hidden">
+      <div className={loadError ? 'hidden' : 'md:hidden'}>
         {loading ? (
           <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
         ) : acts.length === 0 ? (

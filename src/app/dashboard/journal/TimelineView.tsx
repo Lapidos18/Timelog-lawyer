@@ -6,6 +6,7 @@ import { format, addDays, subDays, addMonths, subMonths, startOfMonth, endOfMont
 import { ru } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Plus, X, Check, Calendar, Trash2, Pencil } from 'lucide-react'
 import toast from 'react-hot-toast'
+import LoadError from '@/components/LoadError'
 
 interface DayEntry {
   id: string
@@ -53,6 +54,7 @@ export default function TimelineView() {
   const [matters, setMatters] = useState<(Matter & { clients: Client })[]>([])
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [editUserId, setEditUserId] = useState<string | null>(null)
@@ -143,12 +145,17 @@ export default function TimelineView() {
 
   async function loadMultipleDays(dates: string[]) {
     setMultiLoading(true)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('time_entries')
       .select('*, matters(*, clients(*)), profiles(*)')
       .in('work_date', dates)
       .order('work_date', { ascending: true })
       .order('start_time', { ascending: true })
+    if (error) {
+      toast.error('Не удалось загрузить записи за выбранные дни. Проверьте связь.')
+      setMultiLoading(false)
+      return
+    }
     const grouped: Record<string, DayEntry[]> = {}
     for (const d of dates) grouped[d] = []
     for (const e of (data ?? []) as DayEntry[]) {
@@ -181,11 +188,12 @@ export default function TimelineView() {
 
   async function loadDay() {
     setLoading(true)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('time_entries')
       .select('*, matters(*, clients(*)), profiles(*)')
       .eq('work_date', dateStr)
       .order('start_time')
+    setLoadError(!!error)
     setEntries((data ?? []) as DayEntry[])
     setLoading(false)
   }
@@ -613,8 +621,10 @@ export default function TimelineView() {
         </p>
       )}
 
+      {loadError && !loading && <LoadError onRetry={loadDay} />}
+
       {/* Day view */}
-      <div className="card p-0 overflow-hidden">
+      <div className={`card p-0 overflow-hidden ${loadError ? 'hidden' : ''}`}>
         <div className="flex flex-col md:flex-row">
           {/* Timeline + entries row (scale + positioned cards) */}
           <div className="flex flex-1 min-w-0">

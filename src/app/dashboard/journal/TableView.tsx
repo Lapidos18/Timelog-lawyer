@@ -5,6 +5,7 @@ import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format } from 'date-fns'
 import { Plus, Pencil, Trash2, X, Check, ChevronDown, Filter } from 'lucide-react'
 import toast from 'react-hot-toast'
+import LoadError from '@/components/LoadError'
 
 interface EntryWithRelations {
   id: string
@@ -53,6 +54,7 @@ export default function TableView() {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [ndfl, setNdfl] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
@@ -100,10 +102,11 @@ export default function TableView() {
     if (active.activity_type) query = query.eq('activity_type', active.activity_type)
     if (active.user_id) query = query.eq('user_id', active.user_id)
 
-    const { data } = await query
+    const { data, error } = await query
       .order('work_date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(200)
+    setLoadError(!!error)
     setEntries((data ?? []) as EntryWithRelations[])
     setLoading(false)
   }, [filters])
@@ -463,8 +466,10 @@ export default function TableView() {
         </div>
       )}
 
+      {loadError && !loading && <LoadError onRetry={() => loadEntries()} />}
+
       {/* Table (desktop) */}
-      <div className="card hidden md:block">
+      <div className={`card hidden ${loadError ? '' : 'md:block'}`}>
         {loading ? (
           <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
         ) : entries.length === 0 ? (
@@ -543,7 +548,7 @@ export default function TableView() {
       </div>
 
       {/* Card list (mobile) — то же содержимое, без горизонтальной прокрутки */}
-      <div className="md:hidden">
+      <div className={loadError ? 'hidden' : 'md:hidden'}>
         {loading ? (
           <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
         ) : entries.length === 0 ? (

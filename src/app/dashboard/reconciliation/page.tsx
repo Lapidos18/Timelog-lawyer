@@ -269,7 +269,7 @@ export default function ReconciliationPage() {
       {/* Filters */}
       <div className="card mb-5">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4 mb-4">
-          <div className="col-span-2">
+          <div className="md:col-span-2">
             <label className="label">Клиент *</label>
             <select className="select" value={selectedClient}
               onChange={e => { setSelectedClient(e.target.value); setGenerated(false) }}>

@@ -75,7 +75,7 @@ export default function ClientsPage() {
             <button onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
           </div>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-            <div className="col-span-2 md:col-span-1">
+            <div className="md:col-span-1">
               <label className="label">Наименование / ФИО *</label>
               <input className="input" required value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
@@ -104,19 +104,19 @@ export default function ClientsPage() {
               <input className="input" type="email" value={form.email}
                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
             </div>
-            <div className="col-span-2">
+            <div className="md:col-span-2">
               <label className="label">Адрес</label>
               <input className="input" value={form.address}
                 onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
                 placeholder="630099, г. Новосибирск, ул. Трудовая, д. 10" />
             </div>
-            <div className="col-span-2">
+            <div className="md:col-span-2">
               <label className="label">Примечания</label>
               <textarea className="input resize-none" rows={2} value={form.notes}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
             {editId && (
-              <div className="col-span-2">
+              <div className="md:col-span-2">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" className="w-4 h-4 accent-gold-500" checked={form.is_active}
                     onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
@@ -124,7 +124,7 @@ export default function ClientsPage() {
                 </label>
               </div>
             )}
-            <div className="col-span-2 flex gap-3">
+            <div className="md:col-span-2 flex gap-3">
               <button type="submit" disabled={submitting} className="btn-primary">
                 <Check className="w-4 h-4" /> {submitting ? 'Сохраняю...' : (editId ? 'Сохранить' : 'Добавить')}
               </button>

@@ -305,7 +305,7 @@ export default function TableView() {
           </div>
 
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
-            <div className="col-span-3 md:col-span-1">
+            <div className="md:col-span-1">
               <label className="label">Дело *</label>
               <select className="select" value={form.matter_id}
                 onChange={e => selectMatter(e.target.value)} required>
@@ -336,7 +336,7 @@ export default function TableView() {
             </div>
 
             {/* Description with templates */}
-            <div className="col-span-3">
+            <div className="md:col-span-3">
               <div className="flex items-center justify-between mb-1.5">
                 <label className="label mb-0">Описание работы *</label>
                 <button type="button" onClick={() => setShowTemplates(s => !s)}
@@ -424,7 +424,7 @@ export default function TableView() {
               </label>
             </div>
 
-            <div className="col-span-3">
+            <div className="md:col-span-3">
               <label className="label">Примечания</label>
               <input type="text" className="input"
                 placeholder="Дополнительная информация (необязательно)"
@@ -434,7 +434,7 @@ export default function TableView() {
 
             {/* Preview */}
             {form.hours && form.hourly_rate && (
-              <div className="col-span-3 bg-navy-800/50 rounded-lg px-4 py-3 flex gap-6 text-sm flex-wrap">
+              <div className="md:col-span-3 bg-navy-800/50 rounded-lg px-4 py-3 flex gap-6 text-sm flex-wrap">
                 <span className="text-navy-400">Время:
                   <strong className="text-navy-200 ml-1">
                     {minutesToDisplay((parseInt(form.hours||'0')*60)+parseInt(form.minutes||'0'))}
@@ -456,7 +456,7 @@ export default function TableView() {
               </div>
             )}
 
-            <div className="col-span-3 flex gap-3">
+            <div className="md:col-span-3 flex gap-3">
               <button type="submit" disabled={submitting} className="btn-primary">
                 <Check className="w-4 h-4" /> {submitting ? 'Сохраняю...' : (editId ? 'Сохранить' : 'Добавить')}
               </button>

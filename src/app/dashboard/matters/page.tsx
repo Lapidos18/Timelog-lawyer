@@ -200,7 +200,7 @@ export default function MattersPage() {
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
-            <div className="col-span-2">
+            <div className="md:col-span-2">
               <label className="label">Название дела *</label>
               <input className="input" required value={form.title}
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
@@ -253,12 +253,12 @@ export default function MattersPage() {
               <input type="date" className="input" value={form.closed_at}
                 onChange={e => setForm(f => ({ ...f, closed_at: e.target.value }))} />
             </div>
-            <div className="col-span-3">
+            <div className="md:col-span-3">
               <label className="label">Примечания</label>
               <textarea className="input resize-none" rows={2} value={form.notes}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
-            <div className="col-span-3 flex gap-3">
+            <div className="md:col-span-3 flex gap-3">
               <button type="submit" disabled={submitting} className="btn-primary">
                 <Check className="w-4 h-4" /> {submitting ? 'Сохраняю...' : (editId ? 'Сохранить' : 'Добавить')}
               </button>

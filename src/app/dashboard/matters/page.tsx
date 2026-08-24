@@ -14,6 +14,8 @@ export default function MattersPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
+  const [paidByMatter, setPaidByMatter] = useState<Record<string, number>>({})
+  const [workedByMatter, setWorkedByMatter] = useState<Record<string, number>>({})
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -29,9 +31,31 @@ export default function MattersPage() {
   const loadMatters = useCallback(async () => {
     setLoading(true)
     const q = supabase.from('matters').select('*, clients(*)').order('created_at', { ascending: false })
-    const { data, error } = filterStatus === 'all' ? await q : await q.eq('status', filterStatus)
-    setLoadError(!!error)
-    setMatters((data ?? []) as MatterWithClient[]); setLoading(false)
+
+    // Оплаты и отработанное время нужны, чтобы показать остаток аванса по делу.
+    // Платежи всегда вносятся с указанием дела, поэтому считаем строго по matter_id.
+    const [mattersRes, paymentsRes, entriesRes] = await Promise.all([
+      filterStatus === 'all' ? q : q.eq('status', filterStatus),
+      supabase.from('payments').select('matter_id, amount'),
+      supabase.from('time_entries').select('matter_id, amount, is_billable'),
+    ])
+
+    setLoadError(!!(mattersRes.error || paymentsRes.error || entriesRes.error))
+
+    const paid: Record<string, number> = {}
+    for (const p of (paymentsRes.data ?? [])) {
+      if (p.matter_id) paid[p.matter_id] = (paid[p.matter_id] ?? 0) + Number(p.amount)
+    }
+    const worked: Record<string, number> = {}
+    for (const e of (entriesRes.data ?? [])) {
+      if (e.matter_id && e.is_billable) {
+        worked[e.matter_id] = (worked[e.matter_id] ?? 0) + Number(e.amount)
+      }
+    }
+    setPaidByMatter(paid)
+    setWorkedByMatter(worked)
+
+    setMatters((mattersRes.data ?? []) as MatterWithClient[]); setLoading(false)
   }, [filterStatus])
 
   useEffect(() => {
@@ -85,6 +109,72 @@ export default function MattersPage() {
     suspended: 'badge bg-amber-900/30 text-amber-400 border border-amber-800/40',
     closed: 'badge-inactive',
   }[s])
+
+  const fmtMoney = (n: number) =>
+    new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+
+  /**
+   * Строка «деньги по делу»: сколько получено, сколько отработано и что из этого следует.
+   *
+   * Остаток = оплачено − отработанное оплачиваемое время:
+   *   > 0  аванс ещё не отработан, выставлять нечего
+   *   < 0  аванс закрыт, можно выставлять акт ровно на разницу
+   * Платежи считаются строго по делу — они всегда вносятся с указанием дела.
+   */
+  function renderMoneyLine(m: MatterWithClient) {
+    const paid = paidByMatter[m.id] ?? 0
+    const worked = workedByMatter[m.id] ?? 0
+    const fixed = m.fixed_fee ? Number(m.fixed_fee) : null
+
+    // По пустому делу показывать нечего
+    if (!paid && !worked && !fixed) return null
+
+    const balance = paid - worked
+
+    // Итог по деньгам показываем, только если по делу уже есть движение —
+    // иначе на деле с одной лишь фиксированной суммой вылезло бы
+    // «Аванс отработан полностью», хотя аванса и не было
+    const hasActivity = paid > 0 || worked > 0
+
+    return (
+      <p className="text-xs mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        {hasActivity && (
+          <>
+            <span className="text-navy-600">
+              Оплачено <span className="font-mono text-navy-400">{fmtMoney(paid)} ₽</span>
+            </span>
+            <span className="text-navy-700">·</span>
+            <span className="text-navy-600">
+              Отработано <span className="font-mono text-navy-400">{fmtMoney(worked)} ₽</span>
+            </span>
+            <span className="text-navy-700">·</span>
+            {balance > 0.005 ? (
+              <span className="text-emerald-400 font-medium">
+                Остаток аванса <span className="font-mono">{fmtMoney(balance)} ₽</span>
+              </span>
+            ) : balance < -0.005 ? (
+              <span className="text-gold-400 font-medium">
+                К выставлению <span className="font-mono">{fmtMoney(-balance)} ₽</span>
+              </span>
+            ) : (
+              <span className="text-navy-500">Аванс отработан полностью</span>
+            )}
+          </>
+        )}
+        {fixed && hasActivity && <span className="text-navy-700">·</span>}
+        {fixed && (
+          <>
+            <span className="text-navy-600">
+              По соглашению <span className="font-mono text-navy-400">{fmtMoney(fixed)} ₽</span>
+              <span className={worked > fixed ? 'text-amber-400' : 'text-navy-500'}>
+                {' '}({Math.round((worked / fixed) * 100)}%)
+              </span>
+            </span>
+          </>
+        )}
+      </p>
+    )
+  }
 
   return (
     <div className="p-4 md:p-7">
@@ -230,6 +320,7 @@ export default function MattersPage() {
                       {m.court && ` · ${m.court}`}
                       {m.hourly_rate && ` · ${m.hourly_rate} ₽/ч`}
                     </p>
+                    {renderMoneyLine(m)}
                   </div>
                   <button onClick={() => startEdit(m)} className="btn-ghost p-1.5 flex-shrink-0">
                     <Pencil className="w-3.5 h-3.5" />

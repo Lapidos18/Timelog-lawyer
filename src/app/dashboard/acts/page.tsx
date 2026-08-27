@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
-import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
+import { Matter, Client, Org, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { Plus, X, Check, Printer, Trash2 } from 'lucide-react'
@@ -9,6 +9,7 @@ import toast from 'react-hot-toast'
 import { escapeHtml } from '@/lib/html'
 import LoadError from '@/components/LoadError'
 import { fmtMoneyWords } from '@/lib/money-words'
+import { fetchOrg, orgRequisites, orgSignature, orgTitle } from '@/lib/org'
 
 interface Act {
   id: string
@@ -58,6 +59,7 @@ export default function ActsPage() {
   const [acts, setActs] = useState<Act[]>([])
   const [matters, setMatters] = useState<(Matter & { clients: Client })[]>([])
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [org, setOrg] = useState<Org | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [showForm, setShowForm] = useState(false)
@@ -96,11 +98,13 @@ export default function ActsPage() {
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
-      const [profileRes, mattersRes] = await Promise.all([
+      const [profileRes, mattersRes, orgData] = await Promise.all([
         user ? supabase.from('profiles').select('*').eq('id', user.id).single() : Promise.resolve({ data: null }),
         supabase.from('matters').select('*, clients(*)').order('title'),
+        fetchOrg(supabase),
       ])
       if (profileRes.data) setProfile(profileRes.data)
+      setOrg(orgData)
       setMatters((mattersRes.data ?? []) as (Matter & { clients: Client })[])
       loadActs()
     }
@@ -295,12 +299,12 @@ export default function ActsPage() {
 <h2>АКТ ОБ ОКАЗАНИИ ЮРИДИЧЕСКОЙ ПОМОЩИ</h2>
 <div class="sub">${escapeHtml(act.act_no)} от ${fmtDate(act.created_at.split('T')[0])}</div>
 <div class="meta">
-  <b>Адвокат:</b> Адвокатский кабинет Бухмина Антона Андреевича, рег. № 54/1831, ИНН 540233730471<br>
+  <b>Адвокат:</b> ${escapeHtml(orgRequisites(org))}<br>
   <b>Доверитель:</b> ${escapeHtml(act.matters.clients.name)}${act.matters.clients.inn ? `, ИНН ${escapeHtml(act.matters.clients.inn)}` : ''}<br>
   <b>Дело:</b> ${escapeHtml(act.matters.title)}${act.matters.agreement_no ? ` по соглашению № ${escapeHtml(act.matters.agreement_no)}` : ''}<br>
   <b>Период:</b> ${fmtDate(act.period_from)} — ${fmtDate(act.period_to)}
 </div>
-<p>Адвокатский кабинет Бухмина А.А. оказал, а Доверитель принял следующую юридическую помощь:</p>
+<p>${escapeHtml(orgTitle(org))} оказал, а Доверитель принял следующую юридическую помощь:</p>
 <table>
   <thead><tr>
     <th>№</th><th>Дата</th><th>Вид работы</th><th>Описание</th>
@@ -319,7 +323,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
 <div class="signs">
   <div class="sign">
     <b>Адвокат:</b><br><br><br>
-    _________________ /А.А. Бухмин/
+    _________________ /${escapeHtml(orgSignature(org))}/
   </div>
   <div class="sign">
     <b>Доверитель:</b><br><br><br>

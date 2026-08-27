@@ -4,7 +4,7 @@ import type { MetadataRoute } from 'next'
 // на телефоне и открывать без адресной строки браузера.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Тайм-трекер | АК Бухмин А.А.',
+    name: 'Тайм-трекер адвоката',
     short_name: 'Тайм-трекер',
     description: 'Учёт рабочего времени адвокатского кабинета',
     lang: 'ru',

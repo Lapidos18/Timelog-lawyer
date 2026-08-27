@@ -24,6 +24,7 @@ export default function BackupPage() {
     const newResults: BackupResult[] = []
 
     const tables = [
+      'orgs',
       'clients',
       'matters',
       'time_entries',
@@ -84,6 +85,7 @@ export default function BackupPage() {
   const totalRecords = results.filter(r => r.status === 'ok').reduce((s, r) => s + r.count, 0)
 
   const TABLE_LABELS: Record<string, string> = {
+    orgs:                  'Кабинет (реквизиты)',
     clients:               'Клиенты',
     matters:               'Дела',
     time_entries:          'Записи времени',

@@ -3,7 +3,7 @@ import './globals.css'
 import { Toaster } from 'react-hot-toast'
 
 export const metadata: Metadata = {
-  title: 'Тайм-трекер | АК Бухмин А.А.',
+  title: 'Тайм-трекер адвоката',
   description: 'Учёт рабочего времени адвокатского кабинета',
   // Название под иконкой на экране «Домой» — короткое, чтобы не обрезалось
   appleWebApp: {

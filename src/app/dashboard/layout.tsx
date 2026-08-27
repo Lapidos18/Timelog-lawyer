@@ -3,11 +3,11 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { Profile } from '@/types'
+import { Org, Profile } from '@/types'
 import {
   LayoutDashboard, Users, Briefcase,
   FileBarChart2, LogOut, Scale, ChevronRight,
-  BookOpen, ClipboardList, Menu, X, FileCheck, HardDrive, Wallet, Receipt
+  BookOpen, ClipboardList, Menu, X, FileCheck, HardDrive, Wallet, Receipt, Settings
 } from 'lucide-react'
 
 const NAV = [
@@ -20,7 +20,8 @@ const NAV = [
   { href: '/dashboard/reimbursements', icon: Receipt,         label: 'Возмещаемые расходы' },
   { href: '/dashboard/reconciliation', icon: ClipboardList,   label: 'Платежи / Акт сверки', group: 'Финансы' },
   { href: '/dashboard/finance',         icon: Wallet,          label: 'Доходы и налоги' },
-  { href: '/dashboard/backup',          icon: HardDrive,       label: 'Бэкап', group: 'Система' },
+  { href: '/dashboard/settings',        icon: Settings,        label: 'Настройки', group: 'Система' },
+  { href: '/dashboard/backup',          icon: HardDrive,       label: 'Бэкап' },
 ]
 
 // Отдельный набор для нижнего мобильного меню — самые частые разделы для быстрого доступа с телефона,
@@ -38,6 +39,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter()
   const supabase = createClient()
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [org, setOrg] = useState<Org | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
 
   useEffect(() => {
@@ -45,6 +47,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (!data.user) { router.push('/login'); return }
       supabase.from('profiles').select('*').eq('id', data.user.id).single()
         .then(({ data: p }) => p && setProfile(p))
+      // Название кабинета в шапке. Права доступа возвращают только свой кабинет,
+      // поэтому фильтр по id не нужен.
+      supabase.from('orgs').select('*').limit(1).maybeSingle()
+        .then(({ data: o }) => o && setOrg(o))
     })
   }, [])
 
@@ -63,7 +69,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         flex items-center justify-center flex-shrink-0">
           <Scale className="w-4 h-4 text-gold-400" />
         </div>
-        <span className="text-sm font-semibold text-navy-200 leading-tight">АК Бухмин А.А.</span>
+        <span className="text-sm font-semibold text-navy-200 leading-tight truncate">
+          {org?.name ?? 'Тайм-трекер'}
+        </span>
       </div>
 
       <nav className="flex-1 space-y-0.5">
@@ -128,7 +136,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           flex items-center justify-center">
             <Scale className="w-3.5 h-3.5 text-gold-400" />
           </div>
-          <span className="text-sm font-semibold text-navy-200">АК Бухмин А.А.</span>
+          <span className="text-sm font-semibold text-navy-200 truncate max-w-[13rem]">
+            {org?.name ?? 'Тайм-трекер'}
+          </span>
         </div>
         <button onClick={() => setMobileOpen(o => !o)}
           className="p-2 text-navy-400 hover:text-navy-200 hover:bg-navy-800 rounded-lg transition-colors">

@@ -29,6 +29,7 @@ const KEEP_LAST = Number(process.env.TIMELOG_BACKUP_KEEP || 30)
 
 // Тот же список, что в разделе «Резервная копия» приложения
 const TABLES = [
+  'orgs',
   'clients',
   'matters',
   'time_entries',

@@ -35,8 +35,26 @@ export const MATTER_STATUS_LABELS: Record<MatterStatus, string> = {
   closed: 'Закрыто',
 }
 
+// Адвокатский кабинет — единица изоляции данных. Пользователь принадлежит
+// ровно одному кабинету и видит только его доверителей, дела и записи.
+export interface Org {
+  id: string
+  name: string                  // краткое, для интерфейса: «АК Иванов И.И.»
+  full_name: string | null      // полное, для шапки документов
+  advocate_name: string | null  // ФИО адвоката
+  signature_name: string | null // как подписывается документ: «И.И. Иванов»
+  reg_no: string | null         // рег. № в реестре адвокатов
+  inn: string | null
+  address: string | null
+  phone: string | null
+  email: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface Profile {
   id: string
+  org_id: string
   full_name: string
   role: UserRole
   hourly_rate: number | null
@@ -189,6 +207,7 @@ export interface Expense {
 }
 
 export interface TaxSettings {
+  org_id: string
   year: number
   ndfl_rate_low: number
   ndfl_rate_high: number

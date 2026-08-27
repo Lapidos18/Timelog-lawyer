@@ -786,9 +786,11 @@ export default function FinancePage() {
       {tab === 'calc' && !loading && !taxSettings && (
         <div className="card">
           <p className="text-navy-400 text-sm text-center py-8">
-            Налоговые настройки на {year} год ещё не заведены в базе (ставки НДФЛ, пороги и сроки
-            меняются законодателем каждый год). Добавьте строку в таблицу <code className="text-xs">tax_settings</code>{' '}
-            для {year} года через Supabase SQL Editor — после этого расчёт появится здесь автоматически.
+            Налоговые настройки на {year} год ещё не заведены (ставки НДФЛ, пороги и сроки
+            меняются законодателем каждый год). Добавьте константы года в{' '}
+            <code className="text-xs">tax_defaults</code> и выполните{' '}
+            <code className="text-xs">select seed_tax_settings(current_org_id())</code>{' '}
+            в Supabase SQL Editor — после этого расчёт появится здесь автоматически.
           </p>
         </div>
       )}
@@ -948,9 +950,10 @@ export default function FinancePage() {
       {tab === 'contributions' && !loading && !taxSettings && (
         <div className="card">
           <p className="text-navy-400 text-sm text-center py-8">
-            Налоговые настройки на {year} год ещё не заведены в базе. Добавьте строку в таблицу{' '}
-            <code className="text-xs">tax_settings</code> для {year} года через Supabase SQL Editor —
-            после этого расчёт взносов появится здесь автоматически.
+            Налоговые настройки на {year} год ещё не заведены. Добавьте константы года в{' '}
+            <code className="text-xs">tax_defaults</code> и выполните{' '}
+            <code className="text-xs">select seed_tax_settings(current_org_id())</code>{' '}
+            в Supabase SQL Editor — после этого расчёт взносов появится здесь автоматически.
           </p>
         </div>
       )}

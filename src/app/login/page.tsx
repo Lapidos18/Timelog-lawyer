@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
@@ -35,7 +36,7 @@ export default function LoginPage() {
             <Scale className="w-7 h-7 text-gold-400" />
           </div>
           <h1 className="text-xl font-semibold text-navy-100">Тайм-трекер</h1>
-          <p className="text-sm text-navy-400 mt-1">АК Бухмин Антон Андреевич</p>
+          <p className="text-sm text-navy-400 mt-1">Учёт рабочего времени адвоката</p>
         </div>
 
         <div className="card">
@@ -80,6 +81,13 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
+
+        <p className="text-center text-sm text-navy-500 mt-5">
+          Нет аккаунта?{' '}
+          <Link href="/register" className="text-gold-400 hover:text-gold-300">
+            Зарегистрировать кабинет
+          </Link>
+        </p>
 
         <p className="text-center text-xs text-navy-600 mt-6">
           Адвокатская тайна охраняется ст. 8 ФЗ-63

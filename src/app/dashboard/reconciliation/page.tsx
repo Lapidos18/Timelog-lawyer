@@ -1,12 +1,13 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { Client, Matter, ACTIVITY_LABELS } from '@/types'
+import { Client, Matter, Org, ACTIVITY_LABELS } from '@/types'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { FileDown, FileSpreadsheet, Plus, Trash2, X, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { escapeHtml } from '@/lib/html'
+import { fetchOrg, orgRequisites, orgSignature } from '@/lib/org'
 
 interface Payment {
   id: string
@@ -60,10 +61,12 @@ export default function ReconciliationPage() {
     matter_id: '',
   })
   const [savingPay, setSavingPay] = useState(false)
+  const [org, setOrg] = useState<Org | null>(null)
 
   useEffect(() => {
     supabase.from('clients').select('*').order('name').then(({ data }) => setClients(data ?? []))
     supabase.from('matters').select('*, clients(*)').order('title').then(({ data }) => setMatters((data ?? []) as any))
+    fetchOrg(supabase).then(setOrg)
   }, [])
 
   const clientMatters = matters.filter(m => m.client_id === selectedClient)
@@ -171,7 +174,7 @@ export default function ReconciliationPage() {
 <h2>АКТ СВЕРКИ ВЗАИМОРАСЧЁТОВ</h2>
 <div class="sub">за период: ${period}</div>
 <div class="meta">
-  <b>Адвокат:</b> Адвокатский кабинет Бухмина Антона Андреевича, рег. № 54/1831, ИНН 540233730471<br>
+  <b>Адвокат:</b> ${escapeHtml(orgRequisites(org))}<br>
   <b>Доверитель:</b> ${escapeHtml(client?.name ?? '')}${client?.inn ? `, ИНН ${escapeHtml(client.inn)}` : ''}
 </div>
 <h3>Оказанные услуги</h3>
@@ -190,7 +193,7 @@ export default function ReconciliationPage() {
 <div class="signs">
   <div class="sign-block">
     <b>Адвокат:</b><br><br>
-    _________________________ /А.А. Бухмин/
+    _________________________ /${escapeHtml(orgSignature(org))}/
   </div>
   <div class="sign-block">
     <b>Доверитель:</b><br><br>
@@ -220,7 +223,7 @@ export default function ReconciliationPage() {
     const header = [
       [`АКТ СВЕРКИ ВЗАИМОРАСЧЁТОВ`],
       [`Период: ${fmtDate(dateFrom)} — ${fmtDate(dateTo)}`],
-      [`Адвокат: АК Бухмин А.А., рег. № 54/1831`],
+      [`Адвокат: ${orgRequisites(org)}`],
       [`Доверитель: ${client?.name ?? ''}${client?.inn ? `  ИНН ${client.inn}` : ''}`],
       [],
       ['ОКАЗАННЫЕ УСЛУГИ'],

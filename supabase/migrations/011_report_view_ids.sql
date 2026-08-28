@@ -8,18 +8,18 @@
 --   * два дела с одинаковым названием — в акт попадают записи обоих;
 --   * два доверителя-тёзки — акт сверки их смешивает.
 --
--- Добавляем идентификаторы, чтобы поиск шёл по ним. Столбцы с названиями
--- ОСТАЮТСЯ — они используются для отображения и в выгрузках.
+-- ВАЖНО про порядок столбцов: `create or replace view` в PostgreSQL умеет
+-- только ДОПИСЫВАТЬ столбцы в конец списка. Если вставить новые в середину,
+-- база решит, что это переименование существующих, и откажет с ошибкой
+-- 42P16 «cannot change name of view column». Поэтому client_id, matter_id
+-- и user_id идут последними, а порядок прежних столбцов сохранён без изменений.
 --
--- Безопасно для повторного запуска: create or replace.
+-- Безопасно для повторного запуска.
 
 create or replace view report_view as
 select
   te.id,
   te.work_date,
-  m.client_id,                      -- новое: устойчивый идентификатор доверителя
-  te.matter_id,                     -- новое: устойчивый идентификатор дела
-  te.user_id,                       -- новое: устойчивый идентификатор исполнителя
   c.name            as client_name,
   c.type            as client_type,
   m.title           as matter_title,
@@ -34,13 +34,17 @@ select
   te.is_billable,
   p.full_name       as performed_by,
   te.notes,
-  te.created_at
+  te.created_at,
+  -- новые столбцы — строго в конце
+  m.client_id,
+  te.matter_id,
+  te.user_id
 from time_entries te
 join matters m on m.id = te.matter_id
 join clients c on c.id = m.client_id
 join profiles p on p.id = te.user_id;
 
--- Проверка: должны вернуться три новых столбца
+-- Проверка: должны вернуться три строки
 select column_name
 from information_schema.columns
 where table_name = 'report_view'

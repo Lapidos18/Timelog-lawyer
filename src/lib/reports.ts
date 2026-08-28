@@ -242,7 +242,7 @@ export function exportToPDF(
   <thead>
     <tr>
       <th>Квалификация</th>
-      <th style="width:90px">Ставка, руб./ч.</th>
+      <th style="width:110px">Ставка, руб./ч.</th>
       <th style="width:55px">Часы</th>
       <th style="width:90px">Сумма</th>
     </tr>
@@ -382,8 +382,8 @@ export async function exportToWord(
   // Table 2: Детализация по специалистам
   const execHeader = new TableRow({
     children: [
-      headerCell('Квалификация', 3500),
-      headerCell('Ставка', 1500),
+      headerCell('Квалификация', 3200),
+      headerCell('Ставка, руб./ч.', 1800),
       headerCell('Часы', 1100),
       headerCell('Сумма', 1500),
     ],

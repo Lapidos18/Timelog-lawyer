@@ -290,7 +290,16 @@ export default function ActsPage() {
   .total-words{font-size:10pt;margin-bottom:12px}
   .signs{margin-top:40px;display:flex;justify-content:space-between}
   .sign{width:45%}
-  @media print{body{margin:15mm}}
+  @media print{
+    body{margin:15mm}
+    /* Акт на несколько листов: шапка таблицы повторяется, строки не рвутся
+       пополам, блок подписей не уезжает на отдельный лист */
+    thead{display:table-header-group}
+    tfoot{display:table-footer-group}
+    tr{break-inside:avoid;page-break-inside:avoid}
+    .signs{break-inside:avoid;page-break-inside:avoid}
+    .total,.total-words{break-inside:avoid;page-break-inside:avoid}
+  }
 </style></head><body>
 <h2>АКТ ОБ ОКАЗАНИИ ЮРИДИЧЕСКОЙ ПОМОЩИ</h2>
 <div class="sub">${escapeHtml(act.act_no)} от ${fmtDate(act.created_at.split('T')[0])}</div>

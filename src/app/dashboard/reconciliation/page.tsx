@@ -166,7 +166,16 @@ export default function ReconciliationPage() {
   .balance{font-size:12px;font-weight:bold;margin:16px 0;padding:10px;background:#f0f4f8;border-left:4px solid #1e3a5f}
   .signs{margin-top:30px;display:flex;justify-content:space-between;font-size:10px}
   .sign-block{width:45%}
-  @media print{body{margin:10mm}}
+  @media print{
+    body{margin:10mm}
+    /* Акт сверки на несколько листов — см. пояснение в акте */
+    thead{display:table-header-group}
+    tfoot{display:table-footer-group}
+    tr{break-inside:avoid;page-break-inside:avoid}
+    .signs{break-inside:avoid;page-break-inside:avoid}
+    .balance{break-inside:avoid;page-break-inside:avoid}
+    h3{break-after:avoid;page-break-after:avoid}
+  }
 </style></head><body>
 <h2>АКТ СВЕРКИ ВЗАИМОРАСЧЁТОВ</h2>
 <div class="sub">за период: ${period}</div>

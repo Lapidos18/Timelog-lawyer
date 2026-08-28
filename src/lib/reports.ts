@@ -192,6 +192,14 @@ export function exportToPDF(
   @media print {
     body { padding: 15mm; }
     .footer { position: fixed; bottom: 8mm; }
+
+    /* Многостраничный отчёт: без этого на втором листе таблица идёт без шапки,
+       и читающий не понимает, где часы, где ставка, где сумма */
+    thead { display: table-header-group; }
+    tfoot { display: table-footer-group; }
+    tr { break-inside: avoid; page-break-inside: avoid; }
+    /* Заголовок раздела не должен оставаться внизу листа без своей таблицы */
+    h3 { break-after: avoid; page-break-after: avoid; }
   }
 </style>
 </head>

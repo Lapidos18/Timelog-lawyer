@@ -201,7 +201,7 @@ export default function ReimbursementsPage() {
                 placeholder="Например: такси до нотариуса, почтовые расходы, госпошлина" />
             </div>
             <div>
-              <label className="label">№ документа (чек, квитанция)</label>
+              <label className="label">№ подтверждающего документа</label>
               <input type="text" className="input" value={form.doc_no}
                 onChange={e => setForm(f => ({ ...f, doc_no: e.target.value }))} />
             </div>
@@ -226,7 +226,10 @@ export default function ReimbursementsPage() {
 
       {/* Table (desktop) */}
       {!loading && filtered.length > 0 && (
-        <p className="text-xs text-navy-400 mb-2 hidden md:block">💡 Двойной клик по строке — редактировать</p>
+        <p className="text-xs text-navy-400 mb-2">
+          💡 <span className="hidden md:inline">Двойной клик по строке — редактировать</span>
+          <span className="md:hidden">Нажмите на расход — редактировать</span>
+        </p>
       )}
       <div className="card hidden md:block">
         {loading ? (

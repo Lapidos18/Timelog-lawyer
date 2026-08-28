@@ -69,7 +69,7 @@ export default function ReconciliationPage() {
   const clientMatters = matters.filter(m => m.client_id === selectedClient)
 
   async function generate() {
-    if (!selectedClient) { toast.error('Выберите клиента'); return }
+    if (!selectedClient) { toast.error('Выберите доверителя'); return }
     setLoading(true)
     const [svcRes, payRes] = await Promise.all([
       supabase.from('report_view').select('*')
@@ -176,7 +176,7 @@ export default function ReconciliationPage() {
 </div>
 <h3>Оказанные услуги</h3>
 <table>
-  <thead><tr><th>№</th><th>Дата</th><th>Дело</th><th>Вид работы</th><th>Описание</th><th>Часов</th><th>Ставка</th><th>Сумма, руб.</th></tr></thead>
+  <thead><tr><th>№</th><th>Дата</th><th>Дело</th><th>Вид работы</th><th>Описание</th><th>Часов</th><th>Ставка, руб./ч.</th><th>Сумма, руб.</th></tr></thead>
   <tbody>${svcRows}</tbody>
   <tfoot><tr><td colspan="7" style="text-align:right">Итого:</td><td style="text-align:right">${fmt(totalServices)}</td></tr></tfoot>
 </table>
@@ -201,7 +201,7 @@ export default function ReconciliationPage() {
 
     const w = window.open('', '_blank', 'width=900,height=700')
     if (!w) {
-      toast.error('Браузер заблокировал всплывающее окно. Разрешите всплывающие окна для сайта.')
+      toast.error('Браузер заблокировал всплывающее окно. Разрешите всплывающие окна для этого сайта и попробуйте снова.')
       return
     }
     w.document.open()
@@ -252,7 +252,7 @@ export default function ReconciliationPage() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div className="min-w-0">
           <h1 className="text-xl md:text-2xl font-semibold text-navy-100">Платежи / Акт сверки</h1>
-          <p className="text-xs text-navy-300 mt-1">Внесение фактических платежей и сверка расчётов с клиентом</p>
+          <p className="text-xs text-navy-300 mt-1">Внесение фактических платежей и сверка расчётов с доверителем</p>
         </div>
         {generated && (
           <div className="flex gap-2">
@@ -270,10 +270,10 @@ export default function ReconciliationPage() {
       <div className="card mb-5">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4 mb-4">
           <div className="md:col-span-2">
-            <label className="label">Клиент *</label>
+            <label className="label">Доверитель *</label>
             <select className="select" value={selectedClient}
               onChange={e => { setSelectedClient(e.target.value); setGenerated(false) }}>
-              <option value="">— выберите клиента —</option>
+              <option value="">— выберите доверителя —</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
@@ -289,7 +289,7 @@ export default function ReconciliationPage() {
           </div>
         </div>
         <div className="flex gap-3 items-center flex-wrap">
-          <button onClick={() => selectedClient ? setShowPayForm(true) : toast.error('Сначала выберите клиента вверху')}
+          <button onClick={() => selectedClient ? setShowPayForm(true) : toast.error('Сначала выберите доверителя вверху')}
             className="btn-primary">
             <Plus className="w-4 h-4" /> Добавить платёж
           </button>
@@ -297,7 +297,7 @@ export default function ReconciliationPage() {
             {loading ? 'Загрузка...' : 'Сформировать акт сверки'}
           </button>
           {!selectedClient && (
-            <span className="text-xs text-navy-400">Выберите клиента, чтобы внести платёж или сформировать акт</span>
+            <span className="text-xs text-navy-400">Выберите доверителя, чтобы внести платёж или сформировать акт</span>
           )}
         </div>
       </div>
@@ -321,7 +321,7 @@ export default function ReconciliationPage() {
                 value={payForm.amount} onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))} />
             </div>
             <div>
-              <label className="label">№ п/п или квитанции</label>
+              <label className="label">№ платёжного поручения</label>
               <input type="text" className="input" placeholder="123"
                 value={payForm.doc_no} onChange={e => setPayForm(f => ({ ...f, doc_no: e.target.value }))} />
             </div>

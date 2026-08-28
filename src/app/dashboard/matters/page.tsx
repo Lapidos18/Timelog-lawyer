@@ -141,11 +141,11 @@ export default function MattersPage() {
         {hasActivity && (
           <>
             <span className="text-navy-400">
-              Оплачено <span className="font-mono text-navy-400">{fmtMoney(paid)} ₽</span>
+              Оплачено <span className="font-mono text-navy-200">{fmtMoney(paid)} ₽</span>
             </span>
             <span className="text-navy-400">·</span>
             <span className="text-navy-400">
-              Отработано <span className="font-mono text-navy-400">{fmtMoney(worked)} ₽</span>
+              Отработано <span className="font-mono text-navy-200">{fmtMoney(worked)} ₽</span>
             </span>
             <span className="text-navy-400">·</span>
             {balance > 0.005 ? (
@@ -165,7 +165,7 @@ export default function MattersPage() {
         {fixed && (
           <>
             <span className="text-navy-400">
-              По соглашению <span className="font-mono text-navy-400">{fmtMoney(fixed)} ₽</span>
+              По соглашению <span className="font-mono text-navy-200">{fmtMoney(fixed)} ₽</span>
               <span className={worked > fixed ? 'text-amber-400' : 'text-navy-300'}>
                 {' '}({Math.round((worked / fixed) * 100)}%)
               </span>
@@ -193,7 +193,7 @@ export default function MattersPage() {
           </div>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
             <div>
-              <label className="label">Клиент *</label>
+              <label className="label">Доверитель *</label>
               <select className="select" required value={form.client_id}
                 onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))}>
                 <option value="">— выберите —</option>
@@ -231,7 +231,7 @@ export default function MattersPage() {
               <label className="label">Суд</label>
               <input className="input" value={form.court}
                 onChange={e => setForm(f => ({ ...f, court: e.target.value }))}
-                placeholder="Октябрьский районный суд г. НСК" />
+                placeholder="Октябрьский районный суд г. Новосибирска" />
             </div>
             <div>
               <label className="label">№ дела в суде</label>
@@ -239,7 +239,7 @@ export default function MattersPage() {
                 onChange={e => setForm(f => ({ ...f, case_no: e.target.value }))} placeholder="2-17/2026" />
             </div>
             <div>
-              <label className="label">Ставка, руб./ч</label>
+              <label className="label">Ставка, руб./ч.</label>
               <input type="number" inputMode="decimal" className="input" value={form.hourly_rate}
                 onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))} placeholder="1290" />
             </div>
@@ -283,7 +283,10 @@ export default function MattersPage() {
       </div>
 
       {!loading && !loadError && matters.length > 0 && (
-        <p className="text-xs text-navy-400 mb-2">💡 Двойной клик по делу — редактировать</p>
+        <p className="text-xs text-navy-400 mb-2">
+          💡 <span className="hidden md:inline">Двойной клик по делу — редактировать</span>
+          <span className="md:hidden">Нажмите на карандаш — редактировать</span>
+        </p>
       )}
 
       {loadError && !loading && <LoadError onRetry={loadMatters} />}

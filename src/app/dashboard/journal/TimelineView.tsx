@@ -478,7 +478,7 @@ export default function TimelineView() {
               </select>
             </div>
             <div>
-              <label className="label">Ставка ₽/ч *</label>
+              <label className="label">Ставка, руб./ч. *</label>
               <input type="number" min="0" required inputMode="decimal" className="input" value={form.hourly_rate}
                 onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))} />
             </div>
@@ -492,7 +492,7 @@ export default function TimelineView() {
 
             <div className="md:col-span-4">
               <label className="label">Описание *</label>
-              <textarea className="input resize-none" rows={2} required placeholder="Что делал..."
+              <textarea className="input resize-none" rows={2} required placeholder="Опишите выполненную работу..."
                 value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
 

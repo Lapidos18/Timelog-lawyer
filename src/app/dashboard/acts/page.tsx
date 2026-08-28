@@ -304,7 +304,7 @@ export default function ActsPage() {
 <table>
   <thead><tr>
     <th>№</th><th>Дата</th><th>Вид работы</th><th>Описание</th>
-    <th>Часов</th><th>Ставка, руб.</th><th>Сумма, руб.</th><th>Исполнитель</th>
+    <th>Часов</th><th>Ставка, руб./ч.</th><th>Сумма, руб.</th><th>Исполнитель</th>
   </tr></thead>
   <tbody>${rowsHtml}</tbody>
   <tfoot><tr>
@@ -330,7 +330,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
 
     const w = window.open('', '_blank', 'width=900,height=700')
     if (!w) {
-      toast.error('Браузер заблокировал всплывающее окно. Разрешите всплывающие окна для сайта.')
+      toast.error('Браузер заблокировал всплывающее окно. Разрешите всплывающие окна для этого сайта и попробуйте снова.')
       return
     }
     w.document.open()
@@ -344,7 +344,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
   return (
     <div className="p-4 md:p-7">
       <div className="flex items-center justify-between mb-5 md:mb-7 flex-wrap gap-3">
-        <h1 className="text-xl md:text-2xl font-semibold text-navy-100">Акты об оказании помощи</h1>
+        <h1 className="text-xl md:text-2xl font-semibold text-navy-100">Акты об оказании юридической помощи</h1>
         <button onClick={() => setShowForm(s => !s)} className="btn-primary">
           <Plus className="w-4 h-4" /> Новый акт
         </button>
@@ -397,7 +397,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
             {form.matter_id && (
               <div className="md:col-span-3">
                 {loadingPreview ? (
-                  <p className="text-navy-300 text-sm">Загрузка записей...</p>
+                  <p className="text-navy-300 text-sm">Загрузка...</p>
                 ) : previewRows.length === 0 ? (
                   <p className="text-red-400 text-sm">Нет оплачиваемых записей за выбранный период</p>
                 ) : (
@@ -455,7 +455,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-navy-800">
-                {['Номер','Дело','Клиент','Период','Сумма','Статус',''].map(h => (
+                {['Номер','Дело','Доверитель','Период','Сумма','Статус',''].map(h => (
                   <th key={h} className="text-left pb-2.5 pr-4 text-xs text-navy-300 font-medium">{h}</th>
                 ))}
               </tr>
@@ -560,7 +560,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
             </div>
             <div className="overflow-y-auto p-4 md:p-6">
               <p className="text-xs text-navy-400 mb-3">
-                <b className="text-navy-300">Клиент:</b> {previewAct.act.matters.clients.name} &nbsp;·&nbsp;
+                <b className="text-navy-300">Доверитель:</b> {previewAct.act.matters.clients.name} &nbsp;·&nbsp;
                 <b className="text-navy-300">Дело:</b> {previewAct.act.matters.title} &nbsp;·&nbsp;
                 <b className="text-navy-300">Период:</b> {fmtDate(previewAct.act.period_from)} — {fmtDate(previewAct.act.period_to)}
               </p>

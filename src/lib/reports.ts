@@ -15,7 +15,7 @@ function formatMoney(n: number) {
   return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 }
 
-// В отчётах для клиента показываем роль вместо полного ФИО.
+// В отчётах для доверителя показываем роль вместо полного ФИО.
 // Группировка по специалистам всё равно ведётся по реальному имени (r.performed_by),
 // чтобы разные исполнители не схлопывались в одну строку — здесь только замена подписи.
 function displayPerformer(fullName: string): string {
@@ -29,8 +29,8 @@ function formatHours(h: number) {
 export async function exportToExcel(rows: ReportRow[], title: string) {
   const XLSX = await import('xlsx')
   const headers = [
-    '№','Дата','Клиент','Дело','№ соглашения','№ дела в суде',
-    'Вид работы','Описание','Время','Часов','Ставка, руб.','Сумма, руб.',
+    '№','Дата','Доверитель','Дело','№ соглашения','№ дела в суде',
+    'Вид работы','Описание','Время','Часов','Ставка, руб./ч.','Сумма, руб.',
     'Оплачиваемо','Исполнитель','Примечания'
   ]
   const data = rows.map((r, i) => [
@@ -230,7 +230,7 @@ export function exportToPDF(
   <thead>
     <tr>
       <th>Квалификация</th>
-      <th style="width:90px">Ставка</th>
+      <th style="width:90px">Ставка, руб./ч.</th>
       <th style="width:55px">Часы</th>
       <th style="width:90px">Сумма</th>
     </tr>

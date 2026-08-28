@@ -55,23 +55,23 @@ export default function ClientsPage() {
       ? await supabase.from('clients').update(payload).eq('id', editId)
       : await supabase.from('clients').insert({ ...payload, created_by: user!.id })
     if (error) { toast.error('Ошибка: ' + error.message) }
-    else { toast.success(editId ? 'Клиент обновлён' : 'Клиент добавлен'); resetForm(); loadClients() }
+    else { toast.success(editId ? 'Доверитель обновлён' : 'Доверитель добавлен'); resetForm(); loadClients() }
     setSubmitting(false)
   }
 
   return (
     <div className="p-4 md:p-7">
       <div className="flex items-center justify-between mb-7">
-        <h1 className="text-2xl font-semibold text-navy-100">Клиенты</h1>
+        <h1 className="text-2xl font-semibold text-navy-100">Доверители</h1>
         <button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
-          <Plus className="w-4 h-4" /> Новый клиент
+          <Plus className="w-4 h-4" /> Новый доверитель
         </button>
       </div>
 
       {showForm && (
         <div className="card mb-6 border-gold-800/40">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="font-medium text-navy-200">{editId ? 'Редактировать' : 'Новый клиент'}</h2>
+            <h2 className="font-medium text-navy-200">{editId ? 'Редактировать' : 'Новый доверитель'}</h2>
             <button onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
           </div>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
@@ -120,7 +120,7 @@ export default function ClientsPage() {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" className="w-4 h-4 accent-gold-500" checked={form.is_active}
                     onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
-                  <span className="text-sm text-navy-300">Клиент активен (снять — перевести в архив)</span>
+                  <span className="text-sm text-navy-300">Доверитель активен (снять — перевести в архив)</span>
                 </label>
               </div>
             )}
@@ -135,7 +135,10 @@ export default function ClientsPage() {
       )}
 
       {!loading && clients.length > 0 && (
-        <p className="text-xs text-navy-400 mb-2">💡 Двойной клик по клиенту — редактировать</p>
+        <p className="text-xs text-navy-400 mb-2">
+          💡 <span className="hidden md:inline">Двойной клик по доверителю — редактировать</span>
+          <span className="md:hidden">Нажмите на карандаш — редактировать</span>
+        </p>
       )}
 
       {loadError && !loading && <LoadError onRetry={loadClients} />}
@@ -145,7 +148,7 @@ export default function ClientsPage() {
         {loading ? <p className="text-navy-300 text-sm text-center py-12">Загрузка...</p>
           : clients.length === 0 ? (
             <p className="text-navy-300 text-sm text-center py-12">
-              Нет клиентов.{' '}
+              Нет доверителей.{' '}
               <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">
                 Добавить →
               </button>

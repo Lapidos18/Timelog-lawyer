@@ -13,8 +13,8 @@ import {
 const NAV = [
   { href: '/dashboard',                icon: LayoutDashboard, label: 'Обзор' },
   { href: '/dashboard/journal',        icon: BookOpen,        label: 'Журнал', group: 'Учёт времени' },
-  { href: '/dashboard/matters',        icon: Briefcase,       label: 'Дела', group: 'Клиенты и дела' },
-  { href: '/dashboard/clients',        icon: Users,           label: 'Клиенты' },
+  { href: '/dashboard/matters',        icon: Briefcase,       label: 'Дела', group: 'Доверители и дела' },
+  { href: '/dashboard/clients',        icon: Users,           label: 'Доверители' },
   { href: '/dashboard/reports',        icon: FileBarChart2,   label: 'Отчёты', group: 'Документы' },
   { href: '/dashboard/acts',           icon: FileCheck,       label: 'Акты' },
   { href: '/dashboard/reimbursements', icon: Receipt,         label: 'Возмещаемые расходы' },

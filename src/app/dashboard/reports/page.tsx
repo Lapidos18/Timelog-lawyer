@@ -94,7 +94,7 @@ export default function ReportsPage() {
     if (filters.is_billable !== undefined) q = q.eq('is_billable', filters.is_billable)
 
     const { data, error } = await q
-    if (error) { toast.error('Ошибка запроса') }
+    if (error) { toast.error('Не удалось получить данные. Проверьте связь и попробуйте снова') }
     else { setRows(data ?? []); setSearched(true) }
     setLoading(false)
   }
@@ -154,7 +154,7 @@ export default function ReportsPage() {
   }
 
   async function handleExcelExport() {
-    if (rows.length === 0) { toast.error('Нет данных'); return }
+    if (rows.length === 0) { toast.error('Нет данных для выгрузки — сначала сформируйте отчёт'); return }
     try {
       const { exportToExcel } = await import('@/lib/reports')
       await exportToExcel(rows, `Отчёт_${filters.date_from}_${filters.date_to}`)
@@ -166,7 +166,7 @@ export default function ReportsPage() {
   }
 
   async function handlePDFExport() {
-    if (rows.length === 0) { toast.error('Нет данных'); return }
+    if (rows.length === 0) { toast.error('Нет данных для выгрузки — сначала сформируйте отчёт'); return }
     try {
       const { exportToPDF } = await import('@/lib/reports')
       const client = clients.find(c => c.id === filters.client_id)
@@ -192,7 +192,7 @@ export default function ReportsPage() {
   }
 
   async function handleWordExport() {
-    if (rows.length === 0) { toast.error('Нет данных'); return }
+    if (rows.length === 0) { toast.error('Нет данных для выгрузки — сначала сформируйте отчёт'); return }
     try {
       const { exportToWord } = await import('@/lib/reports')
       const client = clients.find(c => c.id === filters.client_id)
@@ -257,10 +257,10 @@ export default function ReportsPage() {
               onChange={e => setFilters(f => ({ ...f, date_to: e.target.value }))} />
           </div>
           <div>
-            <label className="label">Клиент</label>
+            <label className="label">Доверитель</label>
             <select className="select" value={filters.client_id ?? ''}
               onChange={e => setFilters(f => ({ ...f, client_id: e.target.value || undefined, matter_id: undefined }))}>
-              <option value="">Все клиенты</option>
+              <option value="">Все доверители</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
@@ -304,7 +304,7 @@ export default function ReportsPage() {
             <select className="select" value={groupBy}
               onChange={e => setGroupBy(e.target.value as GroupBy)}>
               <option value="none">Без группировки</option>
-              <option value="client">По клиенту</option>
+              <option value="client">По доверителю</option>
               <option value="matter">По делу</option>
             </select>
           </div>
@@ -348,7 +348,10 @@ export default function ReportsPage() {
 
       {searched && rows.length > 0 && (
         <>
-        <p className="text-xs text-navy-400 mb-2 hidden md:block">💡 Двойной клик по строке — редактировать запись</p>
+        <p className="text-xs text-navy-400 mb-2">
+          💡 <span className="hidden md:inline">Двойной клик по строке — редактировать запись</span>
+          <span className="md:hidden">Нажмите на запись — редактировать</span>
+        </p>
         <div className="space-y-4">
           {groups.map(group => {
             const collapsed = collapsedGroups.has(group.key)
@@ -386,7 +389,7 @@ export default function ReportsPage() {
                     <table className="w-full text-xs min-w-[800px]">
                       <thead>
                         <tr className="border-b border-navy-800">
-                          {['№','Дата','Клиент','Дело','Вид работы','Описание','Часов','Ставка','Сумма','Исполнитель'].map(h => (
+                          {['№','Дата','Доверитель','Дело','Вид работы','Описание','Часов','Ставка','Сумма','Исполнитель'].map(h => (
                             <th key={h} className="text-left px-3 py-2.5 text-navy-300 font-medium whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
@@ -535,7 +538,7 @@ export default function ReportsPage() {
                 </select>
               </div>
               <div className="md:col-span-2">
-                <label className="label">Ставка, руб./ч *</label>
+                <label className="label">Ставка, руб./ч. *</label>
                 <input type="number" inputMode="decimal" className="input" value={editForm.hourly_rate}
                   onChange={e => setEditForm(f => ({ ...f, hourly_rate: e.target.value }))} />
               </div>

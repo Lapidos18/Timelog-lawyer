@@ -107,7 +107,7 @@ export default function DashboardPage() {
         }
 
         // Ключуем по client_id, а не по имени — иначе тёзки (два разных
-        // клиента с одинаковым именем) задваиваются в одну строку.
+        // доверителя с одинаковым именем) задваиваются в одну строку.
         const billedMap: Record<string, number> = {}
         for (const r of (allEntries ?? [])) {
           const clientId = matterClientMap[r.matter_id]
@@ -216,7 +216,7 @@ export default function DashboardPage() {
         <div className="card mb-5">
           <h2 className="text-sm font-medium text-navy-300 mb-4 flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-400" />
-            Задолженность клиентов
+            Задолженность доверителей
           </h2>
           <div className="space-y-3">
             {clientBalances.map(b => (
@@ -258,7 +258,7 @@ export default function DashboardPage() {
             <table className="w-full text-xs min-w-[600px]">
               <thead>
                 <tr className="border-b border-navy-800">
-                  {['Дата','Клиент / Дело','Вид работы','Описание','Часов','Сумма','Исполнитель'].map(h => (
+                  {['Дата','Доверитель / Дело','Вид работы','Описание','Часов','Сумма','Исполнитель'].map(h => (
                     <th key={h} className="text-left pb-2 pr-4 text-navy-300 font-medium">{h}</th>
                   ))}
                 </tr>

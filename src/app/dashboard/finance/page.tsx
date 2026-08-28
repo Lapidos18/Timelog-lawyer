@@ -406,7 +406,7 @@ export default function FinancePage() {
   ]
 
   if (loading) {
-    return <div className="p-7 text-navy-300 text-sm">Загрузка…</div>
+    return <div className="p-7 text-navy-300 text-sm">Загрузка...</div>
   }
 
   return (
@@ -479,7 +479,7 @@ export default function FinancePage() {
                     onChange={e => setIncomeForm(f => ({ ...f, income_date: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="label">Клиент</label>
+                  <label className="label">Доверитель</label>
                   <select className="select" value={incomeForm.client_id}
                     onChange={e => setIncomeForm(f => ({ ...f, client_id: e.target.value, matter_id: '' }))}>
                     <option value="">— не указан —</option>
@@ -529,7 +529,7 @@ export default function FinancePage() {
                 <tr className="text-left text-navy-300 border-b border-navy-800">
                   <th className="pb-2 font-medium">Дата</th>
                   <th className="pb-2 font-medium">Квартал</th>
-                  <th className="pb-2 font-medium">Клиент</th>
+                  <th className="pb-2 font-medium">Доверитель</th>
                   <th className="pb-2 font-medium">Дело</th>
                   <th className="pb-2 font-medium">Источник</th>
                   <th className="pb-2 font-medium text-right">Сумма</th>
@@ -823,7 +823,7 @@ export default function FinancePage() {
                   <div className="font-semibold text-navy-100 whitespace-nowrap">{fmt2(row.advanceDue)} ₽</div>
                 </div>
                 <div>
-                  <div className="text-navy-300 text-xs mb-1">Фактически уплачено</div>
+                  <div className="text-navy-300 text-xs mb-1">Уплачено фактически</div>
                   <div className="font-semibold text-navy-100 whitespace-nowrap">{fmt2(row.actuallyPaidThisQ)} ₽</div>
                 </div>
                 <div>
@@ -865,7 +865,7 @@ export default function FinancePage() {
                     onChange={e => setPaymentForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
                 </div>
                 <div>
-                  <label className="label">№ платёжки</label>
+                  <label className="label">№ платёжного поручения</label>
                   <input type="text" className="input" value={paymentForm.doc_no}
                     onChange={e => setPaymentForm(f => ({ ...f, doc_no: e.target.value }))} />
                 </div>
@@ -1058,7 +1058,7 @@ export default function FinancePage() {
                     onChange={e => setContribPaymentForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
                 </div>
                 <div>
-                  <label className="label">№ платёжки</label>
+                  <label className="label">№ платёжного поручения</label>
                   <input type="text" className="input" value={contribPaymentForm.doc_no}
                     onChange={e => setContribPaymentForm(f => ({ ...f, doc_no: e.target.value }))} />
                 </div>

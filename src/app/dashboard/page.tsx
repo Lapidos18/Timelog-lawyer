@@ -162,7 +162,7 @@ export default function DashboardPage() {
     <div className="p-4 md:p-7">
       <div className="mb-5 md:mb-7">
         <h1 className="text-2xl font-semibold text-navy-100">Обзор</h1>
-        <p className="text-sm text-navy-500 capitalize">{monthLabel}</p>
+        <p className="text-sm text-navy-300 capitalize">{monthLabel}</p>
       </div>
 
       {loadError && !loading && (
@@ -175,7 +175,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-5 md:mb-6">
         <div className="stat-card">
           <div className="flex items-center gap-2 mb-2">
-            <Clock className="w-4 h-4 text-navy-500" />
+            <Clock className="w-4 h-4 text-navy-300" />
             <span className="text-xs text-navy-400">Часов за месяц</span>
           </div>
           <p className="text-2xl font-semibold text-navy-100">
@@ -184,7 +184,7 @@ export default function DashboardPage() {
         </div>
         <div className="stat-card">
           <div className="flex items-center gap-2 mb-2">
-            <Banknote className="w-4 h-4 text-navy-500" />
+            <Banknote className="w-4 h-4 text-navy-300" />
             <span className="text-xs text-navy-400">Выручка за месяц</span>
           </div>
           <p className="text-2xl font-semibold text-gold-400">
@@ -193,7 +193,7 @@ export default function DashboardPage() {
         </div>
         <div className="stat-card">
           <div className="flex items-center gap-2 mb-2">
-            <Briefcase className="w-4 h-4 text-navy-500" />
+            <Briefcase className="w-4 h-4 text-navy-300" />
             <span className="text-xs text-navy-400">Активных дел</span>
           </div>
           <p className="text-2xl font-semibold text-navy-100">
@@ -202,7 +202,7 @@ export default function DashboardPage() {
         </div>
         <div className="stat-card">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-4 h-4 text-navy-500" />
+            <TrendingUp className="w-4 h-4 text-navy-300" />
             <span className="text-xs text-navy-400">Ср. ставка</span>
           </div>
           <p className="text-2xl font-semibold text-navy-100">
@@ -222,7 +222,7 @@ export default function DashboardPage() {
             {clientBalances.map(b => (
               <div key={b.id} className="flex items-center gap-3 flex-wrap">
                 <span className="text-sm text-navy-200 flex-1 min-w-[120px] truncate">{b.name}</span>
-                <span className="text-xs text-navy-500">начислено {formatMoney(b.billed)} ₽</span>
+                <span className="text-xs text-navy-300">начислено {formatMoney(b.billed)} ₽</span>
                 <span className="text-xs text-emerald-400">оплачено {formatMoney(b.paid)} ₽</span>
                 <span className="text-sm font-semibold text-red-400 whitespace-nowrap">
                   долг {formatMoney(b.debt)} ₽
@@ -243,9 +243,9 @@ export default function DashboardPage() {
           </Link>
         </div>
         {loading ? (
-          <p className="text-navy-500 text-sm text-center py-8">Загрузка...</p>
+          <p className="text-navy-300 text-sm text-center py-8">Загрузка...</p>
         ) : recentEntries.length === 0 ? (
-          <p className="text-navy-500 text-sm text-center py-8">
+          <p className="text-navy-300 text-sm text-center py-8">
             Нет записей.{' '}
             <Link href="/dashboard/entries" className="text-gold-400 hover:underline">
               Добавить →
@@ -259,7 +259,7 @@ export default function DashboardPage() {
               <thead>
                 <tr className="border-b border-navy-800">
                   {['Дата','Клиент / Дело','Вид работы','Описание','Часов','Сумма','Исполнитель'].map(h => (
-                    <th key={h} className="text-left pb-2 pr-4 text-navy-500 font-medium">{h}</th>
+                    <th key={h} className="text-left pb-2 pr-4 text-navy-300 font-medium">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -271,7 +271,7 @@ export default function DashboardPage() {
                     </td>
                     <td className="py-2.5 pr-4">
                       <p className="text-navy-200 font-medium truncate max-w-[130px]">{e.client_name}</p>
-                      <p className="text-navy-500 truncate max-w-[130px]">{e.matter_title}</p>
+                      <p className="text-navy-300 truncate max-w-[130px]">{e.matter_title}</p>
                     </td>
                     <td className="py-2.5 pr-4">
                       <span className="badge-gold">{ACTIVITY_LABELS[e.activity_type] ?? e.activity_type}</span>
@@ -281,9 +281,9 @@ export default function DashboardPage() {
                     <td className="py-2.5 pr-4 font-mono whitespace-nowrap">
                       {e.is_billable
                         ? <span className="text-gold-400">{formatMoney(e.amount)} ₽</span>
-                        : <span className="text-navy-600">—</span>}
+                        : <span className="text-navy-400">—</span>}
                     </td>
-                    <td className="py-2.5 text-navy-500 truncate max-w-[100px]">{e.performed_by}</td>
+                    <td className="py-2.5 text-navy-300 truncate max-w-[100px]">{e.performed_by}</td>
                   </tr>
                 ))}
               </tbody>
@@ -297,7 +297,7 @@ export default function DashboardPage() {
                 <div className="flex items-start justify-between gap-2 mb-1.5">
                   <div className="min-w-0">
                     <p className="text-navy-200 text-sm font-medium truncate">{e.client_name}</p>
-                    <p className="text-navy-500 text-xs truncate">{e.matter_title}</p>
+                    <p className="text-navy-300 text-xs truncate">{e.matter_title}</p>
                   </div>
                   <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
                     {format(new Date(e.work_date), 'dd.MM.yy')}
@@ -309,11 +309,11 @@ export default function DashboardPage() {
                 </div>
                 <p className="text-navy-300 text-xs mb-1.5 line-clamp-2">{e.description}</p>
                 <div className="flex items-center justify-between">
-                  <span className="text-navy-500 text-xs truncate">{e.performed_by}</span>
+                  <span className="text-navy-300 text-xs truncate">{e.performed_by}</span>
                   <span className="font-mono text-sm">
                     {e.is_billable
                       ? <span className="text-gold-400 font-semibold">{formatMoney(e.amount)} ₽</span>
-                      : <span className="text-navy-600">—</span>}
+                      : <span className="text-navy-400">—</span>}
                   </span>
                 </div>
               </div>

@@ -81,7 +81,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-xs text-navy-600 mt-6">
+        <p className="text-center text-xs text-navy-400 mt-6">
           Адвокатская тайна охраняется ст. 8 ФЗ-63
         </p>
       </div>

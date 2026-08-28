@@ -13,7 +13,7 @@ function fmt(n: number) {
 }
 
 const STATUS_COLORS: Record<ReimbursementStatus, string> = {
-  pending: 'text-navy-400 bg-navy-800',
+  pending: 'text-navy-200 bg-navy-800',
   invoiced: 'text-amber-400 bg-amber-900/30',
   reimbursed: 'text-emerald-400 bg-emerald-900/30',
 }
@@ -125,7 +125,7 @@ export default function ReimbursementsPage() {
           <Receipt className="w-6 h-6 text-gold-400" />
           Возмещаемые расходы
         </h1>
-        <p className="text-sm text-navy-500 mt-1">
+        <p className="text-sm text-navy-300 mt-1">
           Такси, почта, госпошлина и иные издержки, компенсируемые доверителем сверх вознаграждения —
           учитываются отдельно и не входят в акт об оказании юридической помощи как часть гонорара.
         </p>
@@ -134,11 +134,11 @@ export default function ReimbursementsPage() {
       {/* Summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
         <div className="card">
-          <div className="text-xs text-navy-500 mb-1">Ожидает компенсации (не оплачено доверителем)</div>
+          <div className="text-xs text-navy-300 mb-1">Ожидает компенсации (не оплачено доверителем)</div>
           <div className="text-xl font-bold text-gold-400">{fmt(totalPending)} ₽</div>
         </div>
         <div className="card">
-          <div className="text-xs text-navy-500 mb-1">Итого расходов по фильтру</div>
+          <div className="text-xs text-navy-300 mb-1">Итого расходов по фильтру</div>
           <div className="text-xl font-bold text-navy-200">{fmt(totalAll)} ₽</div>
         </div>
       </div>
@@ -226,17 +226,17 @@ export default function ReimbursementsPage() {
 
       {/* Table (desktop) */}
       {!loading && filtered.length > 0 && (
-        <p className="text-xs text-navy-600 mb-2 hidden md:block">💡 Двойной клик по строке — редактировать</p>
+        <p className="text-xs text-navy-400 mb-2 hidden md:block">💡 Двойной клик по строке — редактировать</p>
       )}
       <div className="card hidden md:block">
         {loading ? (
-          <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
+          <p className="text-navy-300 text-sm text-center py-12">Загрузка...</p>
         ) : filtered.length === 0 ? (
-          <p className="text-navy-500 text-sm text-center py-12">Нет записей.</p>
+          <p className="text-navy-300 text-sm text-center py-12">Нет записей.</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-navy-500 border-b border-navy-800">
+              <tr className="text-left text-navy-300 border-b border-navy-800">
                 <th className="pb-2 font-medium">Дата</th>
                 <th className="pb-2 font-medium">Дело</th>
                 <th className="pb-2 font-medium">Описание</th>
@@ -257,7 +257,7 @@ export default function ReimbursementsPage() {
                     {e.matters?.clients?.name} / {e.matters?.title}
                   </td>
                   <td className="py-2 text-navy-300 max-w-[220px] truncate">{e.description}</td>
-                  <td className="py-2 text-navy-500">{e.doc_no || '—'}</td>
+                  <td className="py-2 text-navy-300">{e.doc_no || '—'}</td>
                   <td className="py-2">
                     <select
                       value={e.status}
@@ -272,7 +272,7 @@ export default function ReimbursementsPage() {
                   <td className="py-2 text-right font-medium">{fmt(e.amount)} ₽</td>
                   <td className="py-2 text-right">
                     <button onClick={ev => { ev.stopPropagation(); deleteExpense(e.id) }}
-                      className="text-navy-600 hover:text-red-400">
+                      className="text-navy-400 hover:text-red-400">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </td>
@@ -286,9 +286,9 @@ export default function ReimbursementsPage() {
       {/* Card list (mobile) — то же содержимое, без горизонтальной прокрутки */}
       <div className="md:hidden">
         {loading ? (
-          <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
+          <p className="text-navy-300 text-sm text-center py-12">Загрузка...</p>
         ) : filtered.length === 0 ? (
-          <p className="text-navy-500 text-sm text-center py-12">Нет записей.</p>
+          <p className="text-navy-300 text-sm text-center py-12">Нет записей.</p>
         ) : (
           <div className="space-y-2">
             {filtered.map(e => (
@@ -298,7 +298,7 @@ export default function ReimbursementsPage() {
                 <div className="flex items-start justify-between gap-2 mb-1.5">
                   <div className="min-w-0">
                     <p className="text-navy-200 text-sm font-medium truncate">{e.matters?.clients?.name}</p>
-                    <p className="text-navy-500 text-xs truncate">{e.matters?.title}</p>
+                    <p className="text-navy-300 text-xs truncate">{e.matters?.title}</p>
                   </div>
                   <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
                     {format(new Date(e.expense_date), 'dd.MM.yy')}
@@ -315,7 +315,7 @@ export default function ReimbursementsPage() {
                       <option key={v} value={v}>{l}</option>
                     ))}
                   </select>
-                  {e.doc_no && <span className="text-navy-500 text-xs truncate">№ {e.doc_no}</span>}
+                  {e.doc_no && <span className="text-navy-300 text-xs truncate">№ {e.doc_no}</span>}
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-navy-800/60">
                   <span className="font-mono text-sm font-medium">{fmt(e.amount)} ₽</span>
@@ -330,7 +330,7 @@ export default function ReimbursementsPage() {
         )}
       </div>
 
-      <p className="text-xs text-navy-600 mt-4 leading-relaxed">
+      <p className="text-xs text-navy-400 mt-4 leading-relaxed">
         Возмещение издержек (транспортные, почтовые, государственная пошлина и иные расходы) юридически
         отделено от вознаграждения адвоката: не включается в акт об оказании юридической помощи как часть
         гонорара и не образует объект обложения НДФЛ при документальном подтверждении и наличии условия

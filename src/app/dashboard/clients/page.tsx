@@ -135,16 +135,16 @@ export default function ClientsPage() {
       )}
 
       {!loading && clients.length > 0 && (
-        <p className="text-xs text-navy-600 mb-2">💡 Двойной клик по клиенту — редактировать</p>
+        <p className="text-xs text-navy-400 mb-2">💡 Двойной клик по клиенту — редактировать</p>
       )}
 
       {loadError && !loading && <LoadError onRetry={loadClients} />}
 
       {!loadError && (
       <div className="card">
-        {loading ? <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
+        {loading ? <p className="text-navy-300 text-sm text-center py-12">Загрузка...</p>
           : clients.length === 0 ? (
-            <p className="text-navy-500 text-sm text-center py-12">
+            <p className="text-navy-300 text-sm text-center py-12">
               Нет клиентов.{' '}
               <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">
                 Добавить →
@@ -166,7 +166,7 @@ export default function ClientsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-navy-200 font-medium text-sm truncate">{c.name}</p>
-                    <p className="text-navy-500 text-xs">
+                    <p className="text-navy-300 text-xs">
                       {TYPE_LABELS[c.type]}
                       {c.inn && ` · ИНН ${c.inn}`}
                       {c.phone && ` · ${c.phone}`}

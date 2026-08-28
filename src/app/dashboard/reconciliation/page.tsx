@@ -252,7 +252,7 @@ export default function ReconciliationPage() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div className="min-w-0">
           <h1 className="text-xl md:text-2xl font-semibold text-navy-100">Платежи / Акт сверки</h1>
-          <p className="text-xs text-navy-500 mt-1">Внесение фактических платежей и сверка расчётов с клиентом</p>
+          <p className="text-xs text-navy-300 mt-1">Внесение фактических платежей и сверка расчётов с клиентом</p>
         </div>
         {generated && (
           <div className="flex gap-2">
@@ -297,7 +297,7 @@ export default function ReconciliationPage() {
             {loading ? 'Загрузка...' : 'Сформировать акт сверки'}
           </button>
           {!selectedClient && (
-            <span className="text-xs text-navy-600">Выберите клиента, чтобы внести платёж или сформировать акт</span>
+            <span className="text-xs text-navy-400">Выберите клиента, чтобы внести платёж или сформировать акт</span>
           )}
         </div>
       </div>
@@ -373,7 +373,7 @@ export default function ReconciliationPage() {
           <div className="card mb-4">
             <h2 className="font-medium text-navy-200 mb-4 text-sm">Оказанные услуги</h2>
             {services.length === 0 ? (
-              <p className="text-navy-500 text-sm text-center py-6">Нет оказанных услуг за период</p>
+              <p className="text-navy-300 text-sm text-center py-6">Нет оказанных услуг за период</p>
             ) : (
               <>
               {/* Table (desktop) */}
@@ -382,14 +382,14 @@ export default function ReconciliationPage() {
                 <thead>
                   <tr className="border-b border-navy-800">
                     {['№','Дата','Дело','Вид работы','Описание','Часов','Ставка','Сумма'].map(h => (
-                      <th key={h} className="text-left pb-2 pr-3 text-navy-500 font-medium">{h}</th>
+                      <th key={h} className="text-left pb-2 pr-3 text-navy-300 font-medium">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {services.map((r, i) => (
                     <tr key={r.id} className="border-b border-navy-800/40 hover:bg-navy-800/30">
-                      <td className="py-2 pr-3 text-navy-600">{i+1}</td>
+                      <td className="py-2 pr-3 text-navy-400">{i+1}</td>
                       <td className="py-2 pr-3 font-mono text-navy-400">{fmtDate(r.work_date)}</td>
                       <td className="py-2 pr-3 text-navy-300 max-w-[140px] truncate">{r.matter_title}</td>
                       <td className="py-2 pr-3 text-navy-400">{ACTIVITY_LABELS[r.activity_type as keyof typeof ACTIVITY_LABELS]}</td>
@@ -438,7 +438,7 @@ export default function ReconciliationPage() {
           <div className="card">
             <h2 className="font-medium text-navy-200 mb-4 text-sm">Поступившие оплаты</h2>
             {payments.length === 0 ? (
-              <p className="text-navy-500 text-sm text-center py-6">
+              <p className="text-navy-300 text-sm text-center py-6">
                 Нет платежей за период.{' '}
                 <button onClick={() => setShowPayForm(true)} className="text-gold-400 hover:underline">
                   Добавить →
@@ -452,14 +452,14 @@ export default function ReconciliationPage() {
                 <thead>
                   <tr className="border-b border-navy-800">
                     {['№','Дата','№ документа','Назначение','Сумма',''].map(h => (
-                      <th key={h} className="text-left pb-2 pr-3 text-navy-500 font-medium">{h}</th>
+                      <th key={h} className="text-left pb-2 pr-3 text-navy-300 font-medium">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {payments.map((p, i) => (
                     <tr key={p.id} className="border-b border-navy-800/40 hover:bg-navy-800/30">
-                      <td className="py-2 pr-3 text-navy-600">{i+1}</td>
+                      <td className="py-2 pr-3 text-navy-400">{i+1}</td>
                       <td className="py-2 pr-3 font-mono text-navy-400">{fmtDate(p.pay_date)}</td>
                       <td className="py-2 pr-3 text-navy-400">{p.doc_no ?? '—'}</td>
                       <td className="py-2 pr-3 text-navy-300 max-w-[200px] truncate">{p.description}</td>
@@ -488,7 +488,7 @@ export default function ReconciliationPage() {
                     <div className="flex items-start justify-between gap-2 mb-1.5">
                       <div className="min-w-0">
                         <p className="text-navy-300 text-xs truncate">{p.description}</p>
-                        {p.doc_no && <p className="text-navy-500 text-xs">№ {p.doc_no}</p>}
+                        {p.doc_no && <p className="text-navy-300 text-xs">№ {p.doc_no}</p>}
                       </div>
                       <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">{fmtDate(p.pay_date)}</span>
                     </div>

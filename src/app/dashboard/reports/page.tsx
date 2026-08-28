@@ -342,13 +342,13 @@ export default function ReportsPage() {
       {/* Results */}
       {searched && rows.length === 0 && (
         <div className="card">
-          <p className="text-navy-500 text-sm text-center py-12">Нет данных по заданным фильтрам.</p>
+          <p className="text-navy-300 text-sm text-center py-12">Нет данных по заданным фильтрам.</p>
         </div>
       )}
 
       {searched && rows.length > 0 && (
         <>
-        <p className="text-xs text-navy-600 mb-2 hidden md:block">💡 Двойной клик по строке — редактировать запись</p>
+        <p className="text-xs text-navy-400 mb-2 hidden md:block">💡 Двойной клик по строке — редактировать запись</p>
         <div className="space-y-4">
           {groups.map(group => {
             const collapsed = collapsedGroups.has(group.key)
@@ -365,11 +365,11 @@ export default function ReportsPage() {
                                bg-navy-800/50 hover:bg-navy-800 transition-colors border-b border-navy-700/50">
                     <div className="flex items-center gap-3">
                       {collapsed
-                        ? <ChevronRight className="w-4 h-4 text-navy-500" />
-                        : <ChevronDown className="w-4 h-4 text-navy-500" />}
+                        ? <ChevronRight className="w-4 h-4 text-navy-300" />
+                        : <ChevronDown className="w-4 h-4 text-navy-300" />}
                       <div className="text-left">
                         <p className="text-sm font-semibold text-navy-200">{group.label}</p>
-                        {group.sublabel && <p className="text-xs text-navy-500">{group.sublabel}</p>}
+                        {group.sublabel && <p className="text-xs text-navy-300">{group.sublabel}</p>}
                       </div>
                     </div>
                     <div className="flex items-center gap-6 text-xs text-navy-400">
@@ -387,14 +387,14 @@ export default function ReportsPage() {
                       <thead>
                         <tr className="border-b border-navy-800">
                           {['№','Дата','Клиент','Дело','Вид работы','Описание','Часов','Ставка','Сумма','Исполнитель'].map(h => (
-                            <th key={h} className="text-left px-3 py-2.5 text-navy-500 font-medium whitespace-nowrap">{h}</th>
+                            <th key={h} className="text-left px-3 py-2.5 text-navy-300 font-medium whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {group.rows.map((r, i) => (
                           <tr key={r.id} onDoubleClick={() => openEdit(r)} className="border-b border-navy-800/40 table-row-hover cursor-pointer" title="Двойной клик — редактировать">
-                            <td className="px-3 py-2 text-navy-600">{i+1}</td>
+                            <td className="px-3 py-2 text-navy-400">{i+1}</td>
                             <td className="px-3 py-2 font-mono text-navy-400 whitespace-nowrap">{fmtDate(r.work_date)}</td>
                             <td className="px-3 py-2 text-navy-300 max-w-[120px] truncate">{r.client_name}</td>
                             <td className="px-3 py-2 text-navy-300 max-w-[130px] truncate">{r.matter_title}</td>
@@ -407,9 +407,9 @@ export default function ReportsPage() {
                             <td className="px-3 py-2 text-right font-mono whitespace-nowrap">
                               {r.is_billable
                                 ? <span className="text-gold-400">{formatMoney(r.amount)} ₽</span>
-                                : <span className="text-navy-600">—</span>}
+                                : <span className="text-navy-400">—</span>}
                             </td>
-                            <td className="px-3 py-2 text-navy-500 truncate max-w-[100px]">{r.performed_by}</td>
+                            <td className="px-3 py-2 text-navy-300 truncate max-w-[100px]">{r.performed_by}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -442,7 +442,7 @@ export default function ReportsPage() {
                         <div className="flex items-start justify-between gap-2 mb-1.5">
                           <div className="min-w-0">
                             <p className="text-navy-200 text-sm font-medium truncate">{r.client_name}</p>
-                            <p className="text-navy-500 text-xs truncate">{r.matter_title}</p>
+                            <p className="text-navy-300 text-xs truncate">{r.matter_title}</p>
                           </div>
                           <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
                             {fmtDate(r.work_date)}
@@ -454,11 +454,11 @@ export default function ReportsPage() {
                         </div>
                         <p className="text-navy-300 text-xs mb-2 line-clamp-2">{r.description}</p>
                         <div className="flex items-center justify-between pt-2 border-t border-navy-800/60">
-                          <span className="text-navy-500 text-xs truncate">{r.performed_by}</span>
+                          <span className="text-navy-300 text-xs truncate">{r.performed_by}</span>
                           <span className="font-mono text-sm">
                             {r.is_billable
                               ? <span className="text-gold-400 font-semibold">{formatMoney(r.amount)} ₽</span>
-                              : <span className="text-navy-600">—</span>}
+                              : <span className="text-navy-400">—</span>}
                           </span>
                         </div>
                       </div>

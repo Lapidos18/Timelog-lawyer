@@ -101,7 +101,7 @@ export default function BackupPage() {
     <div className="p-4 md:p-7 max-w-2xl">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-navy-100 mb-1">Резервная копия</h1>
-        <p className="text-sm text-navy-500">
+        <p className="text-sm text-navy-300">
           Скачивает все данные из базы в файл JSON на ваш компьютер.
           Рекомендуется делать раз в месяц.
         </p>
@@ -125,7 +125,7 @@ export default function BackupPage() {
               ))}
             </div>
             {lastBackup && (
-              <p className="text-xs text-navy-500">
+              <p className="text-xs text-navy-300">
                 Последний бэкап: <span className="text-emerald-400">{lastBackup}</span>
               </p>
             )}
@@ -170,7 +170,7 @@ export default function BackupPage() {
       {/* Instructions */}
       <div className="mt-6 p-4 bg-navy-800/40 rounded-xl border border-navy-700/50">
         <h3 className="text-xs font-medium text-navy-300 mb-2">Как восстановить данные</h3>
-        <p className="text-xs text-navy-500 leading-relaxed">
+        <p className="text-xs text-navy-300 leading-relaxed">
           Файл бэкапа содержит все данные в формате JSON. При необходимости восстановления
           обратитесь к разработчику — данные можно импортировать обратно в базу.
           Храните файл бэкапа в надёжном месте (например, в папке на рабочем столе или

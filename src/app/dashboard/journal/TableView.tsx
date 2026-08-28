@@ -398,7 +398,7 @@ export default function TableView() {
               <label className="label">
                 Ставка, руб./ч *
                 {profile?.hourly_rate && (
-                  <span className="ml-2 text-navy-500 normal-case font-normal">
+                  <span className="ml-2 text-navy-300 normal-case font-normal">
                     (из профиля: {profile.hourly_rate} ₽)
                   </span>
                 )}
@@ -418,7 +418,7 @@ export default function TableView() {
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4 rounded accent-amber-500"
                   checked={ndfl} onChange={e => setNdfl(e.target.checked)} />
-                <span className={`text-sm font-medium ${ndfl ? 'text-amber-400' : 'text-navy-500'}`}>
+                <span className={`text-sm font-medium ${ndfl ? 'text-amber-400' : 'text-navy-300'}`}>
                   +НДФЛ 15%
                 </span>
               </label>
@@ -443,7 +443,7 @@ export default function TableView() {
                 <span className="text-navy-400">Ставка:
                   <strong className={`ml-1 ${ndfl ? 'text-amber-400' : 'text-navy-200'}`}>
                     {formatMoney(effectiveRate(form.hourly_rate))} ₽/ч
-                    {ndfl && <span className="text-xs ml-1 font-normal text-navy-500">(с НДФЛ)</span>}
+                    {ndfl && <span className="text-xs ml-1 font-normal text-navy-300">(с НДФЛ)</span>}
                   </strong>
                 </span>
                 <span className="text-navy-400">Сумма:
@@ -471,9 +471,9 @@ export default function TableView() {
       {/* Table (desktop) */}
       <div className={`card hidden ${loadError ? '' : 'md:block'}`}>
         {loading ? (
-          <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
+          <p className="text-navy-300 text-sm text-center py-12">Загрузка...</p>
         ) : entries.length === 0 ? (
-          <p className="text-navy-500 text-sm text-center py-12">
+          <p className="text-navy-300 text-sm text-center py-12">
             {hasActiveFilters ? 'Нет записей по заданным фильтрам.' : (
               <>
                 Нет записей.{' '}
@@ -488,7 +488,7 @@ export default function TableView() {
             <thead>
               <tr className="border-b border-navy-800">
                 {['Дата','Дело','Вид работы','Описание','Время','Ставка','Сумма','Кто',''].map(h => (
-                  <th key={h} className="text-left pb-2.5 pr-4 text-xs text-navy-500 font-medium">{h}</th>
+                  <th key={h} className="text-left pb-2.5 pr-4 text-xs text-navy-300 font-medium">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -505,7 +505,7 @@ export default function TableView() {
                     <p className="text-navy-200 text-xs font-medium truncate max-w-[150px]">
                       {e.matters?.clients?.name}
                     </p>
-                    <p className="text-navy-500 text-xs truncate max-w-[150px]">
+                    <p className="text-navy-300 text-xs truncate max-w-[150px]">
                       {e.matters?.title}
                     </p>
                   </td>
@@ -524,9 +524,9 @@ export default function TableView() {
                   <td className="py-3 pr-4 font-mono text-xs whitespace-nowrap">
                     {e.is_billable
                       ? <span className="text-gold-400">{formatMoney(e.amount)} ₽</span>
-                      : <span className="text-navy-600">—</span>}
+                      : <span className="text-navy-400">—</span>}
                   </td>
-                  <td className="py-3 pr-4 text-navy-500 text-xs truncate max-w-[100px]">
+                  <td className="py-3 pr-4 text-navy-300 text-xs truncate max-w-[100px]">
                     {e.profiles?.full_name}
                   </td>
                   <td className="py-3">
@@ -550,9 +550,9 @@ export default function TableView() {
       {/* Card list (mobile) — то же содержимое, без горизонтальной прокрутки */}
       <div className={loadError ? 'hidden' : 'md:hidden'}>
         {loading ? (
-          <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
+          <p className="text-navy-300 text-sm text-center py-12">Загрузка...</p>
         ) : entries.length === 0 ? (
-          <p className="text-navy-500 text-sm text-center py-12">
+          <p className="text-navy-300 text-sm text-center py-12">
             {hasActiveFilters ? 'Нет записей по заданным фильтрам.' : (
               <>
                 Нет записей.{' '}
@@ -571,7 +571,7 @@ export default function TableView() {
                 <div className="flex items-start justify-between gap-2 mb-1.5">
                   <div className="min-w-0">
                     <p className="text-navy-200 text-sm font-medium truncate">{e.matters?.clients?.name}</p>
-                    <p className="text-navy-500 text-xs truncate">{e.matters?.title}</p>
+                    <p className="text-navy-300 text-xs truncate">{e.matters?.title}</p>
                   </div>
                   <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
                     {format(new Date(e.work_date), 'dd.MM.yy')}
@@ -583,12 +583,12 @@ export default function TableView() {
                 </div>
                 <p className="text-navy-300 text-xs mb-2 line-clamp-2">{e.description}</p>
                 <div className="flex items-center justify-between pt-2 border-t border-navy-800/60">
-                  <span className="text-navy-500 text-xs truncate">{e.profiles?.full_name}</span>
+                  <span className="text-navy-300 text-xs truncate">{e.profiles?.full_name}</span>
                   <div className="flex items-center gap-3">
                     <span className="font-mono text-sm">
                       {e.is_billable
                         ? <span className="text-gold-400 font-semibold">{formatMoney(e.amount)} ₽</span>
-                        : <span className="text-navy-600">—</span>}
+                        : <span className="text-navy-400">—</span>}
                     </span>
                     <button onClick={ev => { ev.stopPropagation(); handleDelete(e.id) }}
                       className="btn-ghost p-1.5 hover:text-red-400 hover:bg-red-900/10">

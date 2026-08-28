@@ -65,7 +65,7 @@ export default function CalculatorTab() {
 
   return (
     <div>
-      <p className="text-sm text-navy-500 mb-5">
+      <p className="text-sm text-navy-300 mb-5">
         Разовый расчёт: сколько выставить, чтобы получить нужную сумму «на руки», или сколько НДФЛ удержится
         с уже полученного дохода (пп. 2 п. 1 ст. 227 НК РФ). Для годового расчёта нарастающим итогом — вкладка «Расчёт НДФЛ».
       </p>
@@ -110,7 +110,7 @@ export default function CalculatorTab() {
                 onChange={e => setAmount(e.target.value)}
                 placeholder="40000"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-navy-500 text-sm">₽</span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-navy-300 text-sm">₽</span>
             </div>
           </div>
           <div>
@@ -123,7 +123,7 @@ export default function CalculatorTab() {
           <div>
             <label className="label">
               Ежемесячные расходы кабинета
-              <span className="ml-1 text-navy-600 normal-case font-normal">(для профвычета)</span>
+              <span className="ml-1 text-navy-400 normal-case font-normal">(для профвычета)</span>
             </label>
             <div className="relative">
               <input
@@ -134,7 +134,7 @@ export default function CalculatorTab() {
                 onChange={e => setMonthlyExpenses(e.target.value)}
                 placeholder="9600"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-navy-500 text-sm">₽</span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-navy-300 text-sm">₽</span>
             </div>
           </div>
         </div>
@@ -149,13 +149,13 @@ export default function CalculatorTab() {
           </h2>
           <div className="space-y-3">
             <div className="flex justify-between items-baseline">
-              <span className="text-sm text-navy-500">
+              <span className="text-sm text-navy-300">
                 {mode === 'net_to_gross' ? 'Сумма к выставлению' : 'Начислено'}
               </span>
               <span className="text-lg font-semibold text-navy-100">{fmt2(calc.noDeduction.gross)} ₽</span>
             </div>
             <div className="flex justify-between items-baseline">
-              <span className="text-sm text-navy-500">НДФЛ ({Math.round(rateNum*100)}%)</span>
+              <span className="text-sm text-navy-300">НДФЛ ({Math.round(rateNum*100)}%)</span>
               <span className="text-base font-medium text-red-400">{fmt2(calc.noDeduction.ndfl)} ₽</span>
             </div>
             <div className="flex justify-between items-baseline pt-3 border-t border-navy-800">
@@ -172,17 +172,17 @@ export default function CalculatorTab() {
           </h2>
           <div className="space-y-3">
             <div className="flex justify-between items-baseline">
-              <span className="text-sm text-navy-500">
+              <span className="text-sm text-navy-300">
                 {mode === 'net_to_gross' ? 'Сумма к выставлению' : 'Начислено'}
               </span>
               <span className="text-lg font-semibold text-navy-100">{fmt2(calc.withDeduction.gross)} ₽</span>
             </div>
             <div className="flex justify-between items-baseline">
-              <span className="text-sm text-navy-500">Вычет (расходы)</span>
+              <span className="text-sm text-navy-300">Вычет (расходы)</span>
               <span className="text-base font-medium text-navy-400">{fmt2(expensesNum)} ₽</span>
             </div>
             <div className="flex justify-between items-baseline">
-              <span className="text-sm text-navy-500">НДФЛ ({Math.round(rateNum*100)}%)</span>
+              <span className="text-sm text-navy-300">НДФЛ ({Math.round(rateNum*100)}%)</span>
               <span className="text-base font-medium text-red-400">{fmt2(calc.withDeduction.ndfl)} ₽</span>
             </div>
             <div className="flex justify-between items-baseline pt-3 border-t border-navy-800">
@@ -216,7 +216,7 @@ export default function CalculatorTab() {
         <h2 className="text-xs font-medium text-navy-400 mb-3 flex items-center gap-1.5">
           <Info className="w-3.5 h-3.5" /> Ставки и справочник
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-xs text-navy-500">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-xs text-navy-300">
           <div className="flex justify-between border-b border-navy-800/50 py-1.5">
             <span>Ставка 13%</span>
             <span className="text-navy-400">доход ≤ 2 400 000 ₽/год</span>

@@ -314,7 +314,7 @@ export default function TimelineView() {
           </button>
           <div className="min-w-0">
             <h1 className="text-lg md:text-xl font-semibold text-navy-100 capitalize">{dateLabel}</h1>
-            <p className="text-xs text-navy-500">
+            <p className="text-xs text-navy-300">
               {entries.length} записей · {totalHours.toFixed(1)} ч · {formatMoney(totalAmount)} ₽
             </p>
           </div>
@@ -364,7 +364,7 @@ export default function TimelineView() {
 
                 <div className="grid grid-cols-7 mb-1">
                   {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => (
-                    <div key={d} className="text-center text-xs text-navy-600 py-1">{d}</div>
+                    <div key={d} className="text-center text-xs text-navy-400 py-1">{d}</div>
                   ))}
                 </div>
                 <div className="grid grid-cols-7 gap-0.5">
@@ -381,7 +381,7 @@ export default function TimelineView() {
                         className={`relative h-11 md:h-8 w-full rounded-lg text-xs font-medium transition-colors
                           ${isSelected || isMultiSelected ? 'bg-gold-500 text-navy-950'
                             : isToday ? 'bg-navy-700 text-gold-400 ring-1 ring-gold-500/50'
-                            : inMonth ? 'text-navy-300 hover:bg-navy-800' : 'text-navy-700'}`}>
+                            : inMonth ? 'text-navy-300 hover:bg-navy-800' : 'text-navy-400'}`}>
                         {format(d, 'd')}
                         {hasEntries && !isSelected && !isMultiSelected && (
                           <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-gold-500" />
@@ -519,7 +519,7 @@ export default function TimelineView() {
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" className="w-5 h-5 accent-amber-500" checked={ndfl}
               onChange={e => setNdfl(e.target.checked)} />
-            <span className={`text-sm font-bold ${ndfl ? 'text-amber-400' : 'text-navy-500'}`}>+НДФЛ 15%</span>
+            <span className={`text-sm font-bold ${ndfl ? 'text-amber-400' : 'text-navy-300'}`}>+НДФЛ 15%</span>
           </label>
           {form.hourly_rate && (
             <span className="text-sm">
@@ -546,7 +546,7 @@ export default function TimelineView() {
           </div>
 
           {multiLoading ? (
-            <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
+            <p className="text-navy-300 text-sm text-center py-12">Загрузка...</p>
           ) : (
             <div className="space-y-4">
               {selectedDates.map(dStr => {
@@ -559,12 +559,12 @@ export default function TimelineView() {
                       <h3 className="text-sm font-semibold text-navy-200 capitalize">
                         {format(new Date(dStr), 'EEEE, d MMMM yyyy', { locale: ru })}
                       </h3>
-                      <span className="text-xs text-navy-500">
+                      <span className="text-xs text-navy-300">
                         {dayEntries.length} записей · {dayHours.toFixed(1)} ч · {formatMoney(dayAmount)} ₽
                       </span>
                     </div>
                     {dayEntries.length === 0 ? (
-                      <p className="text-navy-600 text-xs py-2">Нет записей за этот день</p>
+                      <p className="text-navy-400 text-xs py-2">Нет записей за этот день</p>
                     ) : (
                       <div className="space-y-1.5">
                         {dayEntries.map(e => (
@@ -615,7 +615,7 @@ export default function TimelineView() {
       <>
       {/* Hint */}
       {!showForm && entries.length > 0 && (
-        <p className="text-xs text-navy-600 mb-3">
+        <p className="text-xs text-navy-400 mb-3">
           💡 <span className="hidden md:inline">Двойной клик по записи — редактировать</span>
           <span className="md:hidden">Нажмите на запись — редактировать</span>
         </p>
@@ -632,7 +632,7 @@ export default function TimelineView() {
             <div className="w-12 md:w-16 flex-shrink-0 border-r border-navy-800">
               {HOURS.map(h => (
                 <div key={h} className="h-16 border-b border-navy-800/50 px-1 md:px-2 py-1
-                                         text-[10px] md:text-xs text-navy-600 font-mono">
+                                         text-[10px] md:text-xs text-navy-400 font-mono">
                   {h}:00
                 </div>
               ))}
@@ -693,11 +693,11 @@ export default function TimelineView() {
                style={{ maxHeight: undefined }}>
             {/* На телефоне список скрыт: те же записи уже видны на шкале дня выше
                 и открываются одним касанием — здесь остаются только итоги */}
-            <h3 className="hidden md:block text-xs font-medium text-navy-500 mb-3 uppercase tracking-wide">Записи дня</h3>
+            <h3 className="hidden md:block text-xs font-medium text-navy-300 mb-3 uppercase tracking-wide">Записи дня</h3>
             {loading ? (
-              <p className="hidden md:block text-navy-600 text-xs">Загрузка...</p>
+              <p className="hidden md:block text-navy-400 text-xs">Загрузка...</p>
             ) : entries.length === 0 ? (
-              <p className="text-navy-600 text-xs">Нет записей. Нажмите на временной слот, чтобы добавить.</p>
+              <p className="text-navy-400 text-xs">Нет записей. Нажмите на временной слот, чтобы добавить.</p>
             ) : (
               <div className="hidden md:block space-y-2">
                 {entries.map(e => (
@@ -734,13 +734,13 @@ export default function TimelineView() {
 
             {entries.length > 0 && (
               <div className="md:mt-4 md:pt-4 md:border-t border-navy-800 flex justify-between text-xs">
-                <span className="text-navy-500">Итого часов:</span>
+                <span className="text-navy-300">Итого часов:</span>
                 <span className="text-navy-200 font-semibold">{totalHours.toFixed(2)}</span>
               </div>
             )}
             {entries.length > 0 && (
               <div className="flex justify-between text-xs mt-1">
-                <span className="text-navy-500">К оплате:</span>
+                <span className="text-navy-300">К оплате:</span>
                 <span className="text-gold-400 font-semibold">{formatMoney(totalAmount)} ₽</span>
               </div>
             )}

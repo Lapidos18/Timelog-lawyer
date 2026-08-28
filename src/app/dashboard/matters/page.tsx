@@ -140,14 +140,14 @@ export default function MattersPage() {
       <p className="text-xs mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
         {hasActivity && (
           <>
-            <span className="text-navy-600">
+            <span className="text-navy-400">
               Оплачено <span className="font-mono text-navy-400">{fmtMoney(paid)} ₽</span>
             </span>
-            <span className="text-navy-700">·</span>
-            <span className="text-navy-600">
+            <span className="text-navy-400">·</span>
+            <span className="text-navy-400">
               Отработано <span className="font-mono text-navy-400">{fmtMoney(worked)} ₽</span>
             </span>
-            <span className="text-navy-700">·</span>
+            <span className="text-navy-400">·</span>
             {balance > 0.005 ? (
               <span className="text-emerald-400 font-medium">
                 Остаток аванса <span className="font-mono">{fmtMoney(balance)} ₽</span>
@@ -157,16 +157,16 @@ export default function MattersPage() {
                 К выставлению <span className="font-mono">{fmtMoney(-balance)} ₽</span>
               </span>
             ) : (
-              <span className="text-navy-500">Аванс отработан полностью</span>
+              <span className="text-navy-300">Аванс отработан полностью</span>
             )}
           </>
         )}
-        {fixed && hasActivity && <span className="text-navy-700">·</span>}
+        {fixed && hasActivity && <span className="text-navy-400">·</span>}
         {fixed && (
           <>
-            <span className="text-navy-600">
+            <span className="text-navy-400">
               По соглашению <span className="font-mono text-navy-400">{fmtMoney(fixed)} ₽</span>
-              <span className={worked > fixed ? 'text-amber-400' : 'text-navy-500'}>
+              <span className={worked > fixed ? 'text-amber-400' : 'text-navy-300'}>
                 {' '}({Math.round((worked / fixed) * 100)}%)
               </span>
             </span>
@@ -275,7 +275,7 @@ export default function MattersPage() {
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               filterStatus === s
                 ? 'bg-navy-700 text-navy-100'
-                : 'text-navy-500 hover:text-navy-300'
+                : 'text-navy-300 hover:text-navy-300'
             }`}>
             {{ active: 'Активные', suspended: 'Приостановленные', closed: 'Закрытые', all: 'Все' }[s]}
           </button>
@@ -283,16 +283,16 @@ export default function MattersPage() {
       </div>
 
       {!loading && !loadError && matters.length > 0 && (
-        <p className="text-xs text-navy-600 mb-2">💡 Двойной клик по делу — редактировать</p>
+        <p className="text-xs text-navy-400 mb-2">💡 Двойной клик по делу — редактировать</p>
       )}
 
       {loadError && !loading && <LoadError onRetry={loadMatters} />}
 
       {!loadError && (
       <div className="card">
-        {loading ? <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
+        {loading ? <p className="text-navy-300 text-sm text-center py-12">Загрузка...</p>
           : matters.length === 0 ? (
-            <p className="text-navy-500 text-sm text-center py-12">Нет дел.</p>
+            <p className="text-navy-300 text-sm text-center py-12">Нет дел.</p>
           ) : (
             <div className="grid gap-2">
               {matters.map(m => (
@@ -313,7 +313,7 @@ export default function MattersPage() {
                         {MATTER_TYPE_LABELS[m.matter_type]}
                       </span>
                     </div>
-                    <p className="text-navy-500 text-xs mt-0.5">
+                    <p className="text-navy-300 text-xs mt-0.5">
                       {m.clients?.name}
                       {m.agreement_no && ` · Соглашение ${m.agreement_no}`}
                       {m.case_no && ` · Дело ${m.case_no}`}

@@ -37,7 +37,7 @@ interface ServiceRow {
 
 const STATUS_LABELS = { draft: 'Черновик', signed: 'Подписан', paid: 'Оплачен' }
 const STATUS_COLORS = {
-  draft: 'text-navy-400 bg-navy-800',
+  draft: 'text-navy-200 bg-navy-800',
   signed: 'text-amber-400 bg-amber-900/30',
   paid: 'text-emerald-400 bg-emerald-900/30',
 }
@@ -397,7 +397,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
             {form.matter_id && (
               <div className="md:col-span-3">
                 {loadingPreview ? (
-                  <p className="text-navy-500 text-sm">Загрузка записей...</p>
+                  <p className="text-navy-300 text-sm">Загрузка записей...</p>
                 ) : previewRows.length === 0 ? (
                   <p className="text-red-400 text-sm">Нет оплачиваемых записей за выбранный период</p>
                 ) : (
@@ -410,7 +410,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                       <thead>
                         <tr className="border-b border-navy-700/50">
                           {['Дата','Вид работы','Описание','Часов','Ставка','Сумма','Исполнитель'].map(h => (
-                            <th key={h} className="text-left px-3 py-2 text-navy-500 font-medium">{h}</th>
+                            <th key={h} className="text-left px-3 py-2 text-navy-300 font-medium">{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -423,7 +423,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                             <td className="px-3 py-1.5 text-right font-mono text-navy-300">{r.hours.toFixed(2)}</td>
                             <td className="px-3 py-1.5 text-right font-mono text-navy-400">{fmt(r.hourly_rate)}</td>
                             <td className="px-3 py-1.5 text-right font-mono text-gold-400">{fmt(r.amount)}</td>
-                            <td className="px-3 py-1.5 text-navy-500">{displayPerformer(r.performed_by)}</td>
+                            <td className="px-3 py-1.5 text-navy-300">{displayPerformer(r.performed_by)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -448,15 +448,15 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
       {/* List (desktop) */}
       <div className={`card hidden ${loadError ? '' : 'md:block'}`}>
         {loading ? (
-          <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
+          <p className="text-navy-300 text-sm text-center py-12">Загрузка...</p>
         ) : acts.length === 0 ? (
-          <p className="text-navy-500 text-sm text-center py-12">Нет актов. <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">Создать первый →</button></p>
+          <p className="text-navy-300 text-sm text-center py-12">Нет актов. <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">Создать первый →</button></p>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-navy-800">
                 {['Номер','Дело','Клиент','Период','Сумма','Статус',''].map(h => (
-                  <th key={h} className="text-left pb-2.5 pr-4 text-xs text-navy-500 font-medium">{h}</th>
+                  <th key={h} className="text-left pb-2.5 pr-4 text-xs text-navy-300 font-medium">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -501,9 +501,9 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
       {/* List (mobile) — card list, тап по карточке открывает предпросмотр/печать */}
       <div className={loadError ? 'hidden' : 'md:hidden'}>
         {loading ? (
-          <p className="text-navy-500 text-sm text-center py-12">Загрузка...</p>
+          <p className="text-navy-300 text-sm text-center py-12">Загрузка...</p>
         ) : acts.length === 0 ? (
-          <p className="text-navy-500 text-sm text-center py-12">Нет актов. <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">Создать первый →</button></p>
+          <p className="text-navy-300 text-sm text-center py-12">Нет актов. <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">Создать первый →</button></p>
         ) : (
           <div className="space-y-2">
             {acts.map(act => (
@@ -513,7 +513,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                 <div className="flex items-start justify-between gap-2 mb-1.5">
                   <div className="min-w-0">
                     <p className="text-navy-200 text-sm font-medium truncate">{act.matters?.clients?.name}</p>
-                    <p className="text-navy-500 text-xs truncate">{act.matters?.title}</p>
+                    <p className="text-navy-300 text-xs truncate">{act.matters?.title}</p>
                   </div>
                   <span className="text-gold-400 font-mono text-xs whitespace-nowrap flex-shrink-0">{act.act_no}</span>
                 </div>
@@ -570,21 +570,21 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                 <thead>
                   <tr className="border-b border-navy-800">
                     {['№','Дата','Вид работы','Описание','Часов','Ставка','Сумма','Исполнитель'].map(h => (
-                      <th key={h} className="text-left pb-2 pr-3 text-navy-500 font-medium">{h}</th>
+                      <th key={h} className="text-left pb-2 pr-3 text-navy-300 font-medium">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {previewAct.rows.map((r, i) => (
                     <tr key={r.id} className="border-b border-navy-800/40">
-                      <td className="py-1.5 pr-3 text-navy-600">{i+1}</td>
+                      <td className="py-1.5 pr-3 text-navy-400">{i+1}</td>
                       <td className="py-1.5 pr-3 font-mono text-navy-400">{fmtDate(r.work_date)}</td>
                       <td className="py-1.5 pr-3 text-navy-400">{ACTIVITY_LABELS[r.activity_type]}</td>
                       <td className="py-1.5 pr-3 text-navy-300 max-w-[180px] truncate">{r.description}</td>
                       <td className="py-1.5 pr-3 text-right font-mono text-navy-300">{r.hours.toFixed(2)}</td>
                       <td className="py-1.5 pr-3 text-right font-mono text-navy-400">{fmt(r.hourly_rate)}</td>
                       <td className="py-1.5 pr-3 text-right font-mono text-gold-400">{fmt(r.amount)}</td>
-                      <td className="py-1.5 text-navy-500">{displayPerformer(r.performed_by)}</td>
+                      <td className="py-1.5 text-navy-300">{displayPerformer(r.performed_by)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -606,7 +606,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                   <div key={r.id} className="py-2.5 first:pt-0">
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <span className="text-navy-300 text-xs">
-                        <span className="text-navy-600 mr-1.5">{i+1}.</span>
+                        <span className="text-navy-400 mr-1.5">{i+1}.</span>
                         {ACTIVITY_LABELS[r.activity_type]}
                       </span>
                       <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
@@ -615,12 +615,12 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                     </div>
                     <p className="text-navy-300 text-xs mb-1.5">{r.description}</p>
                     <div className="flex items-center justify-between gap-2 text-xs">
-                      <span className="text-navy-500 font-mono">
+                      <span className="text-navy-300 font-mono">
                         {r.hours.toFixed(2)} ч × {fmt(r.hourly_rate)} ₽
                       </span>
                       <span className="font-mono text-gold-400 font-semibold">{fmt(r.amount)} ₽</span>
                     </div>
-                    <p className="text-navy-600 text-xs mt-0.5">{displayPerformer(r.performed_by)}</p>
+                    <p className="text-navy-400 text-xs mt-0.5">{displayPerformer(r.performed_by)}</p>
                   </div>
                 ))}
                 <div className="pt-2.5 flex items-center justify-between text-xs">
@@ -672,7 +672,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
               <button onClick={markPaidWithoutPayment} className="btn-secondary">
                 Без записи платежа
               </button>
-              <button onClick={() => setPayConfirmAct(null)} className="btn-secondary text-navy-500">
+              <button onClick={() => setPayConfirmAct(null)} className="btn-secondary text-navy-300">
                 Отмена
               </button>
             </div>

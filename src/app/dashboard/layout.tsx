@@ -73,7 +73,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div key={href}>
               {group && (
                 <div className="px-3 pt-4 pb-1.5 first:pt-0">
-                  <span className="text-[10px] font-semibold text-navy-600 uppercase tracking-wider">{group}</span>
+                  <span className="text-[10px] font-semibold text-navy-400 uppercase tracking-wider">{group}</span>
                 </div>
               )}
               <Link href={href}
@@ -96,14 +96,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {profile && (
           <div className="px-2 mb-3">
             <p className="text-xs font-medium text-navy-300 truncate">{profile.full_name}</p>
-            <p className="text-xs text-navy-600">
+            <p className="text-xs text-navy-400">
               {profile.role === 'advocate' ? 'Адвокат' : 'Помощник'}
             </p>
           </div>
         )}
         <button onClick={handleLogout}
           className="flex items-center gap-2 w-full px-2 py-1.5 text-xs
-                     text-navy-500 hover:text-red-400 hover:bg-red-900/10 rounded-lg transition-colors">
+                     text-navy-300 hover:text-red-400 hover:bg-red-900/10 rounded-lg transition-colors">
           <LogOut className="w-3.5 h-3.5" /> Выйти
         </button>
       </div>
@@ -166,7 +166,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Link key={href} href={href}
               className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5
                           text-xs transition-colors ${
-                active ? 'text-gold-400' : 'text-navy-600 hover:text-navy-400'
+                active ? 'text-gold-400' : 'text-navy-400 hover:text-navy-400'
               }`}>
               <Icon className="w-5 h-5" />
               <span className="text-[10px]">{label}</span>

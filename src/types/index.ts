@@ -101,6 +101,12 @@ export interface TimeEntry {
 export interface ReportRow {
   id: string
   work_date: string
+  // Идентификаторы (миграция 011). Поиск и группировка идут по ним, а не по
+  // названиям: иначе переименование дела меняет содержание выпущенных актов,
+  // а тёзки-доверители смешиваются в одну строку.
+  client_id: string
+  matter_id: string
+  user_id: string
   client_name: string
   client_type: ClientType
   matter_title: string

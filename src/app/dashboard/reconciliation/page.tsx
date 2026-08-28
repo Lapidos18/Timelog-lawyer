@@ -73,7 +73,7 @@ export default function ReconciliationPage() {
     setLoading(true)
     const [svcRes, payRes] = await Promise.all([
       supabase.from('report_view').select('*')
-        .eq('client_name', clients.find(c => c.id === selectedClient)?.name ?? '')
+        .eq('client_id', selectedClient)
         .gte('work_date', dateFrom).lte('work_date', dateTo)
         .eq('is_billable', true).order('work_date'),
       supabase.from('payments').select('*')

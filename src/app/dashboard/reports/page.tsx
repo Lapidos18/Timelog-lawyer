@@ -16,7 +16,9 @@ function groupRows(rows: ReportRow[], groupBy: GroupBy): { key: string; label: s
   if (groupBy === 'none') return [{ key: 'all', label: '', rows }]
   const groups: Record<string, { key: string; label: string; sublabel?: string; rows: ReportRow[] }> = {}
   for (const r of rows) {
-    const key = groupBy === 'client' ? r.client_name : r.matter_title
+    // Ключ — идентификатор, подпись — название: два дела с одинаковым названием
+    // (или тёзки-доверители) иначе схлопнулись бы в одну строку отчёта
+    const key = groupBy === 'client' ? r.client_id : r.matter_id
     if (!groups[key]) {
       groups[key] = {
         key,
@@ -78,18 +80,11 @@ export default function ReportsPage() {
 
     if (filters.date_from) q = q.gte('work_date', filters.date_from)
     if (filters.date_to)   q = q.lte('work_date', filters.date_to)
-    if (filters.client_id) {
-      const name = clients.find(c => c.id === filters.client_id)?.name ?? ''
-      q = q.eq('client_name', name)
-    }
-    if (filters.matter_id) {
-      const m = matters.find(x => x.id === filters.matter_id)
-      if (m) q = q.eq('matter_title', m.title)
-    }
-    if (filters.user_id) {
-      const u = users.find(x => x.id === filters.user_id)
-      if (u) q = q.eq('performed_by', u.full_name)
-    }
+    // Фильтруем по идентификаторам (миграция 011), а не по названиям: тёзки-доверители
+    // и одноимённые дела иначе смешиваются, а переименование ломает выборку
+    if (filters.client_id) q = q.eq('client_id', filters.client_id)
+    if (filters.matter_id) q = q.eq('matter_id', filters.matter_id)
+    if (filters.user_id)   q = q.eq('user_id', filters.user_id)
     if (filters.activity_type) q = q.eq('activity_type', filters.activity_type)
     if (filters.is_billable !== undefined) q = q.eq('is_billable', filters.is_billable)
 
@@ -103,7 +98,7 @@ export default function ReportsPage() {
     const h = Math.floor(row.duration_min / 60)
     const m = row.duration_min % 60
     setEditForm({
-      matter_id: matters.find(mt => mt.title === row.matter_title)?.id ?? '',
+      matter_id: row.matter_id,
       work_date: row.work_date,
       hours: String(h),
       minutes: String(m),
@@ -173,7 +168,7 @@ export default function ReportsPage() {
       const matter = matters.find(m => m.id === filters.matter_id)
 
       // Формируем номер отчёта из даты
-      const reportDate = filters.date_to ?? new Date().toISOString().split('T')[0]
+      const reportDate = filters.date_to ?? format(new Date(), 'yyyy-MM-dd')
       const reportNo = reportDate.replace(/-/g, '').slice(2) // YYMMDD
 
       const title = `Отчёт №${reportNo}`
@@ -197,7 +192,7 @@ export default function ReportsPage() {
       const { exportToWord } = await import('@/lib/reports')
       const client = clients.find(c => c.id === filters.client_id)
       const matter = matters.find(m => m.id === filters.matter_id)
-      const reportDate = filters.date_to ?? new Date().toISOString().split('T')[0]
+      const reportDate = filters.date_to ?? format(new Date(), 'yyyy-MM-dd')
       const reportNo = reportDate.replace(/-/g, '').slice(2)
       const title = `Отчёт №${reportNo}`
 

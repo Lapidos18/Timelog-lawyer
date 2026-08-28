@@ -109,7 +109,9 @@ export function exportToPDF(
     : '—'
 
   const reportNo = title.replace(/[^0-9]/g, '') || '1'
-  const reportDate = meta?.dateTo ? formatDate(meta.dateTo) : formatDate(new Date().toISOString().split('T')[0])
+  // Дата берётся по МЕСТНОМУ времени: toISOString() отдаёт UTC, и в часовых поясах
+  // восточнее Гринвича до утра документ получал вчерашнюю дату
+  const reportDate = meta?.dateTo ? formatDate(meta.dateTo) : format(new Date(), 'dd.MM.yyyy', { locale: ru })
 
   const html = `<!DOCTYPE html>
 <html lang="ru">
@@ -201,9 +203,11 @@ export function exportToPDF(
 </div>
 
 <div class="meta">
-  <b>Договор:</b>${agreementStr}<br>
-  <b>Валюта:</b>Российский рубль<br>
-  <b>Период:</b>${periodStr}
+  ${meta?.clientName ? `<b>Доверитель:</b> ${escapeHtml(meta.clientName)}<br>` : ''}
+  ${meta?.matterTitle ? `<b>Дело:</b> ${escapeHtml(meta.matterTitle)}<br>` : ''}
+  <b>Договор:</b> ${agreementStr}<br>
+  <b>Валюта:</b> Российский рубль<br>
+  <b>Период:</b> ${periodStr}
 </div>
 
 <h3>Детализация по оказанным услугам</h3>
@@ -306,7 +310,9 @@ export async function exportToWord(
   const agreementStr = meta?.agreementNo
     ? `Соглашение ${meta.agreementNo}${meta.agreementDate ? ` от ${meta.agreementDate} г.` : ''}`
     : '—'
-  const reportDate = meta?.dateTo ? formatDate(meta.dateTo) : formatDate(new Date().toISOString().split('T')[0])
+  // Дата берётся по МЕСТНОМУ времени: toISOString() отдаёт UTC, и в часовых поясах
+  // восточнее Гринвича до утра документ получал вчерашнюю дату
+  const reportDate = meta?.dateTo ? formatDate(meta.dateTo) : format(new Date(), 'dd.MM.yyyy', { locale: ru })
   const reportNo = title.replace(/[^0-9]/g, '') || '1'
 
   const cellBorder = {
@@ -408,6 +414,14 @@ export async function exportToWord(
           spacing: { after: 300 },
           children: [new TextRun({ text: 'об оказанных услугах', size: 22 })],
         }),
+        ...(meta?.clientName ? [new Paragraph({ children: [
+          new TextRun({ text: 'Доверитель: ', bold: true, size: 20 }),
+          new TextRun({ text: meta.clientName, size: 20 }),
+        ] })] : []),
+        ...(meta?.matterTitle ? [new Paragraph({ children: [
+          new TextRun({ text: 'Дело: ', bold: true, size: 20 }),
+          new TextRun({ text: meta.matterTitle, size: 20 }),
+        ] })] : []),
         new Paragraph({ children: [new TextRun({ text: 'Договор: ', bold: true, size: 20 }), new TextRun({ text: agreementStr, size: 20 })] }),
         new Paragraph({ children: [new TextRun({ text: 'Валюта: ', bold: true, size: 20 }), new TextRun({ text: 'Российский рубль', size: 20 })] }),
         new Paragraph({

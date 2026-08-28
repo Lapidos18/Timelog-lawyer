@@ -116,7 +116,7 @@ export default function ActsPage() {
     const m = matters.find(x => x.id === form.matter_id)
     if (!m) return
     supabase.from('report_view').select('*')
-      .eq('matter_title', m.title)
+      .eq('matter_id', form.matter_id)
       .gte('work_date', form.period_from)
       .lte('work_date', form.period_to)
       .eq('is_billable', true)
@@ -167,7 +167,7 @@ export default function ActsPage() {
 
   async function openPreview(act: Act) {
     const { data, error } = await supabase.from('report_view').select('*')
-      .eq('matter_title', act.matters.title)
+      .eq('matter_id', act.matter_id)
       .gte('work_date', act.period_from)
       .lte('work_date', act.period_to)
       .eq('is_billable', true)

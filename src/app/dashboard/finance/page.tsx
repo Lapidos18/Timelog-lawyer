@@ -12,6 +12,7 @@ import {
   AlertTriangle, ChevronDown, Pencil,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import Link from 'next/link'
 import CalculatorTab from './CalculatorTab'
 
 function fmt2(n: number) {
@@ -473,8 +474,9 @@ export default function FinancePage() {
               <span className="text-xl font-bold text-emerald-400 whitespace-nowrap">{fmt2(incomeTotal)} ₽</span>
             </div>
             <p className="text-xs text-navy-400 mt-2">
-              Оплаты по актам подтягиваются автоматически из раздела «Акты / Оплаты». Доходы, не проходящие через
-              акты (авансы наличными, доходы по отдельным договорам), можно добавить вручную ниже.
+              Здесь собраны все поступления за год — и оплаты от доверителей, и доходы вне актов.
+              Это раздел для просмотра и расчёта налогов; вносятся поступления в одном месте —
+              «Платежи / Акт сверки».
             </p>
           </div>
 
@@ -483,10 +485,12 @@ export default function FinancePage() {
               💡 <span className="hidden md:inline">Двойной клик по ручной записи — редактировать</span>
               <span className="md:hidden">Нажмите на ручную запись — редактировать</span>
             </p>
-            <button onClick={() => { resetIncomeForm(); setShowIncomeForm(true) }}
+            {/* Ввод поступлений живёт только в «Платежи / Акт сверки» — иначе
+                получаются два места для одного действия и непонятно, чем они различаются */}
+            <Link href="/dashboard/reconciliation"
               className="flex items-center gap-1.5 bg-gold-500 text-navy-950 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gold-400">
-              <Plus className="w-4 h-4" /> Добавить доход
-            </button>
+              <Plus className="w-4 h-4" /> Внести поступление
+            </Link>
           </div>
 
           {showIncomeForm && (

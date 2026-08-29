@@ -52,7 +52,11 @@ export default function ReconciliationPage() {
 
   // Payment form
   const [showPayForm, setShowPayForm] = useState(false)
+  // Форма поступления самостоятельна: свой выбор доверителя, не зависящий от
+  // фильтра акта сверки вверху. Пустой client_id = доход без доверителя
+  // (вознаграждение по назначению и т.п.) — он уходит в manual_income.
   const [payForm, setPayForm] = useState({
+    client_id: '',
     pay_date: format(new Date(), 'yyyy-MM-dd'),
     amount: '',
     description: 'Оплата юридических услуг',
@@ -74,11 +78,11 @@ export default function ReconciliationPage() {
 
   const clientMatters = matters.filter(m => m.client_id === selectedClient)
 
-  // Подгружаем невозмещённые расходы при выборе доверителя
+  // Невозмещённые расходы того доверителя, который выбран В ФОРМЕ поступления
   useEffect(() => {
     setCoveredReimb([])
-    if (!selectedClient) { setOpenReimb([]); return }
-    const matterIds = matters.filter(m => m.client_id === selectedClient).map(m => m.id)
+    if (!payForm.client_id) { setOpenReimb([]); return }
+    const matterIds = matters.filter(m => m.client_id === payForm.client_id).map(m => m.id)
     if (matterIds.length === 0) { setOpenReimb([]); return }
     supabase.from('reimbursable_expenses')
       .select('*, matters(title)')
@@ -86,7 +90,7 @@ export default function ReconciliationPage() {
       .neq('status', 'reimbursed')
       .order('expense_date')
       .then(({ data }) => setOpenReimb((data ?? []) as ReimbursableExpense[]))
-  }, [selectedClient, matters])
+  }, [payForm.client_id, matters])
 
   const coveredTotal = openReimb
     .filter(r => coveredReimb.includes(r.id))
@@ -116,25 +120,55 @@ export default function ReconciliationPage() {
     setLoading(false)
   }
 
+  function resetPayForm() {
+    setCoveredReimb([])
+    setPayForm({
+      client_id: '', pay_date: format(new Date(), 'yyyy-MM-dd'), amount: '',
+      description: 'Оплата юридических услуг', doc_no: '', matter_id: '',
+    })
+  }
+
   async function addPayment(e: React.FormEvent) {
     e.preventDefault()
-    if (!selectedClient) return
 
     // Возмещение — часть платежа, оно не может быть больше самого платежа
     const payAmount = parseFloat(payForm.amount)
     if (coveredTotal > payAmount + 0.005) {
-      toast.error(`Отмечено возмещение на ${fmt(coveredTotal)} ₽, а платёж всего ${fmt(payAmount)} ₽`)
+      toast.error(`Отмечено возмещение на ${fmt(coveredTotal)} ₽, а поступление всего ${fmt(payAmount)} ₽`)
       return
     }
 
     setSavingPay(true)
     const { data: { user } } = await supabase.auth.getUser()
+
+    // Без доверителя (вознаграждение по назначению и т.п.) — в manual_income:
+    // в payments доверитель обязателен на уровне базы. Для пользователя это
+    // одна и та же форма, разделение техническое.
+    if (!payForm.client_id) {
+      const { error: miError } = await supabase.from('manual_income').insert({
+        income_date: payForm.pay_date,
+        client_id: null,
+        matter_id: null,
+        amount: payAmount,
+        description: payForm.description,
+        doc_no: payForm.doc_no || null,
+        created_by: user!.id,
+      })
+      setSavingPay(false)
+      if (miError) { toast.error('Ошибка: ' + miError.message); return }
+      toast.success('Поступление внесено (без доверителя)')
+      setShowPayForm(false)
+      resetPayForm()
+      if (generated) generate()
+      return
+    }
+
     // Нужен id созданного платежа, чтобы привязать к нему возмещения
     const { data: created, error } = await supabase.from('payments').insert({
-      client_id: selectedClient,
+      client_id: payForm.client_id,
       matter_id: payForm.matter_id || null,
       pay_date: payForm.pay_date,
-      amount: parseFloat(payForm.amount),
+      amount: payAmount,
       description: payForm.description,
       doc_no: payForm.doc_no || null,
       created_by: user!.id,
@@ -158,11 +192,10 @@ export default function ReconciliationPage() {
     }
 
     toast.success(coveredReimb.length > 0
-      ? `Платёж добавлен, возмещено издержек на ${fmt(coveredTotal)} ₽`
-      : 'Платёж добавлен')
+      ? `Поступление внесено, возмещено издержек на ${fmt(coveredTotal)} ₽`
+      : 'Поступление внесено')
     setShowPayForm(false)
-    setCoveredReimb([])
-    setPayForm({ pay_date: format(new Date(), 'yyyy-MM-dd'), amount: '', description: 'Оплата юридических услуг', doc_no: '', matter_id: '' })
+    resetPayForm()
     if (generated) generate()
     setSavingPay(false)
   }
@@ -364,15 +397,18 @@ export default function ReconciliationPage() {
           </div>
         </div>
         <div className="flex gap-3 items-center flex-wrap">
-          <button onClick={() => selectedClient ? setShowPayForm(true) : toast.error('Сначала выберите доверителя вверху')}
+          {/* Единственное место ввода поступлений во всём приложении.
+              Доверитель вверху нужен только для акта сверки — форму можно
+              открыть и без него. */}
+          <button onClick={() => { setPayForm(f => ({ ...f, client_id: selectedClient })); setShowPayForm(true) }}
             className="btn-primary">
-            <Plus className="w-4 h-4" /> Добавить платёж
+            <Plus className="w-4 h-4" /> Внести поступление
           </button>
           <button onClick={generate} disabled={loading} className="btn-secondary">
             {loading ? 'Загрузка...' : 'Сформировать акт сверки'}
           </button>
           {!selectedClient && (
-            <span className="text-xs text-navy-400">Выберите доверителя, чтобы внести платёж или сформировать акт</span>
+            <span className="text-xs text-navy-400">Доверитель нужен только для акта сверки — поступление можно внести и без него</span>
           )}
         </div>
       </div>
@@ -381,10 +417,18 @@ export default function ReconciliationPage() {
       {showPayForm && (
         <div className="card mb-5 border-gold-800/40">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-medium text-navy-200 text-sm">Новый платёж</h2>
+            <h2 className="font-medium text-navy-200 text-sm">Новое поступление</h2>
             <button onClick={() => setShowPayForm(false)} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
           </div>
           <form onSubmit={addPayment} className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="md:col-span-2">
+              <label className="label">Доверитель</label>
+              <select className="select" value={payForm.client_id}
+                onChange={e => setPayForm(f => ({ ...f, client_id: e.target.value, matter_id: '' }))}>
+                <option value="">— без доверителя (по назначению, иное) —</option>
+                {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
             <div>
               <label className="label">Дата *</label>
               <input type="date" className="input" required value={payForm.pay_date}
@@ -402,10 +446,11 @@ export default function ReconciliationPage() {
             </div>
             <div>
               <label className="label">Дело (необязательно)</label>
-              <select className="select" value={payForm.matter_id}
+              <select className="select" value={payForm.matter_id} disabled={!payForm.client_id}
                 onChange={e => setPayForm(f => ({ ...f, matter_id: e.target.value }))}>
                 <option value="">— любое —</option>
-                {clientMatters.map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
+                {matters.filter(m => m.client_id === payForm.client_id)
+                  .map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
               </select>
             </div>
             <div className="md:col-span-4">

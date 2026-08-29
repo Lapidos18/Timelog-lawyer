@@ -422,6 +422,36 @@ export default function FinancePage() {
     loadAll()
   }
 
+  /**
+   * Сроки по кварталу.
+   *
+   * I–III кварталы: уведомление об исчисленных суммах — до 25-го числа
+   * (эта дата и лежит в advance_qN_deadline), уплата аванса — до 28-го
+   * числа того же месяца.
+   * IV квартал — не аванс, а итог года: декларация 3-НДФЛ до 30 апреля
+   * следующего года, уплата до 15 июля (annual_deadline).
+   *
+   * Если законодатель сдвинет числа — правится здесь и в tax_settings.
+   */
+  function quarterDeadlines(qIdx: number) {
+    if (!taxSettings) return null
+    if (qIdx < 3) {
+      const src = [
+        taxSettings.advance_q1_deadline,
+        taxSettings.advance_q2_deadline,
+        taxSettings.advance_q3_deadline,
+      ][qIdx]
+      if (!src) return null
+      const report = new Date(src)
+      const pay = new Date(src)
+      pay.setDate(28)
+      return { report, pay, reportLabel: 'Уведомление', payLabel: 'Уплата аванса' }
+    }
+    const report = new Date(year + 1, 3, 30) // 30 апреля следующего года
+    const pay = taxSettings.annual_deadline ? new Date(taxSettings.annual_deadline) : null
+    return { report, pay, reportLabel: 'Декларация 3-НДФЛ', payLabel: 'Уплата за год' }
+  }
+
   const expensesTotal = expenses.filter(e => e.is_documented).reduce((a, b) => a + b.amount, 0)
   const incomeTotal = incomes.reduce((a, b) => a + b.amount, 0)
 
@@ -827,9 +857,33 @@ export default function FinancePage() {
         <div className="space-y-4">
           {quarterlyCalc.map(row => (
             <div key={row.quarter} className="card">
-              <h2 className="text-sm font-semibold text-navy-200 mb-3 pb-3 border-b border-navy-800">
-                {QUARTER_LABELS[row.quarter - 1]}
-              </h2>
+              <div className="mb-3 pb-3 border-b border-navy-800">
+                <h2 className="text-sm font-semibold text-navy-200">
+                  {QUARTER_LABELS[row.quarter - 1]}
+                </h2>
+                {(() => {
+                  const d = quarterDeadlines(row.quarter - 1)
+                  if (!d) return null
+                  // Просрочка подсвечивается, только если по кварталу ничего не уплачено —
+                  // прошедший срок при уплаченном авансе не повод для тревоги
+                  const overdue = (date: Date | null) =>
+                    !!date && date < new Date() && row.actuallyPaidThisQ <= 0
+                  return (
+                    <p className="text-xs mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                      <span className={overdue(d.report) ? 'text-amber-400' : 'text-navy-400'}>
+                        {d.reportLabel} до{' '}
+                        <span className="font-mono">{format(d.report, 'dd.MM.yyyy')}</span>
+                      </span>
+                      {d.pay && (
+                        <span className={overdue(d.pay) ? 'text-amber-400' : 'text-navy-400'}>
+                          {d.payLabel} до{' '}
+                          <span className="font-mono">{format(d.pay, 'dd.MM.yyyy')}</span>
+                        </span>
+                      )}
+                    </p>
+                  )
+                })()}
+              </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3">
                 {row.reimbCum > 0 && (
                   <>
@@ -978,10 +1032,10 @@ export default function FinancePage() {
 
           {taxSettings && (
             <p className="text-xs text-navy-400">
-              Сроки авансов {year}: I кв. — {format(new Date(taxSettings.advance_q1_deadline!), 'dd.MM.yyyy')},
-              полугодие — {format(new Date(taxSettings.advance_q2_deadline!), 'dd.MM.yyyy')},
-              9 мес. — {format(new Date(taxSettings.advance_q3_deadline!), 'dd.MM.yyyy')} (п. 8 ст. 227 НК РФ).
-              Итог года — {format(new Date(taxSettings.annual_deadline!), 'dd.MM.yyyy')} (3-НДФЛ).
+              Сроки {year}: уведомление об исчисленных суммах — до 25-го числа месяца,
+              следующего за кварталом; уплата аванса — до 28-го числа того же месяца
+              (п. 8 ст. 227 НК РФ, п. 9 ст. 58 НК РФ). Итог года: декларация 3-НДФЛ —
+              до 30.04.{year + 1}, уплата — до {format(new Date(taxSettings.annual_deadline!), 'dd.MM.yyyy')}.
             </p>
           )}
         </div>

@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { Client, Matter, ACTIVITY_LABELS } from '@/types'
+import { Client, Matter, ACTIVITY_LABELS, ReimbursableExpense } from '@/types'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { FileDown, FileSpreadsheet, Plus, Trash2, X, Check } from 'lucide-react'
@@ -61,12 +61,36 @@ export default function ReconciliationPage() {
   })
   const [savingPay, setSavingPay] = useState(false)
 
+  // Возмещаемые расходы доверителя, которые ещё не компенсированы.
+  // Платёж от доверителя обычно включает и вознаграждение, и компенсацию издержек;
+  // отмеченные здесь суммы не попадут в доход при расчёте НДФЛ.
+  const [openReimb, setOpenReimb] = useState<ReimbursableExpense[]>([])
+  const [coveredReimb, setCoveredReimb] = useState<string[]>([])
+
   useEffect(() => {
     supabase.from('clients').select('*').order('name').then(({ data }) => setClients(data ?? []))
     supabase.from('matters').select('*, clients(*)').order('title').then(({ data }) => setMatters((data ?? []) as any))
   }, [])
 
   const clientMatters = matters.filter(m => m.client_id === selectedClient)
+
+  // Подгружаем невозмещённые расходы при выборе доверителя
+  useEffect(() => {
+    setCoveredReimb([])
+    if (!selectedClient) { setOpenReimb([]); return }
+    const matterIds = matters.filter(m => m.client_id === selectedClient).map(m => m.id)
+    if (matterIds.length === 0) { setOpenReimb([]); return }
+    supabase.from('reimbursable_expenses')
+      .select('*, matters(title)')
+      .in('matter_id', matterIds)
+      .neq('status', 'reimbursed')
+      .order('expense_date')
+      .then(({ data }) => setOpenReimb((data ?? []) as ReimbursableExpense[]))
+  }, [selectedClient, matters])
+
+  const coveredTotal = openReimb
+    .filter(r => coveredReimb.includes(r.id))
+    .reduce((s, r) => s + Number(r.amount), 0)
 
   async function generate() {
     if (!selectedClient) { toast.error('Выберите доверителя'); return }
@@ -95,9 +119,18 @@ export default function ReconciliationPage() {
   async function addPayment(e: React.FormEvent) {
     e.preventDefault()
     if (!selectedClient) return
+
+    // Возмещение — часть платежа, оно не может быть больше самого платежа
+    const payAmount = parseFloat(payForm.amount)
+    if (coveredTotal > payAmount + 0.005) {
+      toast.error(`Отмечено возмещение на ${fmt(coveredTotal)} ₽, а платёж всего ${fmt(payAmount)} ₽`)
+      return
+    }
+
     setSavingPay(true)
     const { data: { user } } = await supabase.auth.getUser()
-    const { error } = await supabase.from('payments').insert({
+    // Нужен id созданного платежа, чтобы привязать к нему возмещения
+    const { data: created, error } = await supabase.from('payments').insert({
       client_id: selectedClient,
       matter_id: payForm.matter_id || null,
       pay_date: payForm.pay_date,
@@ -105,21 +138,54 @@ export default function ReconciliationPage() {
       description: payForm.description,
       doc_no: payForm.doc_no || null,
       created_by: user!.id,
-    })
-    if (error) { toast.error('Ошибка: ' + error.message) }
-    else {
-      toast.success('Платёж добавлен')
-      setShowPayForm(false)
-      setPayForm({ pay_date: format(new Date(), 'yyyy-MM-dd'), amount: '', description: 'Оплата юридических услуг', doc_no: '', matter_id: '' })
-      if (generated) generate()
+    }).select('id').single()
+
+    if (error) { toast.error('Ошибка: ' + error.message); setSavingPay(false); return }
+
+    // Отмеченные издержки помечаем компенсированными этим платежом.
+    // reimbursed_date = дата платежа: именно по ней сумма исключается из дохода.
+    if (coveredReimb.length > 0 && created) {
+      const { error: linkError } = await supabase.from('reimbursable_expenses')
+        .update({
+          status: 'reimbursed',
+          payment_id: created.id,
+          reimbursed_date: payForm.pay_date,
+        })
+        .in('id', coveredReimb)
+      if (linkError) {
+        toast.error('Платёж внесён, но не удалось отметить возмещение издержек: ' + linkError.message)
+      }
     }
+
+    toast.success(coveredReimb.length > 0
+      ? `Платёж добавлен, возмещено издержек на ${fmt(coveredTotal)} ₽`
+      : 'Платёж добавлен')
+    setShowPayForm(false)
+    setCoveredReimb([])
+    setPayForm({ pay_date: format(new Date(), 'yyyy-MM-dd'), amount: '', description: 'Оплата юридических услуг', doc_no: '', matter_id: '' })
+    if (generated) generate()
     setSavingPay(false)
   }
 
   async function deletePayment(id: string) {
     if (!confirm('Удалить платёж?')) return
+
+    // Если этим платежом были компенсированы издержки — возвращаем их
+    // в «Выставлено доверителю». Иначе расход остался бы «Компенсировано»
+    // без поступивших денег и продолжал бы уменьшать доход в расчёте НДФЛ.
+    const { data: linked } = await supabase.from('reimbursable_expenses')
+      .select('id').eq('payment_id', id)
+
+    if (linked && linked.length > 0) {
+      await supabase.from('reimbursable_expenses')
+        .update({ status: 'invoiced', payment_id: null, reimbursed_date: null })
+        .eq('payment_id', id)
+    }
+
     await supabase.from('payments').delete().eq('id', id)
-    toast.success('Удалено')
+    toast.success(linked && linked.length > 0
+      ? `Платёж удалён, ${linked.length} возмещаемых расходов вернулись в «Выставлено доверителю»`
+      : 'Удалено')
     if (generated) generate()
   }
 
@@ -347,6 +413,46 @@ export default function ReconciliationPage() {
               <input type="text" className="input" value={payForm.description}
                 onChange={e => setPayForm(f => ({ ...f, description: e.target.value }))} />
             </div>
+
+            {/* Возмещение издержек внутри платежа. Отмеченные суммы не попадут
+                в доход при расчёте НДФЛ и 1% ОПС — это компенсация, а не гонорар. */}
+            {openReimb.length > 0 && (
+              <div className="md:col-span-4">
+                <label className="label">Входит ли в платёж возмещение издержек?</label>
+                <div className="rounded-lg border border-navy-700 divide-y divide-navy-800">
+                  {openReimb.map(r => (
+                    <label key={r.id}
+                      className="flex items-start gap-3 px-3 py-2.5 cursor-pointer hover:bg-navy-800/40">
+                      <input type="checkbox" className="w-4 h-4 mt-0.5 accent-gold-500 flex-shrink-0"
+                        checked={coveredReimb.includes(r.id)}
+                        onChange={e => setCoveredReimb(prev =>
+                          e.target.checked ? [...prev, r.id] : prev.filter(x => x !== r.id))} />
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm text-navy-200 truncate">{r.description}</span>
+                        <span className="block text-xs text-navy-400">
+                          {fmtDate(r.expense_date)} · {r.matters?.title ?? '—'}
+                        </span>
+                      </span>
+                      <span className="font-mono text-sm text-navy-200 whitespace-nowrap">
+                        {fmt(Number(r.amount))} ₽
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {coveredTotal > 0 && (
+                  <p className="text-xs mt-2 flex flex-wrap gap-x-2">
+                    <span className="text-navy-400">Возмещение издержек:</span>
+                    <span className="font-mono text-navy-200">{fmt(coveredTotal)} ₽</span>
+                    <span className="text-navy-400">· вознаграждение:</span>
+                    <span className="font-mono text-gold-400">
+                      {fmt(Math.max(0, (parseFloat(payForm.amount) || 0) - coveredTotal))} ₽
+                    </span>
+                    <span className="text-emerald-400">— в доход по НДФЛ пойдёт только вознаграждение</span>
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="md:col-span-4 flex gap-3">
               <button type="submit" disabled={savingPay} className="btn-primary">
                 <Check className="w-4 h-4" /> {savingPay ? 'Сохраняю...' : 'Добавить платёж'}

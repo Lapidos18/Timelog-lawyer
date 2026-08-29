@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase'
 import {
   Expense, ExpenseCategory, EXPENSE_CATEGORY_LABELS, EXPENSE_CATEGORY_RISKY,
   TaxSettings, TaxPayment, TaxPaymentType, TAX_PAYMENT_TYPE_LABELS,
-  IncomeRow, ManualIncome, Client, Matter,
+  IncomeRow, ManualIncome, Client, Matter, ReimbursableExpense,
 } from '@/types'
 import { format } from 'date-fns'
 import {
@@ -54,6 +54,8 @@ export default function FinancePage() {
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [taxSettings, setTaxSettings] = useState<TaxSettings | null>(null)
   const [taxPayments, setTaxPayments] = useState<TaxPayment[]>([])
+  // Возмещённые издержки за год: вычитаются из дохода при расчёте НДФЛ и 1% ОПС
+  const [reimbursements, setReimbursements] = useState<ReimbursableExpense[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [matters, setMatters] = useState<(Matter & { clients: Client })[]>([])
 
@@ -97,6 +99,7 @@ export default function FinancePage() {
       { data: taxPaymentsData },
       { data: clientsData },
       { data: mattersData },
+      { data: reimbData },
     ] = await Promise.all([
       supabase.from('payments').select('*, clients(name), matters(title)').order('pay_date', { ascending: false }),
       supabase.from('manual_income').select('*, clients(name), matters(title)').order('income_date', { ascending: false }),
@@ -105,6 +108,9 @@ export default function FinancePage() {
       supabase.from('tax_payments').select('*').eq('period_year', year).order('payment_date', { ascending: false }),
       supabase.from('clients').select('*').order('name'),
       supabase.from('matters').select('*, clients(*)').order('title'),
+      // Компенсированные издержки — вычитаются из дохода, это не доход адвоката
+      supabase.from('reimbursable_expenses').select('*')
+        .eq('status', 'reimbursed').not('reimbursed_date', 'is', null),
     ])
 
     const fromPayments: IncomeRow[] = (paymentsData || []).map((p: any) => ({
@@ -147,6 +153,9 @@ export default function FinancePage() {
     setTaxPayments(taxPaymentsData || [])
     setClients(clientsData || [])
     setMatters((mattersData || []) as (Matter & { clients: Client })[])
+    // Фильтруем по ГОДУ ПОСТУПЛЕНИЯ компенсации, а не по дате расхода
+    setReimbursements(((reimbData || []) as ReimbursableExpense[])
+      .filter(r => r.reimbursed_date && new Date(r.reimbursed_date).getFullYear() === year))
     setLoading(false)
   }, [supabase, year])
 
@@ -159,8 +168,16 @@ export default function FinancePage() {
     if (!taxSettings) return null
     const incomeByQ = [0, 0, 0, 0]
     const expenseByQ = [0, 0, 0, 0]
+    const reimbByQ = [0, 0, 0, 0]
     incomes.forEach(i => { incomeByQ[i.pay_quarter - 1] += i.amount })
     expenses.forEach(e => { expenseByQ[quarterOf(e.expense_date) - 1] += e.is_documented ? e.amount : 0 })
+
+    // Возмещение издержек НЕ доход: доверитель платит одной суммой и гонорар,
+    // и компенсацию расходов. Вычитаем компенсацию из дохода того квартала,
+    // в котором ПОСТУПИЛИ деньги (reimbursed_date), а не когда был расход.
+    reimbursements.forEach(r => {
+      if (r.reimbursed_date) reimbByQ[quarterOf(r.reimbursed_date) - 1] += Number(r.amount)
+    })
 
     const paidAdvanceByQ: Record<string, number> = {}
     taxPayments.forEach(p => {
@@ -173,7 +190,10 @@ export default function FinancePage() {
     ]
 
     const rows = [0, 1, 2, 3].map(qIdx => {
-      const incomeCum = incomeByQ.slice(0, qIdx + 1).reduce((a, b) => a + b, 0)
+      const grossCum = incomeByQ.slice(0, qIdx + 1).reduce((a, b) => a + b, 0)
+      const reimbCum = reimbByQ.slice(0, qIdx + 1).reduce((a, b) => a + b, 0)
+      // Доход, облагаемый НДФЛ = поступления минус возмещённые издержки
+      const incomeCum = Math.max(0, grossCum - reimbCum)
       const expenseCum = expenseByQ.slice(0, qIdx + 1).reduce((a, b) => a + b, 0)
       const base = Math.max(0, incomeCum - expenseCum)
       const ndflCum = base <= taxSettings.ndfl_progressive_threshold
@@ -189,19 +209,26 @@ export default function FinancePage() {
         quarter: qIdx + 1,
         incomeQ: incomeByQ[qIdx],
         expenseQ: expenseByQ[qIdx],
+        reimbQ: reimbByQ[qIdx],
+        grossCum, reimbCum,
         incomeCum, expenseCum, base, ndflCum, advanceDue, actuallyPaidThisQ,
         diff: actuallyPaidThisQ - advanceDue,
       }
     })
     return rows
-  }, [incomes, expenses, taxPayments, taxSettings])
+  }, [incomes, expenses, reimbursements, taxPayments, taxSettings])
 
   // ------------------------------------------------------------
   // Взносы (фиксированные + 1% ОПС)
   // ------------------------------------------------------------
   const contributionsCalc = useMemo(() => {
     if (!taxSettings) return null
-    const totalIncome = incomes.reduce((a, b) => a + b.amount, 0)
+    // Из поступлений вычитаем возмещённые издержки — это компенсация, а не доход.
+    // База для 1% ОПС должна совпадать с базой по НДФЛ, поэтому исключение
+    // применяется здесь так же, как в квартальном расчёте.
+    const grossIncome = incomes.reduce((a, b) => a + b.amount, 0)
+    const reimbursedTotal = reimbursements.reduce((a, r) => a + Number(r.amount), 0)
+    const totalIncome = Math.max(0, grossIncome - reimbursedTotal)
 
     // ВАЖНО про cabinet_start_date: в схеме поле подписано как «дата регистрации
     // кабинета», но по смыслу здесь должна лежать ДАТА ПРИОБРЕТЕНИЯ СТАТУСА АДВОКАТА.
@@ -238,7 +265,7 @@ export default function FinancePage() {
       documentedExpenses, opsIncomeBase, opsBase, opsDue,
       paidFixed, paidOps,
     }
-  }, [incomes, expenses, taxPayments, taxSettings, year])
+  }, [incomes, expenses, reimbursements, taxPayments, taxSettings, year])
 
   // ------------------------------------------------------------
   // CRUD расходов
@@ -800,6 +827,18 @@ export default function FinancePage() {
                 {QUARTER_LABELS[row.quarter - 1]}
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3">
+                {row.reimbCum > 0 && (
+                  <>
+                    <div>
+                      <div className="text-navy-300 text-xs mb-1">Поступило нараст. итогом</div>
+                      <div className="font-medium text-navy-100 whitespace-nowrap">{fmt2(row.grossCum)} ₽</div>
+                    </div>
+                    <div>
+                      <div className="text-navy-300 text-xs mb-1">Минус возмещение издержек</div>
+                      <div className="font-medium text-navy-100 whitespace-nowrap">−{fmt2(row.reimbCum)} ₽</div>
+                    </div>
+                  </>
+                )}
                 <div>
                   <div className="text-navy-300 text-xs mb-1">Доход нараст. итогом</div>
                   <div className="font-medium text-navy-100 whitespace-nowrap">{fmt2(row.incomeCum)} ₽</div>

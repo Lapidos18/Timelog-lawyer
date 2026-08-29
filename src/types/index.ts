@@ -290,5 +290,11 @@ export interface ReimbursableExpense {
   status: ReimbursementStatus
   doc_no: string | null
   created_at: string
+  // Миграция 012: связь с платежом, которым расход компенсирован.
+  // reimbursed_date — дата ПОСТУПЛЕНИЯ компенсации; именно по ней сумма
+  // исключается из дохода при расчёте НДФЛ и 1% ОПС (расход мог быть
+  // в декабре, а деньги прийти в январе — это разные налоговые периоды).
+  payment_id: string | null
+  reimbursed_date: string | null
   matters?: (Matter & { clients?: Client }) | null
 }

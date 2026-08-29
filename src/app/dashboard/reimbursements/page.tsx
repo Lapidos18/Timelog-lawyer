@@ -25,6 +25,7 @@ const emptyForm = {
   description: '',
   doc_no: '',
   status: 'pending' as ReimbursementStatus,
+  reimbursed_date: '',
 }
 
 export default function ReimbursementsPage() {
@@ -40,6 +41,11 @@ export default function ReimbursementsPage() {
 
   const [filterMatter, setFilterMatter] = useState('')
   const [filterStatus, setFilterStatus] = useState<ReimbursementStatus | ''>('')
+
+  // Запрос даты при переводе расхода в «Компенсировано»
+  const [dateAskFor, setDateAskFor] = useState<ReimbursableExpense | null>(null)
+  const [dateAskValue, setDateAskValue] = useState('')
+  const [dateAskSaving, setDateAskSaving] = useState(false)
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -68,6 +74,7 @@ export default function ReimbursementsPage() {
       description: e.description,
       doc_no: e.doc_no || '',
       status: e.status,
+      reimbursed_date: e.reimbursed_date ?? '',
     })
     setEditId(e.id)
     setShowForm(true)
@@ -78,6 +85,10 @@ export default function ReimbursementsPage() {
     const amountNum = parseFloat(form.amount)
     if (!amountNum || amountNum <= 0) { toast.error('Укажите сумму'); return }
     if (!form.description.trim()) { toast.error('Укажите описание расхода'); return }
+    // Без даты компенсации сумма не вычтется из дохода при расчёте НДФЛ
+    if (form.status === 'reimbursed' && !form.reimbursed_date) {
+      toast.error('Укажите дату поступления компенсации'); return
+    }
     setSubmitting(true)
     const payload = {
       matter_id: form.matter_id,
@@ -86,6 +97,9 @@ export default function ReimbursementsPage() {
       description: form.description,
       doc_no: form.doc_no || null,
       status: form.status,
+      // Снят статус «Компенсировано» — убираем дату и связь с платежом
+      reimbursed_date: form.status === 'reimbursed' ? form.reimbursed_date : null,
+      ...(form.status === 'reimbursed' ? {} : { payment_id: null }),
     }
     const { error } = editId
       ? await supabase.from('reimbursable_expenses').update(payload).eq('id', editId)
@@ -107,7 +121,33 @@ export default function ReimbursementsPage() {
   }
 
   async function quickStatusChange(e: ReimbursableExpense, status: ReimbursementStatus) {
-    await supabase.from('reimbursable_expenses').update({ status }).eq('id', e.id)
+    // «Компенсировано» без даты — молчаливая ошибка: сумма не вычтется из дохода
+    // при расчёте НДФЛ, потому что исключение применяется по reimbursed_date.
+    // Поэтому дату спрашиваем сразу.
+    if (status === 'reimbursed' && !e.reimbursed_date) {
+      setDateAskFor(e)
+      setDateAskValue(format(new Date(), 'yyyy-MM-dd'))
+      return
+    }
+    // Снятие статуса — убираем и дату, и связь с платежом, иначе расход
+    // продолжал бы уменьшать доход
+    const patch = status === 'reimbursed'
+      ? { status }
+      : { status, reimbursed_date: null, payment_id: null }
+    await supabase.from('reimbursable_expenses').update(patch).eq('id', e.id)
+    loadAll()
+  }
+
+  async function confirmReimbursedDate() {
+    if (!dateAskFor) return
+    setDateAskSaving(true)
+    const { error } = await supabase.from('reimbursable_expenses')
+      .update({ status: 'reimbursed', reimbursed_date: dateAskValue })
+      .eq('id', dateAskFor.id)
+    setDateAskSaving(false)
+    if (error) { toast.error('Ошибка: ' + error.message); return }
+    setDateAskFor(null)
+    toast.success('Отмечено компенсированным — сумма не попадёт в доход по НДФЛ')
     loadAll()
   }
 
@@ -214,6 +254,16 @@ export default function ReimbursementsPage() {
                 ))}
               </select>
             </div>
+            {/* Дата нужна только при «Компенсировано» — по ней сумма
+                исключается из дохода при расчёте НДФЛ */}
+            {form.status === 'reimbursed' && (
+              <div>
+                <label className="label">Дата компенсации *</label>
+                <input type="date" className="input" value={form.reimbursed_date}
+                  onChange={e => setForm(f => ({ ...f, reimbursed_date: e.target.value }))} />
+                <p className="text-xs text-navy-400 mt-1">Когда поступили деньги, а не дата расхода</p>
+              </div>
+            )}
             <div className="md:col-span-4 flex gap-3">
               <button onClick={submitForm} disabled={submitting} className="btn-primary">
                 <Check className="w-4 h-4" /> {submitting ? 'Сохраняю...' : (editId ? 'Сохранить' : 'Добавить')}
@@ -271,6 +321,13 @@ export default function ReimbursementsPage() {
                         <option key={v} value={v}>{l}</option>
                       ))}
                     </select>
+                    {e.status === 'reimbursed' && (
+                      <div className="text-xs mt-1">
+                        {e.reimbursed_date
+                          ? <span className="text-navy-400">от {format(new Date(e.reimbursed_date), 'dd.MM.yyyy')}</span>
+                          : <span className="text-amber-400">без даты — не вычтется из дохода</span>}
+                      </div>
+                    )}
                   </td>
                   <td className="py-2 text-right font-medium">{fmt(e.amount)} ₽</td>
                   <td className="py-2 text-right">
@@ -320,6 +377,13 @@ export default function ReimbursementsPage() {
                   </select>
                   {e.doc_no && <span className="text-navy-300 text-xs truncate">№ {e.doc_no}</span>}
                 </div>
+                {e.status === 'reimbursed' && (
+                  <p className="text-xs mb-2">
+                    {e.reimbursed_date
+                      ? <span className="text-navy-400">Компенсировано {format(new Date(e.reimbursed_date), 'dd.MM.yyyy')}</span>
+                      : <span className="text-amber-400">Без даты — не вычтется из дохода</span>}
+                  </p>
+                )}
                 <div className="flex items-center justify-between pt-2 border-t border-navy-800/60">
                   <span className="font-mono text-sm font-medium">{fmt(e.amount)} ₽</span>
                   <button onClick={ev => { ev.stopPropagation(); deleteExpense(e.id) }}
@@ -339,6 +403,45 @@ export default function ReimbursementsPage() {
         гонорара и не образует объект обложения НДФЛ при документальном подтверждении и наличии условия
         о возмещении в соглашении (в используемых шаблонах соглашений — п. «Порядок оплаты»).
       </p>
+
+      {/* Дата компенсации спрашивается обязательно: именно по ней сумма
+          исключается из дохода при расчёте НДФЛ и 1% ОПС */}
+      {dateAskFor && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-navy-900 rounded-xl border border-navy-700 w-full max-w-md">
+            <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-navy-800">
+              <h2 className="font-semibold text-navy-200">Когда поступила компенсация?</h2>
+              <button onClick={() => setDateAskFor(null)} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-4 md:p-6 space-y-4">
+              <p className="text-sm text-navy-300">
+                <span className="text-navy-200">{dateAskFor.description}</span> — {fmt(dateAskFor.amount)} ₽
+              </p>
+              <div>
+                <label className="label">Дата поступления денег</label>
+                <input type="date" className="input" value={dateAskValue}
+                  onChange={e => setDateAskValue(e.target.value)} />
+              </div>
+              <p className="text-xs text-navy-400 leading-relaxed">
+                Указывается дата, когда деньги фактически поступили, а не дата самого расхода.
+                По ней сумма исключается из дохода: расход мог быть в декабре, а компенсация
+                прийти в январе — это разные налоговые периоды.
+              </p>
+              <p className="text-xs text-navy-400 leading-relaxed">
+                Если компенсация пришла в составе платежа от доверителя, надёжнее внести её
+                через «Платежи / Акт сверки» — там расход привязывается к конкретному платежу.
+              </p>
+            </div>
+            <div className="px-4 md:px-6 pb-6 flex flex-wrap gap-3">
+              <button onClick={confirmReimbursedDate} disabled={dateAskSaving || !dateAskValue}
+                className="btn-primary">
+                <Check className="w-4 h-4" /> {dateAskSaving ? 'Сохраняю...' : 'Отметить компенсированным'}
+              </button>
+              <button onClick={() => setDateAskFor(null)} className="btn-secondary">Отмена</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

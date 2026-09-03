@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Client, Matter, ACTIVITY_LABELS, ReimbursableExpense } from '@/types'
 import { format } from 'date-fns'
@@ -71,6 +71,7 @@ export default function ReconciliationPage() {
   // id редактируемого платежа. Раньше исправить сумму можно было только
   // удалением и повторным вводом — легко потерять привязку издержек.
   const [editPayId, setEditPayId] = useState<string | null>(null)
+  const payFormRef = useRef<HTMLDivElement>(null)
 
   // Возмещаемые расходы доверителя, которые ещё не компенсированы.
   // Платёж от доверителя обычно включает и вознаграждение, и компенсацию издержек;
@@ -168,6 +169,11 @@ export default function ReconciliationPage() {
       matter_id: p.matter_id ?? '',
     })
     setShowPayForm(true)
+    // Форма стоит вверху страницы, а платежи — в самом низу. Без прокрутки
+    // двойной клик выглядит так, будто ничего не произошло.
+    setTimeout(() => {
+      payFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 50)
   }
 
   async function addPayment(e: React.FormEvent) {
@@ -529,7 +535,7 @@ ${reimbBlock}
 
       {/* Payment form */}
       {showPayForm && (
-        <div className="card mb-5 border-gold-800/40">
+        <div ref={payFormRef} className="card mb-5 border-gold-800/40 scroll-mt-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-medium text-navy-200 text-sm">
               {editPayId ? 'Изменение поступления' : 'Новое поступление'}

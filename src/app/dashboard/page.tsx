@@ -22,7 +22,7 @@ export default function DashboardPage() {
   })
   const [recentEntries, setRecentEntries] = useState<ReportRow[]>([])
   const [clientBalances, setClientBalances] = useState<{
-    id: string; name: string; billed: number; paid: number; debt: number
+    id: string; name: string; billed: number; reimb: number; paid: number; debt: number
   }[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
@@ -45,6 +45,7 @@ export default function DashboardPage() {
           allPaymentsRes,
           allClientsRes,
           allMattersRes,
+          allReimbRes,
         ] = await Promise.all([
           supabase
             .from('report_view')
@@ -72,6 +73,14 @@ export default function DashboardPage() {
           supabase
             .from('matters')
             .select('id, client_id'),
+          // Издержки, ПРЕДЪЯВЛЕННЫЕ доверителю: он платит их вместе с
+          // вознаграждением, поэтому без них «оплачено» больше «начислено»
+          // и долг занижается ровно на сумму компенсации.
+          // «Ожидает включения в счёт» не берём — это ещё не предъявлено.
+          supabase
+            .from('reimbursable_expenses')
+            .select('matter_id, amount, status')
+            .in('status', ['invoiced', 'reimbursed']),
         ])
 
         const entries = monthRes.data ?? []
@@ -116,18 +125,30 @@ export default function DashboardPage() {
           }
         }
 
+        const reimbMap: Record<string, number> = {}
+        for (const r of (allReimbRes.data ?? [])) {
+          const clientId = matterClientMap[r.matter_id]
+          if (clientId) reimbMap[clientId] = (reimbMap[clientId] ?? 0) + Number(r.amount)
+        }
+
         const paidMap: Record<string, number> = {}
         for (const p of (allPayments ?? [])) {
           paidMap[p.client_id] = (paidMap[p.client_id] ?? 0) + Number(p.amount)
         }
 
-        const balances = Object.entries(billedMap)
-          .map(([clientId, billed]) => ({
+        // Считаем по всем доверителям, у кого есть хоть что-то предъявленное:
+        // бывает дело только с издержками, без оплачиваемых часов
+        const allClientIds = Array.from(
+          new Set(Object.keys(billedMap).concat(Object.keys(reimbMap)))
+        )
+        const balances = allClientIds
+          .map(clientId => ({
             id: clientId,
             name: clientMap[clientId] ?? '—',
-            billed,
+            billed: billedMap[clientId] ?? 0,
+            reimb: reimbMap[clientId] ?? 0,
             paid: paidMap[clientId] ?? 0,
-            debt: billed - (paidMap[clientId] ?? 0),
+            debt: (billedMap[clientId] ?? 0) + (reimbMap[clientId] ?? 0) - (paidMap[clientId] ?? 0),
           }))
           .filter(b => b.debt > 0.01)
           .sort((a, b) => b.debt - a.debt)
@@ -137,7 +158,8 @@ export default function DashboardPage() {
         // Ошибку любого из запросов показываем явно: иначе Обзор просто
         // рисует нули, и это выглядит как «все данные пропали»
         setLoadError(!!(monthRes.error || recentRes.error || allEntriesRes.error
-          || allPaymentsRes.error || allClientsRes.error || allMattersRes.error))
+          || allPaymentsRes.error || allClientsRes.error || allMattersRes.error
+          || allReimbRes.error))
       } catch (e) {
         console.error('Dashboard load error:', e)
         setLoadError(true)
@@ -222,7 +244,12 @@ export default function DashboardPage() {
             {clientBalances.map(b => (
               <div key={b.id} className="flex items-center gap-3 flex-wrap">
                 <span className="text-sm text-navy-200 flex-1 min-w-[120px] truncate">{b.name}</span>
-                <span className="text-xs text-navy-300">начислено {formatMoney(b.billed)} ₽</span>
+                <span className="text-xs text-navy-300">
+                  начислено {formatMoney(b.billed + b.reimb)} ₽
+                  {b.reimb > 0 && (
+                    <span className="text-navy-400"> (в т.ч. издержки {formatMoney(b.reimb)} ₽)</span>
+                  )}
+                </span>
                 <span className="text-xs text-emerald-400">оплачено {formatMoney(b.paid)} ₽</span>
                 <span className="text-sm font-semibold text-red-400 whitespace-nowrap">
                   долг {formatMoney(b.debt)} ₽

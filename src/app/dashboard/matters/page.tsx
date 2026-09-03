@@ -16,6 +16,7 @@ export default function MattersPage() {
   const [loadError, setLoadError] = useState(false)
   const [paidByMatter, setPaidByMatter] = useState<Record<string, number>>({})
   const [workedByMatter, setWorkedByMatter] = useState<Record<string, number>>({})
+  const [reimbByMatter, setReimbByMatter] = useState<Record<string, number>>({})
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -34,13 +35,17 @@ export default function MattersPage() {
 
     // Оплаты и отработанное время нужны, чтобы показать остаток аванса по делу.
     // Платежи всегда вносятся с указанием дела, поэтому считаем строго по matter_id.
-    const [mattersRes, paymentsRes, entriesRes] = await Promise.all([
+    const [mattersRes, paymentsRes, entriesRes, reimbRes] = await Promise.all([
       filterStatus === 'all' ? q : q.eq('status', filterStatus),
       supabase.from('payments').select('matter_id, amount'),
       supabase.from('time_entries').select('matter_id, amount, is_billable'),
+      // Предъявленные доверителю издержки: он платит их вместе с
+      // вознаграждением, поэтому остаток аванса без них завышается
+      supabase.from('reimbursable_expenses').select('matter_id, amount')
+        .in('status', ['invoiced', 'reimbursed']),
     ])
 
-    setLoadError(!!(mattersRes.error || paymentsRes.error || entriesRes.error))
+    setLoadError(!!(mattersRes.error || paymentsRes.error || entriesRes.error || reimbRes.error))
 
     const paid: Record<string, number> = {}
     for (const p of (paymentsRes.data ?? [])) {
@@ -52,8 +57,13 @@ export default function MattersPage() {
         worked[e.matter_id] = (worked[e.matter_id] ?? 0) + Number(e.amount)
       }
     }
+    const reimbursed: Record<string, number> = {}
+    for (const r of (reimbRes.data ?? [])) {
+      if (r.matter_id) reimbursed[r.matter_id] = (reimbursed[r.matter_id] ?? 0) + Number(r.amount)
+    }
     setPaidByMatter(paid)
     setWorkedByMatter(worked)
+    setReimbByMatter(reimbursed)
 
     setMatters((mattersRes.data ?? []) as MatterWithClient[]); setLoading(false)
   }, [filterStatus])
@@ -116,25 +126,28 @@ export default function MattersPage() {
   /**
    * Строка «деньги по делу»: сколько получено, сколько отработано и что из этого следует.
    *
-   * Остаток = оплачено − отработанное оплачиваемое время:
+   * Остаток = оплачено − отработанное оплачиваемое время − предъявленные издержки:
    *   > 0  аванс ещё не отработан, выставлять нечего
    *   < 0  аванс закрыт, можно выставлять акт ровно на разницу
    * Платежи считаются строго по делу — они всегда вносятся с указанием дела.
+   * Издержки вычитаются потому, что доверитель платит их той же суммой, что и
+   * вознаграждение: без этого их компенсация выглядела бы как остаток аванса.
    */
   function renderMoneyLine(m: MatterWithClient) {
     const paid = paidByMatter[m.id] ?? 0
     const worked = workedByMatter[m.id] ?? 0
+    const reimb = reimbByMatter[m.id] ?? 0
     const fixed = m.fixed_fee ? Number(m.fixed_fee) : null
 
     // По пустому делу показывать нечего
-    if (!paid && !worked && !fixed) return null
+    if (!paid && !worked && !fixed && !reimb) return null
 
-    const balance = paid - worked
+    const balance = paid - worked - reimb
 
     // Итог по деньгам показываем, только если по делу уже есть движение —
     // иначе на деле с одной лишь фиксированной суммой вылезло бы
     // «Аванс отработан полностью», хотя аванса и не было
-    const hasActivity = paid > 0 || worked > 0
+    const hasActivity = paid > 0 || worked > 0 || reimb > 0
 
     return (
       <p className="text-xs mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -148,6 +161,14 @@ export default function MattersPage() {
               Отработано <span className="font-mono text-navy-200">{fmtMoney(worked)} ₽</span>
             </span>
             <span className="text-navy-400">·</span>
+            {reimb > 0 && (
+              <>
+                <span className="text-navy-400">
+                  Издержки <span className="font-mono text-navy-200">{fmtMoney(reimb)} ₽</span>
+                </span>
+                <span className="text-navy-400">·</span>
+              </>
+            )}
             {balance > 0.005 ? (
               <span className="text-emerald-400 font-medium">
                 Остаток аванса <span className="font-mono">{fmtMoney(balance)} ₽</span>

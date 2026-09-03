@@ -47,6 +47,10 @@ export default function ReconciliationPage() {
   const [dateTo, setDateTo] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [services, setServices] = useState<ServiceRow[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
+  // Издержки, предъявленные доверителю за период. Он оплачивает их вместе с
+  // вознаграждением, поэтому в сверке это отдельная строка НАЧИСЛЕНИЯ,
+  // а не вычет из платежей.
+  const [reimb, setReimb] = useState<ReimbursableExpense[]>([])
   const [generated, setGenerated] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -99,7 +103,8 @@ export default function ReconciliationPage() {
   async function generate() {
     if (!selectedClient) { toast.error('Выберите доверителя'); return }
     setLoading(true)
-    const [svcRes, payRes] = await Promise.all([
+    const matterIds = matters.filter(m => m.client_id === selectedClient).map(m => m.id)
+    const [svcRes, payRes, reimbRes] = await Promise.all([
       supabase.from('report_view').select('*')
         .eq('client_id', selectedClient)
         .gte('work_date', dateFrom).lte('work_date', dateTo)
@@ -108,6 +113,16 @@ export default function ReconciliationPage() {
         .eq('client_id', selectedClient)
         .gte('pay_date', dateFrom).lte('pay_date', dateTo)
         .order('pay_date'),
+      // Издержки берём по дате РАСХОДА: они относятся к работе того периода,
+      // когда были понесены, даже если деньги пришли позже.
+      // «Ожидает включения в счёт» не берём — доверителю ещё не предъявлено.
+      matterIds.length > 0
+        ? supabase.from('reimbursable_expenses').select('*, matters(title)')
+            .in('matter_id', matterIds)
+            .in('status', ['invoiced', 'reimbursed'])
+            .gte('expense_date', dateFrom).lte('expense_date', dateTo)
+            .order('expense_date')
+        : Promise.resolve({ data: [] as ReimbursableExpense[] }),
     ])
     setServices((svcRes.data ?? []).map((r: any) => ({
       id: r.id, work_date: r.work_date, matter_title: r.matter_title,
@@ -116,6 +131,7 @@ export default function ReconciliationPage() {
       hourly_rate: Number(r.hourly_rate), amount: Number(r.amount),
     })))
     setPayments(payRes.data ?? [])
+    setReimb((reimbRes.data ?? []) as ReimbursableExpense[])
     setGenerated(true)
     setLoading(false)
   }
@@ -223,8 +239,12 @@ export default function ReconciliationPage() {
   }
 
   const totalServices = services.reduce((s, r) => s + r.amount, 0)
+  const totalReimb = reimb.reduce((s, r) => s + Number(r.amount), 0)
   const totalPayments = payments.reduce((s, p) => s + Number(p.amount), 0)
-  const balance = totalServices - totalPayments
+  // Начислено = вознаграждение + предъявленные издержки. Без второго слагаемого
+  // платёж, покрывший издержки, «съедал» вознаграждение и занижал долг.
+  const totalCharged = totalServices + totalReimb
+  const balance = totalCharged - totalPayments
   const client = clients.find(c => c.id === selectedClient)
 
   function exportPDF() {
@@ -249,6 +269,22 @@ export default function ReconciliationPage() {
         <td style="text-align:right">${fmt(p.amount)}</td>
       </tr>`).join('')
 
+    const reimbBlock = reimb.length === 0 ? '' : `
+<h3>Возмещаемые издержки</h3>
+<table>
+  <thead><tr><th>№</th><th>Дата</th><th>Дело</th><th>Описание</th><th>Документ</th><th>Сумма, руб.</th></tr></thead>
+  <tbody>${reimb.map((r, i) => `
+      <tr>
+        <td>${i+1}</td><td>${fmtDate(r.expense_date)}</td>
+        <td>${escapeHtml(r.matters?.title ?? '—')}</td>
+        <td>${escapeHtml(r.description)}</td>
+        <td>${escapeHtml(r.doc_no ?? '—')}</td>
+        <td style="text-align:right">${fmt(Number(r.amount))}</td>
+      </tr>`).join('')}</tbody>
+  <tfoot><tr><td colspan="5" style="text-align:right">Итого:</td><td style="text-align:right">${fmt(totalReimb)}</td></tr></tfoot>
+</table>
+<div class="charged">Всего начислено (вознаграждение и издержки): ${fmt(totalCharged)} руб.</div>`
+
     const html = `<!DOCTYPE html>
 <html lang="ru"><head><meta charset="UTF-8"><title>Акт сверки</title>
 <style>
@@ -263,6 +299,7 @@ export default function ReconciliationPage() {
   tr:nth-child(even) td{background:#f5f7fa}
   tfoot td{font-weight:bold;border-top:2px solid #1e3a5f;background:#eef2f7}
   .balance{font-size:12px;font-weight:bold;margin:16px 0;padding:10px;background:#f0f4f8;border-left:4px solid #1e3a5f}
+  .charged{font-size:10px;font-weight:bold;margin:6px 0 4px;text-align:right}
   .signs{margin-top:30px;display:flex;justify-content:space-between;font-size:10px}
   .sign-block{width:45%}
   @media print{
@@ -273,6 +310,7 @@ export default function ReconciliationPage() {
     tr{break-inside:avoid;page-break-inside:avoid}
     .signs{break-inside:avoid;page-break-inside:avoid}
     .balance{break-inside:avoid;page-break-inside:avoid}
+    .charged{break-inside:avoid;page-break-inside:avoid}
     h3{break-after:avoid;page-break-after:avoid}
   }
 </style></head><body>
@@ -288,6 +326,7 @@ export default function ReconciliationPage() {
   <tbody>${svcRows}</tbody>
   <tfoot><tr><td colspan="7" style="text-align:right">Итого:</td><td style="text-align:right">${fmt(totalServices)}</td></tr></tfoot>
 </table>
+${reimbBlock}
 <h3>Поступившие оплаты</h3>
 <table>
   <thead><tr><th>№</th><th>Дата</th><th>№ документа</th><th>Назначение</th><th>Сумма, руб.</th></tr></thead>
@@ -340,6 +379,17 @@ export default function ReconciliationPage() {
       ]),
       ['','','','','','','Итого:', totalServices],
       [],
+      ...(reimb.length === 0 ? [] : [
+        ['ВОЗМЕЩАЕМЫЕ ИЗДЕРЖКИ'],
+        ['№','Дата','Дело','Описание','Документ','','','Сумма'],
+        ...reimb.map((r, i) => [
+          i+1, fmtDate(r.expense_date), r.matters?.title ?? '',
+          r.description, r.doc_no ?? '', '', '', Number(r.amount),
+        ]),
+        ['','','','','','','Итого:', totalReimb],
+        ['','','','','','','Всего начислено:', totalCharged],
+        [],
+      ]),
       ['ПОСТУПИВШИЕ ОПЛАТЫ'],
       ['№','Дата','№ документа','Назначение','Сумма'],
       ...payments.map((p, i) => [i+1, fmtDate(p.pay_date), p.doc_no ?? '', p.description, Number(p.amount)]),
@@ -514,8 +564,13 @@ export default function ReconciliationPage() {
           {/* Summary */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4 md:mb-5">
             <div className="stat-card">
-              <p className="text-xs text-navy-400">Оказано услуг</p>
-              <p className="text-2xl font-semibold text-navy-100">{fmt(totalServices)} ₽</p>
+              <p className="text-xs text-navy-400">Начислено доверителю</p>
+              <p className="text-2xl font-semibold text-navy-100">{fmt(totalCharged)} ₽</p>
+              {totalReimb > 0 && (
+                <p className="text-xs text-navy-400 mt-1">
+                  услуги {fmt(totalServices)} + издержки {fmt(totalReimb)}
+                </p>
+              )}
             </div>
             <div className="stat-card">
               <p className="text-xs text-navy-400">Оплачено</p>
@@ -593,6 +648,76 @@ export default function ReconciliationPage() {
               </>
             )}
           </div>
+
+          {/* Reimbursable expenses */}
+          {reimb.length > 0 && (
+            <div className="card mb-4">
+              <h2 className="font-medium text-navy-200 mb-1 text-sm">Возмещаемые издержки</h2>
+              <p className="text-xs text-navy-400 mb-4">
+                Расходы, предъявленные доверителю к возмещению. Он оплачивает их
+                вместе с вознаграждением, поэтому они входят в начисленную сумму.
+              </p>
+
+              {/* Table (desktop) */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-xs min-w-[560px]">
+                  <thead>
+                    <tr className="border-b border-navy-800">
+                      {['№','Дата','Дело','Описание','Документ','Статус','Сумма'].map(h => (
+                        <th key={h} className="text-left pb-2 pr-3 text-navy-300 font-medium">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reimb.map((r, i) => (
+                      <tr key={r.id} className="border-b border-navy-800/40 hover:bg-navy-800/30">
+                        <td className="py-2 pr-3 text-navy-400">{i+1}</td>
+                        <td className="py-2 pr-3 font-mono text-navy-400">{fmtDate(r.expense_date)}</td>
+                        <td className="py-2 pr-3 text-navy-300 max-w-[140px] truncate">{r.matters?.title ?? '—'}</td>
+                        <td className="py-2 pr-3 text-navy-300 max-w-[180px] truncate">{r.description}</td>
+                        <td className="py-2 pr-3 text-navy-400">{r.doc_no ?? '—'}</td>
+                        <td className="py-2 pr-3 text-navy-400">
+                          {r.status === 'reimbursed'
+                            ? `компенсировано${r.reimbursed_date ? ' ' + fmtDate(r.reimbursed_date) : ''}`
+                            : 'выставлено'}
+                        </td>
+                        <td className="py-2 text-right font-mono text-gold-400">{fmt(Number(r.amount))}</td>
+                      </tr>
+                    ))}
+                    <tr className="border-t-2 border-navy-700">
+                      <td colSpan={6} className="pt-2 text-right text-navy-400 font-medium pr-3 text-xs">Итого:</td>
+                      <td className="pt-2 text-right font-mono font-semibold text-gold-400 text-xs">{fmt(totalReimb)} ₽</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Card list (mobile) */}
+              <div className="md:hidden">
+                {reimb.map(r => (
+                  <div key={r.id} className="py-2.5 border-b border-navy-800/40">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <p className="text-navy-300 text-xs max-w-[70%] truncate">{r.matters?.title ?? '—'}</p>
+                      <span className="text-navy-400 font-mono text-xs whitespace-nowrap">{fmtDate(r.expense_date)}</span>
+                    </div>
+                    <p className="text-navy-300 text-xs mb-1.5 line-clamp-2">{r.description}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-navy-400 text-xs">
+                        {r.status === 'reimbursed'
+                          ? `компенсировано${r.reimbursed_date ? ' ' + fmtDate(r.reimbursed_date) : ''}`
+                          : 'выставлено'}
+                      </span>
+                      <span className="font-mono text-sm text-gold-400 font-semibold">{fmt(Number(r.amount))} ₽</span>
+                    </div>
+                  </div>
+                ))}
+                <div className="pt-2.5 flex items-center justify-between text-xs">
+                  <span className="text-navy-400 font-medium">Итого:</span>
+                  <span className="font-mono font-semibold text-gold-400">{fmt(totalReimb)} ₽</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Payments */}
           <div className="card">

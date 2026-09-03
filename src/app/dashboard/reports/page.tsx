@@ -41,6 +41,7 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [groupBy, setGroupBy] = useState<GroupBy>('none')
+  const [reportNo, setReportNo] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
 
   // Edit modal state
@@ -73,6 +74,24 @@ export default function ReportsPage() {
   const clientMatters = matters.filter(m =>
     !filters.client_id || m.client_id === filters.client_id
   )
+
+  /**
+   * Номер отчёта по умолчанию: «<номер соглашения>-ДДММ».
+   *
+   * Раньше номер собирался только из даты конца периода, поэтому все отчёты
+   * за один и тот же период получали ОДИН номер — для всех доверителей сразу.
+   * Номер соглашения делает его уникальным и сразу читаемым: видно, к какому
+   * соглашению относится отчёт. Если соглашение не выбрано, остаётся дата.
+   */
+  const suggestedReportNo = (() => {
+    const to = filters.date_to ?? format(new Date(), 'yyyy-MM-dd')
+    const ddmm = to.slice(8, 10) + to.slice(5, 7)
+    const agreement = matters.find(m => m.id === filters.matter_id)?.agreement_no
+    return agreement ? `${agreement}-${ddmm}` : to.replace(/-/g, '').slice(2)
+  })()
+
+  // Пустое поле = взять подставленный номер
+  const effectiveReportNo = reportNo.trim() || suggestedReportNo
 
   async function runReport() {
     setLoading(true)
@@ -152,7 +171,7 @@ export default function ReportsPage() {
     if (rows.length === 0) { toast.error('Нет данных для выгрузки — сначала сформируйте отчёт'); return }
     try {
       const { exportToExcel } = await import('@/lib/reports')
-      await exportToExcel(rows, `Отчёт_${filters.date_from}_${filters.date_to}`)
+      await exportToExcel(rows, `Отчёт №${effectiveReportNo}`)
       toast.success('Excel сохранён')
     } catch (e) {
       console.error('Excel export error:', e)
@@ -167,11 +186,7 @@ export default function ReportsPage() {
       const client = clients.find(c => c.id === filters.client_id)
       const matter = matters.find(m => m.id === filters.matter_id)
 
-      // Формируем номер отчёта из даты
-      const reportDate = filters.date_to ?? format(new Date(), 'yyyy-MM-dd')
-      const reportNo = reportDate.replace(/-/g, '').slice(2) // YYMMDD
-
-      const title = `Отчёт №${reportNo}`
+      const title = `Отчёт №${effectiveReportNo}`
 
       exportToPDF(rows, title, undefined, {
         agreementNo: matter?.agreement_no ?? undefined,
@@ -192,9 +207,7 @@ export default function ReportsPage() {
       const { exportToWord } = await import('@/lib/reports')
       const client = clients.find(c => c.id === filters.client_id)
       const matter = matters.find(m => m.id === filters.matter_id)
-      const reportDate = filters.date_to ?? format(new Date(), 'yyyy-MM-dd')
-      const reportNo = reportDate.replace(/-/g, '').slice(2)
-      const title = `Отчёт №${reportNo}`
+      const title = `Отчёт №${effectiveReportNo}`
 
       await exportToWord(rows, title, {
         agreementNo: matter?.agreement_no ?? undefined,
@@ -302,6 +315,15 @@ export default function ReportsPage() {
               <option value="client">По доверителю</option>
               <option value="matter">По делу</option>
             </select>
+          </div>
+          <div className="md:col-span-2">
+            <label className="label">Номер отчёта</label>
+            <input className="input" value={reportNo} placeholder={suggestedReportNo}
+              onChange={e => setReportNo(e.target.value)} />
+            <p className="text-xs text-navy-400 mt-1">
+              Оставьте пустым — подставится «{suggestedReportNo}»
+              {filters.matter_id ? ' (номер соглашения и день с месяцем)' : ''}
+            </p>
           </div>
         </div>
         <div className="flex gap-3">

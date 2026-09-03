@@ -52,7 +52,7 @@ export async function exportToExcel(rows: ReportRow[], title: string) {
   ]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Отчёт')
-  XLSX.writeFile(wb, `${title}.xlsx`)
+  XLSX.writeFile(wb, `${title.replace(/[\\/:*?"<>|]/g, '-')}.xlsx`)
 }
 
 // ── PDF — формат юридического отчёта ─────────────────────────
@@ -105,10 +105,12 @@ export function exportToPDF(
     : escapeHtml(subtitle ?? '')
 
   const agreementStr = meta?.agreementNo
-    ? `Соглашение ${escapeHtml(meta.agreementNo)}${meta.agreementDate ? ` от ${escapeHtml(meta.agreementDate)} г.` : ''}`
+    ? `${escapeHtml(meta.agreementNo)}${meta.agreementDate ? ` от ${escapeHtml(meta.agreementDate)} г.` : ''}`
     : '—'
 
-  const reportNo = title.replace(/[^0-9]/g, '') || '1'
+  // Номер берём как есть после «№»: он может содержать номер соглашения
+  // со слэшем («19/06-26-3108»), а прежнее «оставить только цифры» его калечило
+  const reportNo = title.replace(/^.*?№\s*/, '').trim() || '1'
   // Дата берётся по МЕСТНОМУ времени: toISOString() отдаёт UTC, и в часовых поясах
   // восточнее Гринвича до утра документ получал вчерашнюю дату
   const reportDate = meta?.dateTo ? formatDate(meta.dateTo) : format(new Date(), 'dd.MM.yyyy', { locale: ru })
@@ -158,12 +160,12 @@ export function exportToPDF(
     margin-bottom: 6px;
     font-size: 9.5pt;
   }
+  /* Без заливок: документ для доверителя печатается чёрно-белым */
   th {
     border: 1px solid #000;
     padding: 5px 6px;
     font-weight: bold;
     text-align: center;
-    background: #f0f0f0;
   }
   td {
     border: 1px solid #000;
@@ -183,8 +185,8 @@ export function exportToPDF(
     left: 20mm;
     right: 20mm;
     font-size: 8pt;
-    color: #444;
-    border-top: 1px solid #aaa;
+    color: #000;
+    border-top: 1px solid #000;
     padding-top: 4px;
     display: flex;
     justify-content: space-between;
@@ -211,9 +213,7 @@ export function exportToPDF(
 </div>
 
 <div class="meta">
-  ${meta?.clientName ? `<b>Доверитель:</b> ${escapeHtml(meta.clientName)}<br>` : ''}
-  ${meta?.matterTitle ? `<b>Дело:</b> ${escapeHtml(meta.matterTitle)}<br>` : ''}
-  <b>Договор:</b> ${agreementStr}<br>
+  <b>Соглашение:</b> ${agreementStr}<br>
   <b>Валюта:</b> Российский рубль<br>
   <b>Период:</b> ${periodStr}
 </div>
@@ -257,7 +257,7 @@ export function exportToPDF(
 </table>
 
 <div class="footer">
-  <span>Отчёт №${reportNo} от ${reportDate} по Договору №${escapeHtml(meta?.agreementNo ?? '—')}</span>
+  <span>Отчёт №${reportNo} от ${reportDate} по соглашению ${escapeHtml(meta?.agreementNo ?? "—")}</span>
   <span>Стр. 1 из 1</span>
 </div>
 
@@ -297,7 +297,7 @@ export async function exportToWord(
 ) {
   const {
     Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun,
-    WidthType, AlignmentType, BorderStyle, HeadingLevel, ShadingType,
+    WidthType, AlignmentType, BorderStyle, HeadingLevel,
   } = await import('docx')
 
   const billableRows = rows.filter(r => r.is_billable)
@@ -316,12 +316,14 @@ export async function exportToWord(
     ? `с ${formatDate(meta.dateFrom)} по ${formatDate(meta.dateTo)}`
     : ''
   const agreementStr = meta?.agreementNo
-    ? `Соглашение ${meta.agreementNo}${meta.agreementDate ? ` от ${meta.agreementDate} г.` : ''}`
+    ? `${meta.agreementNo}${meta.agreementDate ? ` от ${meta.agreementDate} г.` : ''}`
     : '—'
   // Дата берётся по МЕСТНОМУ времени: toISOString() отдаёт UTC, и в часовых поясах
   // восточнее Гринвича до утра документ получал вчерашнюю дату
   const reportDate = meta?.dateTo ? formatDate(meta.dateTo) : format(new Date(), 'dd.MM.yyyy', { locale: ru })
-  const reportNo = title.replace(/[^0-9]/g, '') || '1'
+  // Номер берём как есть после «№»: он может содержать номер соглашения
+  // со слэшем («19/06-26-3108»), а прежнее «оставить только цифры» его калечило
+  const reportNo = title.replace(/^.*?№\s*/, '').trim() || '1'
 
   const cellBorder = {
     top: { style: BorderStyle.SINGLE, size: 2, color: '000000' },
@@ -334,7 +336,7 @@ export async function exportToWord(
     return new TableCell({
       width: { size: width, type: WidthType.DXA },
       borders: cellBorder,
-      shading: { type: ShadingType.SOLID, color: 'F0F0F0', fill: 'F0F0F0' },
+      // Без заливки: документ для доверителя должен быть чёрно-белым
       children: [new Paragraph({
         alignment: AlignmentType.CENTER,
         children: [new TextRun({ text, bold: true, size: 18 })],
@@ -422,15 +424,8 @@ export async function exportToWord(
           spacing: { after: 300 },
           children: [new TextRun({ text: 'об оказанных услугах', size: 22 })],
         }),
-        ...(meta?.clientName ? [new Paragraph({ children: [
-          new TextRun({ text: 'Доверитель: ', bold: true, size: 20 }),
-          new TextRun({ text: meta.clientName, size: 20 }),
-        ] })] : []),
-        ...(meta?.matterTitle ? [new Paragraph({ children: [
-          new TextRun({ text: 'Дело: ', bold: true, size: 20 }),
-          new TextRun({ text: meta.matterTitle, size: 20 }),
-        ] })] : []),
-        new Paragraph({ children: [new TextRun({ text: 'Договор: ', bold: true, size: 20 }), new TextRun({ text: agreementStr, size: 20 })] }),
+        // Шапка — ровно три строки: Соглашение, Валюта, Период
+        new Paragraph({ children: [new TextRun({ text: 'Соглашение: ', bold: true, size: 20 }), new TextRun({ text: agreementStr, size: 20 })] }),
         new Paragraph({ children: [new TextRun({ text: 'Валюта: ', bold: true, size: 20 }), new TextRun({ text: 'Российский рубль', size: 20 })] }),
         new Paragraph({
           spacing: { after: 300 },
@@ -460,8 +455,8 @@ export async function exportToWord(
         new Paragraph({
           spacing: { before: 400 },
           children: [new TextRun({
-            text: `Отчёт №${reportNo} от ${reportDate} по Договору №${meta?.agreementNo ?? '—'}`,
-            size: 16, color: '666666',
+            text: `Отчёт №${reportNo} от ${reportDate} по соглашению ${meta?.agreementNo ?? '—'}`,
+            size: 16,
           })],
         }),
       ],
@@ -475,7 +470,8 @@ export async function exportToWord(
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `${title}.docx`
+  // В номере может быть «/» из номера соглашения — в имени файла он недопустим
+  a.download = `${title.replace(/[\\/:*?"<>|]/g, '-')}.docx`
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)

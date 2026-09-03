@@ -68,6 +68,9 @@ export default function ReconciliationPage() {
     matter_id: '',
   })
   const [savingPay, setSavingPay] = useState(false)
+  // id редактируемого платежа. Раньше исправить сумму можно было только
+  // удалением и повторным вводом — легко потерять привязку издержек.
+  const [editPayId, setEditPayId] = useState<string | null>(null)
 
   // Возмещаемые расходы доверителя, которые ещё не компенсированы.
   // Платёж от доверителя обычно включает и вознаграждение, и компенсацию издержек;
@@ -82,19 +85,28 @@ export default function ReconciliationPage() {
 
   const clientMatters = matters.filter(m => m.client_id === selectedClient)
 
-  // Невозмещённые расходы того доверителя, который выбран В ФОРМЕ поступления
+  // Невозмещённые расходы того доверителя, который выбран В ФОРМЕ поступления.
+  // При редактировании добавляем ещё и те, что уже привязаны к этому платежу —
+  // иначе они пропали бы из списка и галочку с них нельзя было бы снять.
   useEffect(() => {
-    setCoveredReimb([])
-    if (!payForm.client_id) { setOpenReimb([]); return }
+    if (!payForm.client_id) { setOpenReimb([]); setCoveredReimb([]); return }
     const matterIds = matters.filter(m => m.client_id === payForm.client_id).map(m => m.id)
-    if (matterIds.length === 0) { setOpenReimb([]); return }
-    supabase.from('reimbursable_expenses')
+    if (matterIds.length === 0) { setOpenReimb([]); setCoveredReimb([]); return }
+    let q = supabase.from('reimbursable_expenses')
       .select('*, matters(title)')
       .in('matter_id', matterIds)
-      .neq('status', 'reimbursed')
-      .order('expense_date')
-      .then(({ data }) => setOpenReimb((data ?? []) as ReimbursableExpense[]))
-  }, [payForm.client_id, matters])
+    q = editPayId
+      ? q.or(`status.neq.reimbursed,payment_id.eq.${editPayId}`)
+      : q.neq('status', 'reimbursed')
+    q.order('expense_date').then(({ data }) => {
+      const rows = (data ?? []) as ReimbursableExpense[]
+      setOpenReimb(rows)
+      // Уже привязанные к этому платежу отмечаем сразу
+      setCoveredReimb(editPayId
+        ? rows.filter(r => r.payment_id === editPayId).map(r => r.id)
+        : [])
+    })
+  }, [payForm.client_id, matters, editPayId])
 
   const coveredTotal = openReimb
     .filter(r => coveredReimb.includes(r.id))
@@ -137,11 +149,25 @@ export default function ReconciliationPage() {
   }
 
   function resetPayForm() {
+    setEditPayId(null)
     setCoveredReimb([])
     setPayForm({
       client_id: '', pay_date: format(new Date(), 'yyyy-MM-dd'), amount: '',
       description: 'Оплата юридических услуг', doc_no: '', matter_id: '',
     })
+  }
+
+  function startEditPayment(p: Payment) {
+    setEditPayId(p.id)
+    setPayForm({
+      client_id: p.client_id,
+      pay_date: p.pay_date,
+      amount: String(p.amount),
+      description: p.description,
+      doc_no: p.doc_no ?? '',
+      matter_id: p.matter_id ?? '',
+    })
+    setShowPayForm(true)
   }
 
   async function addPayment(e: React.FormEvent) {
@@ -155,6 +181,44 @@ export default function ReconciliationPage() {
     }
 
     setSavingPay(true)
+
+    // Правка существующего платежа. Доверителя не меняем (см. форму), поэтому
+    // достаточно переписать поля и пересобрать привязку издержек.
+    if (editPayId) {
+      const { error: upError } = await supabase.from('payments').update({
+        matter_id: payForm.matter_id || null,
+        pay_date: payForm.pay_date,
+        amount: payAmount,
+        description: payForm.description,
+        doc_no: payForm.doc_no || null,
+      }).eq('id', editPayId)
+
+      if (upError) { toast.error('Ошибка: ' + upError.message); setSavingPay(false); return }
+
+      // Снятые галочки возвращаем в «Выставлено доверителю», отмеченные —
+      // перепривязываем с актуальной датой платежа (она могла измениться)
+      const unlinked = openReimb
+        .filter(r => r.payment_id === editPayId && !coveredReimb.includes(r.id))
+        .map(r => r.id)
+      if (unlinked.length > 0) {
+        await supabase.from('reimbursable_expenses')
+          .update({ status: 'invoiced', payment_id: null, reimbursed_date: null })
+          .in('id', unlinked)
+      }
+      if (coveredReimb.length > 0) {
+        await supabase.from('reimbursable_expenses')
+          .update({ status: 'reimbursed', payment_id: editPayId, reimbursed_date: payForm.pay_date })
+          .in('id', coveredReimb)
+      }
+
+      toast.success('Платёж изменён')
+      setShowPayForm(false)
+      resetPayForm()
+      if (generated) generate()
+      setSavingPay(false)
+      return
+    }
+
     const { data: { user } } = await supabase.auth.getUser()
 
     // Без доверителя (вознаграждение по назначению и т.п.) — в manual_income:
@@ -450,7 +514,7 @@ ${reimbBlock}
           {/* Единственное место ввода поступлений во всём приложении.
               Доверитель вверху нужен только для акта сверки — форму можно
               открыть и без него. */}
-          <button onClick={() => { setPayForm(f => ({ ...f, client_id: selectedClient })); setShowPayForm(true) }}
+          <button onClick={() => { resetPayForm(); setPayForm(f => ({ ...f, client_id: selectedClient })); setShowPayForm(true) }}
             className="btn-primary">
             <Plus className="w-4 h-4" /> Внести поступление
           </button>
@@ -467,17 +531,26 @@ ${reimbBlock}
       {showPayForm && (
         <div className="card mb-5 border-gold-800/40">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-medium text-navy-200 text-sm">Новое поступление</h2>
-            <button onClick={() => setShowPayForm(false)} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
+            <h2 className="font-medium text-navy-200 text-sm">
+              {editPayId ? 'Изменение поступления' : 'Новое поступление'}
+            </h2>
+            <button onClick={() => { setShowPayForm(false); resetPayForm() }} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
           </div>
           <form onSubmit={addPayment} className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div className="md:col-span-2">
               <label className="label">Доверитель</label>
-              <select className="select" value={payForm.client_id}
+              {/* При правке доверителя не меняем: к платежу привязаны издержки
+                  по делам этого доверителя, смена превратила бы связь в мусор */}
+              <select className="select" value={payForm.client_id} disabled={!!editPayId}
                 onChange={e => setPayForm(f => ({ ...f, client_id: e.target.value, matter_id: '' }))}>
                 <option value="">— без доверителя (по назначению, иное) —</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+              {editPayId && (
+                <p className="text-xs text-navy-400 mt-1">
+                  Доверителя изменить нельзя — удалите платёж и внесите заново
+                </p>
+              )}
             </div>
             <div>
               <label className="label">Дата *</label>
@@ -550,9 +623,11 @@ ${reimbBlock}
 
             <div className="md:col-span-4 flex gap-3">
               <button type="submit" disabled={savingPay} className="btn-primary">
-                <Check className="w-4 h-4" /> {savingPay ? 'Сохраняю...' : 'Добавить платёж'}
+                <Check className="w-4 h-4" />
+                {savingPay ? 'Сохраняю...' : editPayId ? 'Сохранить изменения' : 'Добавить платёж'}
               </button>
-              <button type="button" onClick={() => setShowPayForm(false)} className="btn-secondary">Отмена</button>
+              <button type="button" onClick={() => { setShowPayForm(false); resetPayForm() }}
+                className="btn-secondary">Отмена</button>
             </div>
           </form>
         </div>
@@ -721,11 +796,15 @@ ${reimbBlock}
 
           {/* Payments */}
           <div className="card">
-            <h2 className="font-medium text-navy-200 mb-4 text-sm">Поступившие оплаты</h2>
+            <h2 className="font-medium text-navy-200 mb-1 text-sm">Поступившие оплаты</h2>
+            {payments.length > 0 && (
+              <p className="text-xs text-navy-400 mb-4">Двойной клик по строке — изменить платёж</p>
+            )}
             {payments.length === 0 ? (
               <p className="text-navy-300 text-sm text-center py-6">
                 Нет платежей за период.{' '}
-                <button onClick={() => setShowPayForm(true)} className="text-gold-400 hover:underline">
+                <button onClick={() => { resetPayForm(); setPayForm(f => ({ ...f, client_id: selectedClient })); setShowPayForm(true) }}
+                  className="text-gold-400 hover:underline">
                   Добавить →
                 </button>
               </p>
@@ -743,14 +822,17 @@ ${reimbBlock}
                 </thead>
                 <tbody>
                   {payments.map((p, i) => (
-                    <tr key={p.id} className="border-b border-navy-800/40 hover:bg-navy-800/30">
+                    <tr key={p.id}
+                      onDoubleClick={() => startEditPayment(p)}
+                      title="Двойной клик — редактировать"
+                      className="border-b border-navy-800/40 hover:bg-navy-800/30 cursor-pointer">
                       <td className="py-2 pr-3 text-navy-400">{i+1}</td>
                       <td className="py-2 pr-3 font-mono text-navy-400">{fmtDate(p.pay_date)}</td>
                       <td className="py-2 pr-3 text-navy-400">{p.doc_no ?? '—'}</td>
                       <td className="py-2 pr-3 text-navy-300 max-w-[200px] truncate">{p.description}</td>
                       <td className="py-2 pr-3 text-right font-mono text-emerald-400">{fmt(p.amount)} ₽</td>
                       <td className="py-2">
-                        <button onClick={() => deletePayment(p.id)}
+                        <button onClick={ev => { ev.stopPropagation(); deletePayment(p.id) }}
                           className="btn-ghost p-1 hover:text-red-400 hover:bg-red-900/10">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -769,7 +851,8 @@ ${reimbBlock}
               {/* Card list (mobile) */}
               <div className="md:hidden">
                 {payments.map(p => (
-                  <div key={p.id} className="py-2.5 border-b border-navy-800/40">
+                  <div key={p.id} onClick={() => startEditPayment(p)}
+                    className="py-2.5 border-b border-navy-800/40 cursor-pointer">
                     <div className="flex items-start justify-between gap-2 mb-1.5">
                       <div className="min-w-0">
                         <p className="text-navy-300 text-xs truncate">{p.description}</p>
@@ -779,7 +862,7 @@ ${reimbBlock}
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-sm text-emerald-400 font-semibold">{fmt(p.amount)} ₽</span>
-                      <button onClick={() => deletePayment(p.id)}
+                      <button onClick={ev => { ev.stopPropagation(); deletePayment(p.id) }}
                         className="btn-ghost p-1.5 hover:text-red-400 hover:bg-red-900/10">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

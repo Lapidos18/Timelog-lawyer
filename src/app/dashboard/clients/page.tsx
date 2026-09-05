@@ -155,7 +155,9 @@ export default function ClientsPage() {
               </button>
             </p>
           ) : (
-            <div className="grid gap-2">
+            <>
+            {/* Список (десктоп) — всё в одну строку */}
+            <div className="hidden md:grid gap-2">
               {clients.map(c => (
                 <div key={c.id}
                   onDoubleClick={() => startEdit(c)}
@@ -185,6 +187,36 @@ export default function ClientsPage() {
                 </div>
               ))}
             </div>
+
+            {/* Карточки (телефон) — реквизиты по строкам, а не в обрезаемую строку.
+                Тап по карточке открывает правку: двойной тап на телефоне — это
+                жест увеличения, им редактировать нельзя. */}
+            <div className="md:hidden divide-y divide-navy-800/60">
+              {clients.map(c => (
+                <div key={c.id} onClick={() => startEdit(c)}
+                  className="py-3 cursor-pointer active:bg-navy-800/40">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-navy-800 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      {c.type === 'legal_entity'
+                        ? <Building2 className="w-4 h-4 text-navy-400" />
+                        : <User className="w-4 h-4 text-navy-400" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-navy-200 font-medium text-sm">{c.name}</p>
+                        <span className={`${c.is_active ? 'badge-active' : 'badge-inactive'} flex-shrink-0`}>
+                          {c.is_active ? 'Активный' : 'Архив'}
+                        </span>
+                      </div>
+                      <p className="text-navy-300 text-xs mt-0.5">{TYPE_LABELS[c.type]}</p>
+                      {c.inn && <p className="text-navy-400 text-xs mt-0.5">ИНН <span className="num">{c.inn}</span></p>}
+                      {c.phone && <p className="text-navy-400 text-xs mt-0.5 num">{c.phone}</p>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            </>
           )}
       </div>
       )}

@@ -23,16 +23,27 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ru">
+    <html lang="ru" suppressHydrationWarning>
+      <head>
+        {/* Тема выставляется ДО первой отрисовки: иначе при выбранной светлой
+            теме страница на мгновение вспыхивает тёмным фоном. Скрипт
+            намеренно синхронный и крошечный. */}
+        <script dangerouslySetInnerHTML={{ __html:
+          `try{if(localStorage.getItem('timelog-theme')==='light')` +
+          `document.documentElement.dataset.theme='light'}catch(e){}`
+        }} />
+      </head>
       <body>
         {children}
+        {/* Цвета уведомлений — из тех же переменных, что и вся тема,
+            иначе на светлой теме всплывало бы тёмное окно */}
         <Toaster
           position="top-right"
           toastOptions={{
             style: {
-              background: '#1e3a50',
-              color: '#dce6f0',
-              border: '1px solid #264462',
+              background: 'rgb(var(--navy-800))',
+              color: 'rgb(var(--navy-100))',
+              border: '1px solid rgb(var(--navy-700))',
             },
           }}
         />

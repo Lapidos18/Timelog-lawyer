@@ -7,9 +7,10 @@ import { Profile } from '@/types'
 import {
   LayoutDashboard, Users, Briefcase,
   FileBarChart2, LogOut, Scale, ChevronRight,
-  BookOpen, ClipboardList, Menu, X, FileCheck, HardDrive, Wallet, Receipt, Search
+  BookOpen, ClipboardList, Menu, X, FileCheck, HardDrive, Wallet, Receipt
 } from 'lucide-react'
 import CommandPalette from '@/components/CommandPalette'
+import ThemeToggle from '@/components/ThemeToggle'
 
 const NAV = [
   { href: '/dashboard',                icon: LayoutDashboard, label: 'Обзор' },
@@ -67,17 +68,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <span className="text-sm font-semibold text-navy-200 leading-tight">АК Бухмин А.А.</span>
       </div>
 
-      {/* Кнопка быстрого перехода: и подсказка о Ctrl+K, и способ открыть
-          палитру там, где клавиатуры нет */}
-      <button
-        onClick={() => window.dispatchEvent(new Event('timelog:open-palette'))}
-        className="tap flex items-center gap-2 w-full px-3 py-2 mb-3 rounded-lg text-sm
-                   bg-navy-900 border border-navy-800 text-navy-400
-                   hover:text-navy-200 hover:border-navy-700 transition-colors">
-        <Search className="w-4 h-4 flex-shrink-0" />
-        <span className="flex-1 text-left">Быстрый переход</span>
-        <kbd className="hidden md:inline text-[10px] border border-navy-700 rounded px-1 py-0.5">Ctrl K</kbd>
-      </button>
+      {/* Кнопка «Быстрый переход» убрана из меню по просьбе пользователя —
+          сама палитра осталась и открывается по Ctrl+K. Чтобы вернуть кнопку,
+          достаточно снова отправить отсюда событие 'timelog:open-palette':
+          обработчик в CommandPalette на месте. */}
 
       <nav className="flex-1 space-y-0.5">
         {NAV.map(({ href, icon: Icon, label, group }) => {
@@ -114,10 +108,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </p>
           </div>
         )}
+        <ThemeToggle />
         <button onClick={handleLogout}
-          className="flex items-center gap-2 w-full px-2 py-1.5 text-xs
+          className="tap flex items-center gap-2 w-full px-2 py-1.5 text-xs
                      text-navy-300 hover:text-red-400 hover:bg-red-900/10 rounded-lg transition-colors">
-          <LogOut className="w-3.5 h-3.5" /> Выйти
+          <LogOut className="w-3.5 h-3.5 flex-shrink-0" /> Выйти
         </button>
       </div>
     </>

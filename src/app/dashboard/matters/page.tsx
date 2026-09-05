@@ -319,7 +319,9 @@ export default function MattersPage() {
           : matters.length === 0 ? (
             <p className="text-navy-300 text-sm text-center py-12">Нет дел.</p>
           ) : (
-            <div className="grid gap-2">
+            <>
+            {/* Список (десктоп) */}
+            <div className="hidden md:grid gap-2">
               {matters.map(m => (
                 <div key={m.id}
                   onDoubleClick={() => startEdit(m)}
@@ -353,6 +355,67 @@ export default function MattersPage() {
                 </div>
               ))}
             </div>
+
+            {/* Карточки (телефон). Строка денег на узком экране переносилась
+                в четыре ряда точек-разделителей — здесь она разложена
+                парами «подпись — сумма», по одной в ряд. */}
+            <div className="md:hidden divide-y divide-navy-800/60">
+              {matters.map(m => {
+                const paid   = paidByMatter[m.id] ?? 0
+                const worked = workedByMatter[m.id] ?? 0
+                const reimb  = reimbByMatter[m.id] ?? 0
+                const balance = paid - worked - reimb
+                const hasMoney = paid > 0 || worked > 0 || reimb > 0
+                return (
+                  <div key={m.id} onClick={() => startEdit(m)}
+                    className="py-3 cursor-pointer active:bg-navy-800/40">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-navy-200 font-medium text-sm">{m.title}</p>
+                      <span className={`${statusBadge(m.status)} flex-shrink-0`}>
+                        {MATTER_STATUS_LABELS[m.status]}
+                      </span>
+                    </div>
+                    <p className="text-navy-300 text-xs mt-1">{m.clients?.name}</p>
+                    <p className="text-navy-400 text-xs mt-0.5">
+                      {MATTER_TYPE_LABELS[m.matter_type]}
+                      {m.agreement_no && <> · Соглашение <span className="num">{m.agreement_no}</span></>}
+                      {m.hourly_rate && <> · <span className="num">{m.hourly_rate}</span> ₽/ч</>}
+                    </p>
+                    {m.case_no && <p className="text-navy-400 text-xs mt-0.5">Дело <span className="num">{m.case_no}</span></p>}
+                    {m.court && <p className="text-navy-400 text-xs mt-0.5">{m.court}</p>}
+
+                    {hasMoney && (
+                      <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                        <dt className="text-navy-400">Оплачено</dt>
+                        <dd className="num text-navy-200 text-right">{fmtMoney(paid)} ₽</dd>
+                        <dt className="text-navy-400">Отработано</dt>
+                        <dd className="num text-navy-200 text-right">{fmtMoney(worked)} ₽</dd>
+                        {reimb > 0 && <>
+                          <dt className="text-navy-400">Возмещаемые расходы</dt>
+                          <dd className="num text-navy-200 text-right">{fmtMoney(reimb)} ₽</dd>
+                        </>}
+                        {balance > 0.005 ? <>
+                          <dt className="text-emerald-400 font-medium">Остаток аванса</dt>
+                          <dd className="num text-emerald-400 font-medium text-right">{fmtMoney(balance)} ₽</dd>
+                        </> : balance < -0.005 ? <>
+                          <dt className="text-amber-400 font-medium">К выставлению</dt>
+                          <dd className="num text-amber-400 font-medium text-right">{fmtMoney(-balance)} ₽</dd>
+                        </> : <>
+                          <dt className="text-navy-300">Аванс отработан</dt>
+                          <dd className="text-right text-navy-300">полностью</dd>
+                        </>}
+                      </dl>
+                    )}
+                    {m.fixed_fee && (
+                      <p className="text-navy-400 text-xs mt-1.5">
+                        По соглашению <span className="num text-navy-200">{fmtMoney(Number(m.fixed_fee))} ₽</span>
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            </>
           )}
       </div>
       )}

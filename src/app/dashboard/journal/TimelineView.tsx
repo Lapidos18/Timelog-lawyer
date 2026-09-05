@@ -7,6 +7,7 @@ import { ru } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Plus, X, Check, Calendar, Trash2, Pencil } from 'lucide-react'
 import toast from 'react-hot-toast'
 import LoadError from '@/components/LoadError'
+import { SkeletonRows } from '@/components/Skeleton'
 
 interface DayEntry {
   id: string
@@ -546,7 +547,7 @@ export default function TimelineView() {
           </div>
 
           {multiLoading ? (
-            <p className="text-navy-300 text-sm text-center py-12">Загрузка...</p>
+            <SkeletonRows rows={5} />
           ) : (
             <div className="space-y-4">
               {selectedDates.map(dStr => {

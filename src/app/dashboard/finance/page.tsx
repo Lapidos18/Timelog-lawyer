@@ -12,6 +12,7 @@ import {
   AlertTriangle, ChevronDown, Pencil,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import PageHeader from '@/components/PageHeader'
 import Link from 'next/link'
 import CalculatorTab from './CalculatorTab'
 
@@ -469,15 +470,8 @@ export default function FinancePage() {
 
   return (
     <div className="p-4 md:p-7 max-w-6xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-navy-100 flex items-center gap-2">
-          <Wallet className="w-6 h-6 text-gold-400" />
-          Доходы и налоги
-        </h1>
-        <p className="text-sm text-navy-300 mt-1">
-          Учёт доходов и профессиональных вычетов, расчёт НДФЛ и страховых взносов за {year} год
-        </p>
-      </div>
+      <PageHeader title="Доходы и налоги" icon={Wallet}
+        description={`Учёт доходов и профессиональных вычетов, расчёт НДФЛ и страховых взносов за ${year} год`} />
 
       {/* Tabs */}
       <div className="flex gap-2 mb-5 flex-wrap">

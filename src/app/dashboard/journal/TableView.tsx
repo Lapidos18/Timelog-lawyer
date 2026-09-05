@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 import { Plus, Pencil, Trash2, X, Check, ChevronDown, Filter } from 'lucide-react'
 import toast from 'react-hot-toast'
 import LoadError from '@/components/LoadError'
+import { SkeletonRows, SkeletonCards } from '@/components/Skeleton'
 
 interface EntryWithRelations {
   id: string
@@ -471,7 +472,7 @@ export default function TableView() {
       {/* Table (desktop) */}
       <div className={`card hidden ${loadError ? '' : 'md:block'}`}>
         {loading ? (
-          <p className="text-navy-300 text-sm text-center py-12">Загрузка...</p>
+          <SkeletonRows rows={7} />
         ) : entries.length === 0 ? (
           <p className="text-navy-300 text-sm text-center py-12">
             {hasActiveFilters ? 'Нет записей по заданным фильтрам.' : (
@@ -550,7 +551,7 @@ export default function TableView() {
       {/* Card list (mobile) — то же содержимое, без горизонтальной прокрутки */}
       <div className={loadError ? 'hidden' : 'md:hidden'}>
         {loading ? (
-          <p className="text-navy-300 text-sm text-center py-12">Загрузка...</p>
+          <SkeletonCards rows={5} />
         ) : entries.length === 0 ? (
           <p className="text-navy-300 text-sm text-center py-12">
             {hasActiveFilters ? 'Нет записей по заданным фильтрам.' : (

@@ -7,6 +7,8 @@ import { ru } from 'date-fns/locale'
 import Link from 'next/link'
 import { Clock, Banknote, Briefcase, TrendingUp, AlertCircle, ArrowRight } from 'lucide-react'
 import LoadError from '@/components/LoadError'
+import PageHeader from '@/components/PageHeader'
+import { SkeletonStats, SkeletonRows } from '@/components/Skeleton'
 
 function formatMoney(n: number) {
   return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
@@ -182,10 +184,8 @@ export default function DashboardPage() {
 
   return (
     <div className="p-4 md:p-7">
-      <div className="mb-5 md:mb-7">
-        <h1 className="text-2xl font-semibold text-navy-100">Обзор</h1>
-        <p className="text-sm text-navy-300 capitalize">{monthLabel}</p>
-      </div>
+      <PageHeader title="Обзор"
+        description={<span className="capitalize">{monthLabel}</span>} />
 
       {loadError && !loading && (
         <div className="mb-5">
@@ -194,6 +194,9 @@ export default function DashboardPage() {
       )}
 
       {/* Stats */}
+      {loading ? (
+        <div className="mb-5 md:mb-6"><SkeletonStats count={4} /></div>
+      ) : (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-5 md:mb-6">
         <div className="stat-card">
           <div className="flex items-center gap-2 mb-2">
@@ -201,7 +204,7 @@ export default function DashboardPage() {
             <span className="text-xs text-navy-400">Часов за месяц</span>
           </div>
           <p className="text-2xl font-semibold text-navy-100">
-            {loading ? '—' : stats.hoursThisMonth}
+            {stats.hoursThisMonth}
           </p>
         </div>
         <div className="stat-card">
@@ -210,7 +213,7 @@ export default function DashboardPage() {
             <span className="text-xs text-navy-400">Выручка за месяц</span>
           </div>
           <p className="text-2xl font-semibold text-navy-100">
-            {loading ? '—' : formatMoney(stats.revenueThisMonth) + ' ₽'}
+            {formatMoney(stats.revenueThisMonth) + ' ₽'}
           </p>
         </div>
         <div className="stat-card">
@@ -219,7 +222,7 @@ export default function DashboardPage() {
             <span className="text-xs text-navy-400">Активных дел</span>
           </div>
           <p className="text-2xl font-semibold text-navy-100">
-            {loading ? '—' : stats.activeMatters}
+            {stats.activeMatters}
           </p>
         </div>
         <div className="stat-card">
@@ -228,10 +231,11 @@ export default function DashboardPage() {
             <span className="text-xs text-navy-400">Ср. ставка</span>
           </div>
           <p className="text-2xl font-semibold text-navy-100">
-            {loading ? '—' : formatMoney(stats.avgRate) + ' ₽/ч'}
+            {formatMoney(stats.avgRate) + ' ₽/ч'}
           </p>
         </div>
       </div>
+      )}
 
       {/* Client balances */}
       {!loading && clientBalances.length > 0 && (
@@ -270,7 +274,7 @@ export default function DashboardPage() {
           </Link>
         </div>
         {loading ? (
-          <p className="text-navy-300 text-sm text-center py-8">Загрузка...</p>
+          <SkeletonRows rows={6} />
         ) : recentEntries.length === 0 ? (
           <p className="text-navy-300 text-sm text-center py-8">
             Нет записей.{' '}

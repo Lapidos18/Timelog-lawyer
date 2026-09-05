@@ -2,9 +2,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Client, ClientType } from '@/types'
-import { Plus, Pencil, X, Check, Building2, User } from 'lucide-react'
+import { Plus, Pencil, X, Check, Building2, User, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 import LoadError from '@/components/LoadError'
+import PageHeader from '@/components/PageHeader'
+import { SkeletonRows } from '@/components/Skeleton'
 
 const TYPE_LABELS: Record<ClientType, string> = {
   individual: 'Физическое лицо',
@@ -61,12 +63,11 @@ export default function ClientsPage() {
 
   return (
     <div className="p-4 md:p-7">
-      <div className="flex items-center justify-between mb-7">
-        <h1 className="text-2xl font-semibold text-navy-100">Доверители</h1>
+      <PageHeader title="Доверители" icon={Users}>
         <button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
           <Plus className="w-4 h-4" /> Новый доверитель
         </button>
-      </div>
+      </PageHeader>
 
       {showForm && (
         <div className="card mb-6 border-gold-800/40">
@@ -145,7 +146,7 @@ export default function ClientsPage() {
 
       {!loadError && (
       <div className="card">
-        {loading ? <p className="text-navy-300 text-sm text-center py-12">Загрузка...</p>
+        {loading ? <SkeletonRows rows={6} />
           : clients.length === 0 ? (
             <p className="text-navy-300 text-sm text-center py-12">
               Нет доверителей.{' '}

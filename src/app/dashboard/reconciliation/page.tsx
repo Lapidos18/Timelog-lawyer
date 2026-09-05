@@ -4,9 +4,10 @@ import { createClient } from '@/lib/supabase'
 import { Client, Matter, ACTIVITY_LABELS, ReimbursableExpense } from '@/types'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { FileDown, FileSpreadsheet, Plus, Trash2, X, Check } from 'lucide-react'
+import { FileDown, FileSpreadsheet, Plus, Trash2, X, Check, ClipboardList } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { escapeHtml } from '@/lib/html'
+import PageHeader from '@/components/PageHeader'
 
 interface Payment {
   id: string
@@ -477,22 +478,19 @@ ${reimbBlock}
 
   return (
     <div className="p-4 md:p-7">
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <div className="min-w-0">
-          <h1 className="text-xl md:text-2xl font-semibold text-navy-100">Платежи / Акт сверки</h1>
-          <p className="text-xs text-navy-300 mt-1">Внесение фактических платежей и сверка расчётов с доверителем</p>
-        </div>
+      <PageHeader title="Платежи / Акт сверки" icon={ClipboardList}
+        description="Внесение фактических платежей и сверка расчётов с доверителем">
         {generated && (
-          <div className="flex gap-2">
+          <>
             <button onClick={exportExcel} className="btn-secondary">
               <FileSpreadsheet className="w-4 h-4" /> Excel
             </button>
             <button onClick={exportPDF} className="btn-secondary">
               <FileDown className="w-4 h-4" /> PDF
             </button>
-          </div>
+          </>
         )}
-      </div>
+      </PageHeader>
 
       {/* Filters */}
       <div className="card mb-5">

@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { ReportRow, ReportFilters, Client, Matter, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
-import { FileDown, FileSpreadsheet, Filter, ChevronDown, ChevronRight, FileText, X, Check, Trash2 } from 'lucide-react'
+import { FileDown, FileSpreadsheet, Filter, ChevronDown, ChevronRight, FileText, X, Check, Trash2, FileBarChart2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import PageHeader from '@/components/PageHeader'
 
 type GroupBy = 'none' | 'client' | 'matter'
 
@@ -231,10 +232,9 @@ export default function ReportsPage() {
 
   return (
     <div className="p-4 md:p-7">
-      <div className="flex items-center justify-between mb-7 flex-wrap gap-3">
-        <h1 className="text-2xl font-semibold text-navy-100">Отчёты</h1>
+      <PageHeader title="Отчёты" icon={FileBarChart2}>
         {searched && rows.length > 0 && (
-          <div className="flex gap-2">
+          <>
             <button onClick={handleExcelExport} className="btn-secondary">
               <FileSpreadsheet className="w-4 h-4" /> Excel
             </button>
@@ -244,9 +244,9 @@ export default function ReportsPage() {
             <button onClick={handlePDFExport} className="btn-secondary">
               <FileDown className="w-4 h-4" /> PDF
             </button>
-          </div>
+          </>
         )}
-      </div>
+      </PageHeader>
 
       {/* Filters */}
       <div className="card mb-5">

@@ -4,11 +4,13 @@ import { createClient } from '@/lib/supabase'
 import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { Plus, X, Check, Printer, Trash2 } from 'lucide-react'
+import { Plus, X, Check, Printer, Trash2, FileCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { escapeHtml } from '@/lib/html'
 import LoadError from '@/components/LoadError'
 import { fmtMoneyWords } from '@/lib/money-words'
+import { SkeletonRows, SkeletonCards } from '@/components/Skeleton'
+import PageHeader from '@/components/PageHeader'
 
 interface Act {
   id: string
@@ -352,12 +354,11 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
 
   return (
     <div className="p-4 md:p-7">
-      <div className="flex items-center justify-between mb-5 md:mb-7 flex-wrap gap-3">
-        <h1 className="text-xl md:text-2xl font-semibold text-navy-100">Акты об оказании юридической помощи</h1>
+      <PageHeader title="Акты об оказании юридической помощи" icon={FileCheck}>
         <button onClick={() => setShowForm(s => !s)} className="btn-primary">
           <Plus className="w-4 h-4" /> Новый акт
         </button>
-      </div>
+      </PageHeader>
 
       {/* Form */}
       {showForm && (
@@ -457,7 +458,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
       {/* List (desktop) */}
       <div className={`card hidden ${loadError ? '' : 'md:block'}`}>
         {loading ? (
-          <p className="text-navy-300 text-sm text-center py-12">Загрузка...</p>
+          <SkeletonRows rows={6} />
         ) : acts.length === 0 ? (
           <p className="text-navy-300 text-sm text-center py-12">Нет актов. <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">Создать первый →</button></p>
         ) : (
@@ -510,7 +511,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
       {/* List (mobile) — card list, тап по карточке открывает предпросмотр/печать */}
       <div className={loadError ? 'hidden' : 'md:hidden'}>
         {loading ? (
-          <p className="text-navy-300 text-sm text-center py-12">Загрузка...</p>
+          <SkeletonCards rows={4} />
         ) : acts.length === 0 ? (
           <p className="text-navy-300 text-sm text-center py-12">Нет актов. <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">Создать первый →</button></p>
         ) : (

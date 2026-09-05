@@ -2,9 +2,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Matter, Client, MatterType, MatterStatus, MATTER_TYPE_LABELS, MATTER_STATUS_LABELS } from '@/types'
-import { Plus, Pencil, X, Check, Gavel } from 'lucide-react'
+import { Plus, Pencil, X, Check, Gavel, Briefcase } from 'lucide-react'
 import toast from 'react-hot-toast'
 import LoadError from '@/components/LoadError'
+import PageHeader from '@/components/PageHeader'
+import { SkeletonRows } from '@/components/Skeleton'
 
 interface MatterWithClient extends Matter { clients: Client }
 
@@ -199,12 +201,11 @@ export default function MattersPage() {
 
   return (
     <div className="p-4 md:p-7">
-      <div className="flex items-center justify-between mb-7">
-        <h1 className="text-2xl font-semibold text-navy-100">Дела</h1>
+      <PageHeader title="Дела" icon={Briefcase}>
         <button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
           <Plus className="w-4 h-4" /> Новое дело
         </button>
-      </div>
+      </PageHeader>
 
       {showForm && (
         <div className="card mb-6 border-gold-800/40">
@@ -314,7 +315,7 @@ export default function MattersPage() {
 
       {!loadError && (
       <div className="card">
-        {loading ? <p className="text-navy-300 text-sm text-center py-12">Загрузка...</p>
+        {loading ? <SkeletonRows rows={5} />
           : matters.length === 0 ? (
             <p className="text-navy-300 text-sm text-center py-12">Нет дел.</p>
           ) : (

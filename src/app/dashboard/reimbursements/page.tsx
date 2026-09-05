@@ -7,6 +7,8 @@ import {
 import { format } from 'date-fns'
 import { Plus, X, Check, Trash2, Receipt } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { SkeletonRows, SkeletonCards } from '@/components/Skeleton'
+import PageHeader from '@/components/PageHeader'
 
 function fmt(n: number) {
   return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
@@ -160,16 +162,8 @@ export default function ReimbursementsPage() {
 
   return (
     <div className="p-4 md:p-7">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-navy-100 flex items-center gap-2">
-          <Receipt className="w-6 h-6 text-gold-400" />
-          Возмещаемые расходы
-        </h1>
-        <p className="text-sm text-navy-300 mt-1">
-          Такси, почта, госпошлина и иные расходы, компенсируемые доверителем сверх вознаграждения —
-          учитываются отдельно и не входят в акт об оказании юридической помощи как часть гонорара.
-        </p>
-      </div>
+      <PageHeader title="Возмещаемые расходы" icon={Receipt}
+        description="Такси, почта, госпошлина и иные расходы, компенсируемые доверителем сверх вознаграждения — учитываются отдельно и не входят в акт об оказании юридической помощи как часть гонорара." />
 
       {/* Summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
@@ -283,7 +277,7 @@ export default function ReimbursementsPage() {
       )}
       <div className="card hidden md:block">
         {loading ? (
-          <p className="text-navy-300 text-sm text-center py-12">Загрузка...</p>
+          <SkeletonRows rows={6} />
         ) : filtered.length === 0 ? (
           <p className="text-navy-300 text-sm text-center py-12">Нет записей.</p>
         ) : (
@@ -346,7 +340,7 @@ export default function ReimbursementsPage() {
       {/* Card list (mobile) — то же содержимое, без горизонтальной прокрутки */}
       <div className="md:hidden">
         {loading ? (
-          <p className="text-navy-300 text-sm text-center py-12">Загрузка...</p>
+          <SkeletonCards rows={4} />
         ) : filtered.length === 0 ? (
           <p className="text-navy-300 text-sm text-center py-12">Нет записей.</p>
         ) : (

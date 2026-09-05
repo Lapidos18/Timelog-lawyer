@@ -61,6 +61,13 @@
     font-feature-settings: 'tnum' 1;
   }
 
+  /* Заглушка на время загрузки. Пульсация еле заметная: это фон, а не
+     содержимое, мигающие блоки на весь экран раздражают сильнее ожидания. */
+  .skeleton {
+    @apply bg-navy-800/70;
+    animation: skeleton-pulse 1.6s ease-in-out infinite;
+  }
+
   .table-row-hover {
     @apply hover:bg-navy-800/50 transition-colors;
   }
@@ -88,6 +95,16 @@
   .badge-active   { @apply badge bg-emerald-900/40 text-emerald-400 border border-emerald-800/50; }
   .badge-inactive { @apply badge bg-navy-800 text-navy-400 border border-navy-700; }
   .badge-gold     { @apply badge bg-gold-900/30 text-gold-400 border border-gold-800/50; }
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1 }
+  50%      { opacity: 0.45 }
+}
+
+/* Пользователь мог отключить анимации в системе — уважаем настройку */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none }
 }
 
 /* iOS Safari zooms the page in on focus when a field's font-size is under 16px */

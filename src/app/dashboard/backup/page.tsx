@@ -2,8 +2,9 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { format } from 'date-fns'
-import { Download, Database, CheckCircle, AlertCircle } from 'lucide-react'
+import { Download, Database, CheckCircle, AlertCircle, HardDrive } from 'lucide-react'
 import toast from 'react-hot-toast'
+import PageHeader from '@/components/PageHeader'
 
 interface BackupResult {
   table: string
@@ -99,13 +100,8 @@ export default function BackupPage() {
 
   return (
     <div className="p-4 md:p-7 max-w-2xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-navy-100 mb-1">Резервная копия</h1>
-        <p className="text-sm text-navy-300">
-          Скачивает все данные из базы в файл JSON на ваш компьютер.
-          Рекомендуется делать раз в месяц.
-        </p>
-      </div>
+      <PageHeader title="Резервная копия" icon={HardDrive}
+        description="Скачивает все данные из базы в файл JSON на ваш компьютер. Рекомендуется делать раз в месяц." />
 
       {/* Info card */}
       <div className="card mb-6">

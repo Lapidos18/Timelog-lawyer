@@ -71,7 +71,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           палитру там, где клавиатуры нет */}
       <button
         onClick={() => window.dispatchEvent(new Event('timelog:open-palette'))}
-        className="flex items-center gap-2 w-full px-3 py-2 mb-3 rounded-lg text-sm
+        className="tap flex items-center gap-2 w-full px-3 py-2 mb-3 rounded-lg text-sm
                    bg-navy-900 border border-navy-800 text-navy-400
                    hover:text-navy-200 hover:border-navy-700 transition-colors">
         <Search className="w-4 h-4 flex-shrink-0" />
@@ -90,7 +90,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
               )}
               <Link href={href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
+                className={`tap flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
                             transition-colors ${
                   active
                     ? 'bg-gold-500/10 text-gold-400 font-medium'

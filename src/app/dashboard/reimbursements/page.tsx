@@ -310,7 +310,7 @@ export default function ReimbursementsPage() {
                       value={e.status}
                       onClick={ev => ev.stopPropagation()}
                       onChange={ev => quickStatusChange(e, ev.target.value as ReimbursementStatus)}
-                      className={`text-xs px-2 py-1 rounded-md border-0 cursor-pointer ${STATUS_COLORS[e.status]}`}>
+                      className={`no-zoom tap text-xs px-2 py-1 rounded-md border-0 cursor-pointer ${STATUS_COLORS[e.status]}`}>
                       {(Object.entries(REIMBURSEMENT_STATUS_LABELS) as [ReimbursementStatus, string][]).map(([v, l]) => (
                         <option key={v} value={v}>{l}</option>
                       ))}
@@ -364,7 +364,7 @@ export default function ReimbursementsPage() {
                     value={e.status}
                     onClick={ev => ev.stopPropagation()}
                     onChange={ev => quickStatusChange(e, ev.target.value as ReimbursementStatus)}
-                    className={`text-xs px-2 py-1 rounded-md border-0 cursor-pointer ${STATUS_COLORS[e.status]}`}>
+                    className={`no-zoom tap text-xs px-2 py-1 rounded-md border-0 cursor-pointer ${STATUS_COLORS[e.status]}`}>
                     {(Object.entries(REIMBURSEMENT_STATUS_LABELS) as [ReimbursementStatus, string][]).map(([v, l]) => (
                       <option key={v} value={v}>{l}</option>
                     ))}

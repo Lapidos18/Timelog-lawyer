@@ -456,7 +456,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                   <td className="py-3 pr-4">
                     <select value={act.status}
                       onChange={e => changeStatus(act.id, e.target.value as Act['status'])}
-                      className={`text-xs px-2 py-1 rounded-md border-0 cursor-pointer ${STATUS_COLORS[act.status]}`}>
+                      className={`no-zoom tap text-xs px-2 py-1 rounded-md border-0 cursor-pointer ${STATUS_COLORS[act.status]}`}>
                       {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                     </select>
                   </td>
@@ -504,7 +504,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                   <select value={act.status}
                     onClick={ev => ev.stopPropagation()}
                     onChange={e => changeStatus(act.id, e.target.value as Act['status'])}
-                    className={`text-xs px-2 py-1 rounded-md border-0 cursor-pointer ${STATUS_COLORS[act.status]}`}>
+                    className={`no-zoom tap text-xs px-2 py-1 rounded-md border-0 cursor-pointer ${STATUS_COLORS[act.status]}`}>
                     {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
                   <span className="num text-sm text-navy-100 font-semibold">{fmt(act.amount)} ₽</span>

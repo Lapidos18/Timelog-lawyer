@@ -561,7 +561,7 @@ ${reimbBlock}
                 <div className="rounded-lg border border-navy-700 divide-y divide-navy-800">
                   {openReimb.map(r => (
                     <label key={r.id}
-                      className="flex items-start gap-3 px-3 py-2.5 cursor-pointer hover:bg-navy-800/40">
+                      className="tap flex items-start gap-3 px-3 py-2.5 cursor-pointer hover:bg-navy-800/40">
                       <input type="checkbox" className="w-4 h-4 mt-0.5 accent-gold-500 flex-shrink-0"
                         checked={coveredReimb.includes(r.id)}
                         onChange={e => setCoveredReimb(prev =>

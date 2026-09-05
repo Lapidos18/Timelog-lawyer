@@ -68,6 +68,13 @@
     animation: skeleton-pulse 1.6s ease-in-out infinite;
   }
 
+  /* Боковые поля с учётом «уха» iPhone: в альбомной ориентации вырез
+     съедает 44 px слева или справа, и содержимое уезжает под него */
+  .safe-x {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
   .table-row-hover {
     @apply hover:bg-navy-800/50 transition-colors;
   }
@@ -108,7 +115,12 @@
 }
 
 /* iOS Safari zooms the page in on focus when a field's font-size is under 16px */
-@media (max-width: 767px) {
+/* Правила для пальца, а не для узкого экрана.
+   Только по ширине было мало: iPhone в альбомной ориентации даёт 852 px, это
+   больше порога 768 px — и на повёрнутом телефоне поля снова становились
+   мелкими, а Safari опять увеличивал страницу при вводе. `pointer: coarse`
+   верно и для повёрнутого телефона, и для планшета, и для сенсорного ноутбука. */
+@media (max-width: 767px), (pointer: coarse) {
   .input, .select {
     font-size: 16px;
   }
@@ -127,5 +139,25 @@
   /* textarea uses .input too: keep it growing from its rows, not pinned to 44px */
   textarea.input {
     min-height: 0;
+  }
+
+  /* Для элементов, которые не пользуются .input/.btn-*: пункты меню, строки
+     палитры Ctrl+K, переключатели, статусы в списках. Ставится вручную там,
+     где промах пальцем стоит дороже плотности вёрстки. */
+  .tap {
+    min-height: 44px;
+  }
+
+  /* Safari увеличивает страницу при фокусе на поле с кеглем меньше 16px, и
+     обратно она сама не возвращается. Правило для .input/.select есть выше,
+     но выпадающие статусы и поиск набраны своими классами. */
+  .no-zoom {
+    font-size: 16px;
+  }
+
+  /* Чекбоксы крупнее: 16px — попадание на грани даже точным касанием */
+  input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
   }
 }

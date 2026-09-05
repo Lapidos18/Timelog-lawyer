@@ -150,7 +150,9 @@ export default function CommandPalette() {
   let lastGroup = ''
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] px-4"
+    // На телефоне окно поднято выше: с открытой клавиатурой при отступе в 12vh
+    // список результатов уезжал под неё почти целиком
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[8vh] md:pt-[12vh] safe-x"
       onClick={() => setOpen(false)}>
       <div className="absolute inset-0 bg-black/60" />
       <div className="relative w-full max-w-xl bg-navy-900 border border-navy-700 rounded-xl shadow-2xl overflow-hidden"
@@ -161,11 +163,11 @@ export default function CommandPalette() {
           <input ref={inputRef} value={query} onChange={e => setQuery(e.target.value)}
             onKeyDown={onInputKey}
             placeholder="Раздел, доверитель или дело…"
-            className="flex-1 bg-transparent py-3.5 text-sm text-navy-100 placeholder-navy-500 focus:outline-none" />
+            className="no-zoom flex-1 bg-transparent py-3.5 text-sm text-navy-100 placeholder-navy-500 focus:outline-none" />
           <kbd className="text-[10px] text-navy-400 border border-navy-700 rounded px-1.5 py-0.5">ESC</kbd>
         </div>
 
-        <div ref={listRef} className="max-h-[52vh] overflow-y-auto py-1.5">
+        <div ref={listRef} className="max-h-[45vh] md:max-h-[52vh] overflow-y-auto py-1.5">
           {results.length === 0 ? (
             <p className="text-sm text-navy-400 text-center py-8">Ничего не найдено</p>
           ) : results.map((item, i) => {
@@ -183,7 +185,7 @@ export default function CommandPalette() {
                   data-active={i === cursor}
                   onMouseEnter={() => setCursor(i)}
                   onClick={() => go(item)}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                  className={`tap w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
                     i === cursor ? 'bg-navy-800' : 'hover:bg-navy-800/50'
                   }`}>
                   <Icon className="w-4 h-4 text-navy-400 flex-shrink-0" />

@@ -209,7 +209,7 @@ export default function DashboardPage() {
             <Banknote className="w-4 h-4 text-navy-300" />
             <span className="text-xs text-navy-400">Выручка за месяц</span>
           </div>
-          <p className="text-2xl font-semibold text-gold-400">
+          <p className="text-2xl font-semibold text-navy-100">
             {loading ? '—' : formatMoney(stats.revenueThisMonth) + ' ₽'}
           </p>
         </div>
@@ -281,8 +281,8 @@ export default function DashboardPage() {
         ) : (
           <>
           {/* Table (desktop) */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-xs min-w-[600px]">
+          <div className="hidden md:block overflow-x-auto lg:overflow-x-visible">
+            <table className="w-full text-xs min-w-[600px] table-sticky">
               <thead>
                 <tr className="border-b border-navy-800">
                   {['Дата','Доверитель / Дело','Вид работы','Описание','Часов','Сумма','Исполнитель'].map(h => (
@@ -293,7 +293,7 @@ export default function DashboardPage() {
               <tbody>
                 {recentEntries.map(e => (
                   <tr key={e.id} className="border-b border-navy-800/40 table-row-hover">
-                    <td className="py-2.5 pr-4 font-mono text-navy-400 whitespace-nowrap">
+                    <td className="py-2.5 pr-4 num text-navy-400 whitespace-nowrap">
                       {format(new Date(e.work_date), 'dd.MM.yy')}
                     </td>
                     <td className="py-2.5 pr-4">
@@ -304,10 +304,10 @@ export default function DashboardPage() {
                       <span className="badge-gold">{ACTIVITY_LABELS[e.activity_type] ?? e.activity_type}</span>
                     </td>
                     <td className="py-2.5 pr-4 text-navy-300 truncate max-w-[180px]">{e.description}</td>
-                    <td className="py-2.5 pr-4 font-mono text-navy-300">{Number(e.hours).toFixed(2)}</td>
-                    <td className="py-2.5 pr-4 font-mono whitespace-nowrap">
+                    <td className="py-2.5 pr-4 num text-navy-300">{Number(e.hours).toFixed(2)}</td>
+                    <td className="py-2.5 pr-4 num whitespace-nowrap">
                       {e.is_billable
-                        ? <span className="text-gold-400">{formatMoney(e.amount)} ₽</span>
+                        ? <span className="text-navy-100">{formatMoney(e.amount)} ₽</span>
                         : <span className="text-navy-400">—</span>}
                     </td>
                     <td className="py-2.5 text-navy-300 truncate max-w-[100px]">{e.performed_by}</td>
@@ -326,20 +326,20 @@ export default function DashboardPage() {
                     <p className="text-navy-200 text-sm font-medium truncate">{e.client_name}</p>
                     <p className="text-navy-300 text-xs truncate">{e.matter_title}</p>
                   </div>
-                  <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
+                  <span className="text-navy-400 num text-xs whitespace-nowrap flex-shrink-0">
                     {format(new Date(e.work_date), 'dd.MM.yy')}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="badge-gold text-xs">{ACTIVITY_LABELS[e.activity_type] ?? e.activity_type}</span>
-                  <span className="text-navy-400 font-mono text-xs">{Number(e.hours).toFixed(2)} ч</span>
+                  <span className="text-navy-400 num text-xs">{Number(e.hours).toFixed(2)} ч</span>
                 </div>
                 <p className="text-navy-300 text-xs mb-1.5 line-clamp-2">{e.description}</p>
                 <div className="flex items-center justify-between">
                   <span className="text-navy-300 text-xs truncate">{e.performed_by}</span>
-                  <span className="font-mono text-sm">
+                  <span className="num text-sm">
                     {e.is_billable
-                      ? <span className="text-gold-400 font-semibold">{formatMoney(e.amount)} ₽</span>
+                      ? <span className="text-navy-100 font-semibold">{formatMoney(e.amount)} ₽</span>
                       : <span className="text-navy-400">—</span>}
                   </span>
                 </div>

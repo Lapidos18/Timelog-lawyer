@@ -351,7 +351,7 @@ export default function ReportsPage() {
           </div>
           <div className="stat-card">
             <p className="text-xs text-navy-400">К оплате</p>
-            <p className="text-2xl font-semibold text-gold-400">{formatMoney(totalBillable)} ₽</p>
+            <p className="text-2xl font-semibold text-navy-100">{formatMoney(totalBillable)} ₽</p>
           </div>
         </div>
       )}
@@ -395,15 +395,15 @@ export default function ReportsPage() {
                     <div className="flex items-center gap-6 text-xs text-navy-400">
                       <span>{group.rows.length} записей</span>
                       <span>{groupHours.toFixed(2)} ч</span>
-                      <span className="text-gold-400 font-semibold">{formatMoney(groupAmount)} ₽</span>
+                      <span className="text-navy-100 font-semibold">{formatMoney(groupAmount)} ₽</span>
                     </div>
                   </button>
                 )}
 
                 {/* Group rows — table (desktop) */}
                 {!collapsed && (
-                  <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full text-xs min-w-[800px]">
+                  <div className="hidden md:block overflow-x-auto lg:overflow-x-visible">
+                    <table className="w-full text-xs min-w-[800px] table-sticky">
                       <thead>
                         <tr className="border-b border-navy-800">
                           {['№','Дата','Доверитель','Дело','Вид работы','Описание','Часов','Ставка','Сумма','Исполнитель'].map(h => (
@@ -415,18 +415,18 @@ export default function ReportsPage() {
                         {group.rows.map((r, i) => (
                           <tr key={r.id} onDoubleClick={() => openEdit(r)} className="border-b border-navy-800/40 table-row-hover cursor-pointer" title="Двойной клик — редактировать">
                             <td className="px-3 py-2 text-navy-400">{i+1}</td>
-                            <td className="px-3 py-2 font-mono text-navy-400 whitespace-nowrap">{fmtDate(r.work_date)}</td>
+                            <td className="px-3 py-2 num text-navy-400 whitespace-nowrap">{fmtDate(r.work_date)}</td>
                             <td className="px-3 py-2 text-navy-300 max-w-[120px] truncate">{r.client_name}</td>
                             <td className="px-3 py-2 text-navy-300 max-w-[130px] truncate">{r.matter_title}</td>
                             <td className="px-3 py-2">
                               <span className="badge-gold">{ACTIVITY_LABELS[r.activity_type]}</span>
                             </td>
                             <td className="px-3 py-2 text-navy-300 max-w-[180px] truncate">{r.description}</td>
-                            <td className="px-3 py-2 text-right font-mono text-navy-300">{Number(r.hours).toFixed(2)}</td>
-                            <td className="px-3 py-2 text-right font-mono text-navy-400">{formatMoney(r.hourly_rate)}</td>
-                            <td className="px-3 py-2 text-right font-mono whitespace-nowrap">
+                            <td className="px-3 py-2 text-right num text-navy-300">{Number(r.hours).toFixed(2)}</td>
+                            <td className="px-3 py-2 text-right num text-navy-400">{formatMoney(r.hourly_rate)}</td>
+                            <td className="px-3 py-2 text-right num whitespace-nowrap">
                               {r.is_billable
-                                ? <span className="text-gold-400">{formatMoney(r.amount)} ₽</span>
+                                ? <span className="text-navy-100">{formatMoney(r.amount)} ₽</span>
                                 : <span className="text-navy-400">—</span>}
                             </td>
                             <td className="px-3 py-2 text-navy-300 truncate max-w-[100px]">{r.performed_by}</td>
@@ -438,11 +438,11 @@ export default function ReportsPage() {
                           <td colSpan={6} className="px-3 pt-2 pb-2 text-right text-navy-400 font-medium">
                             {groupBy !== 'none' ? 'Итого по группе:' : 'Итого:'}
                           </td>
-                          <td className="px-3 pt-2 pb-2 text-right font-mono font-semibold text-navy-200">
+                          <td className="px-3 pt-2 pb-2 text-right num font-semibold text-navy-200">
                             {groupHours.toFixed(2)}
                           </td>
                           <td />
-                          <td className="px-3 pt-2 pb-2 text-right font-mono font-semibold text-gold-400">
+                          <td className="px-3 pt-2 pb-2 text-right num font-semibold text-navy-100">
                             {formatMoney(groupAmount)} ₽
                           </td>
                           <td />
@@ -464,20 +464,20 @@ export default function ReportsPage() {
                             <p className="text-navy-200 text-sm font-medium truncate">{r.client_name}</p>
                             <p className="text-navy-300 text-xs truncate">{r.matter_title}</p>
                           </div>
-                          <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
+                          <span className="text-navy-400 num text-xs whitespace-nowrap flex-shrink-0">
                             {fmtDate(r.work_date)}
                           </span>
                         </div>
                         <div className="flex items-center gap-2 mb-1.5">
                           <span className="badge-gold text-xs">{ACTIVITY_LABELS[r.activity_type]}</span>
-                          <span className="text-navy-400 font-mono text-xs">{Number(r.hours).toFixed(2)} ч</span>
+                          <span className="text-navy-400 num text-xs">{Number(r.hours).toFixed(2)} ч</span>
                         </div>
                         <p className="text-navy-300 text-xs mb-2 line-clamp-2">{r.description}</p>
                         <div className="flex items-center justify-between pt-2 border-t border-navy-800/60">
                           <span className="text-navy-300 text-xs truncate">{r.performed_by}</span>
-                          <span className="font-mono text-sm">
+                          <span className="num text-sm">
                             {r.is_billable
-                              ? <span className="text-gold-400 font-semibold">{formatMoney(r.amount)} ₽</span>
+                              ? <span className="text-navy-100 font-semibold">{formatMoney(r.amount)} ₽</span>
                               : <span className="text-navy-400">—</span>}
                           </span>
                         </div>
@@ -487,7 +487,7 @@ export default function ReportsPage() {
                       <span className="text-navy-400 font-medium">
                         {groupBy !== 'none' ? 'Итого по группе:' : 'Итого:'} {groupHours.toFixed(2)} ч
                       </span>
-                      <span className="text-gold-400 font-mono font-semibold">{formatMoney(groupAmount)} ₽</span>
+                      <span className="text-navy-100 num font-semibold">{formatMoney(groupAmount)} ₽</span>
                     </div>
                   </div>
                 )}
@@ -502,7 +502,7 @@ export default function ReportsPage() {
                 <strong className="text-navy-200 ml-2">{totalHours.toFixed(2)}</strong>
               </span>
               <span className="text-sm text-navy-400">Итого к оплате:
-                <strong className="text-gold-400 ml-2">{formatMoney(totalBillable)} ₽</strong>
+                <strong className="text-navy-100 ml-2">{formatMoney(totalBillable)} ₽</strong>
               </span>
             </div>
           )}

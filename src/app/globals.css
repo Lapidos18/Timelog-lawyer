@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -53,8 +53,31 @@
            focus:outline-none focus:ring-2 focus:ring-gold-500/50 focus:border-gold-500
            transition-colors text-sm;
   }
+  /* Суммы, даты, номера документов. Раньше выравнивались моноширинным шрифтом —
+     разряды вставали в столбец, но выглядело это как код в редакторе. Табличные
+     цифры Inter дают ту же ровную колонку обычным шрифтом. */
+  .num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
   .table-row-hover {
     @apply hover:bg-navy-800/50 transition-colors;
+  }
+
+  /* Заголовки столбцов не уезжают при прокрутке длинного списка.
+     Работает только когда таблица НЕ внутри блока с прокруткой — поэтому
+     обёртки таблиц переведены на `overflow-x-auto lg:overflow-x-visible`:
+     на широком экране горизонтальная прокрутка не нужна и не мешает липкости,
+     на узком остаётся прокрутка, а шапка просто не липнет.
+     Фон обязателен — иначе строки просвечивают сквозь заголовок.
+     Граница задана тенью: у липких ячеек обычный border при прокрутке пропадает. */
+  .table-sticky thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: #152a3b; /* navy-900 — фон карточки */
+    box-shadow: inset 0 -1px 0 #1e3a50; /* navy-800 */
   }
   .stat-card {
     @apply card flex flex-col gap-1;

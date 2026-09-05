@@ -576,14 +576,14 @@ export default function TimelineView() {
                                         hover:brightness-125 transition-all ${COLORS[e.activity_type]}`}>
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
-                                <span className="text-xs font-mono opacity-70">{e.start_time?.slice(0,5)}</span>
+                                <span className="text-xs num opacity-70">{e.start_time?.slice(0,5)}</span>
                                 <p className="text-xs font-semibold truncate">{e.matters?.clients?.name}</p>
                                 <span className="text-[10px] opacity-70">{ACTIVITY_LABELS[e.activity_type]}</span>
                               </div>
                               <p className="text-xs opacity-80 truncate mt-0.5">{e.description}</p>
                             </div>
                             <div className="text-right flex-shrink-0">
-                              <p className="text-xs font-mono opacity-70">{(e.duration_min/60).toFixed(2)}ч</p>
+                              <p className="text-xs num opacity-70">{(e.duration_min/60).toFixed(2)}ч</p>
                               <p className="text-xs font-semibold">
                                 {e.is_billable ? formatMoney(e.amount) + ' ₽' : '—'}
                               </p>
@@ -602,7 +602,7 @@ export default function TimelineView() {
                   <span className="text-navy-400 font-medium">Итого за все выбранные дни:</span>
                   <span className="text-navy-200">
                     {Object.values(multiEntries).flat().reduce((s, e) => s + e.duration_min / 60, 0).toFixed(2)} ч ·{' '}
-                    <span className="text-gold-400 font-semibold">
+                    <span className="text-navy-100 font-semibold">
                       {formatMoney(Object.values(multiEntries).flat().filter(e => e.is_billable).reduce((s, e) => s + Number(e.amount), 0))} ₽
                     </span>
                   </span>
@@ -632,7 +632,7 @@ export default function TimelineView() {
             <div className="w-12 md:w-16 flex-shrink-0 border-r border-navy-800">
               {HOURS.map(h => (
                 <div key={h} className="h-16 border-b border-navy-800/50 px-1 md:px-2 py-1
-                                         text-[10px] md:text-xs text-navy-400 font-mono">
+                                         text-[10px] md:text-xs text-navy-400 num">
                   {h}:00
                 </div>
               ))}
@@ -674,7 +674,7 @@ export default function TimelineView() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-semibold truncate">{e.matters?.clients?.name}</p>
-                      <span className="text-[10px] font-mono opacity-70 flex-shrink-0">
+                      <span className="text-[10px] num opacity-70 flex-shrink-0">
                         {startLabel}–{endLabel}
                       </span>
                     </div>
@@ -719,7 +719,7 @@ export default function TimelineView() {
                     <p className="text-xs opacity-90">{ACTIVITY_LABELS[e.activity_type]}</p>
                     <p className="text-xs opacity-70 truncate mt-0.5">{e.description}</p>
                     <div className="flex justify-between mt-1.5 text-xs">
-                      <span className="font-mono opacity-70">
+                      <span className="num opacity-70">
                         {e.start_time?.slice(0,5)} · {(e.duration_min/60).toFixed(2)}ч
                       </span>
                       <span className="font-semibold">
@@ -741,7 +741,7 @@ export default function TimelineView() {
             {entries.length > 0 && (
               <div className="flex justify-between text-xs mt-1">
                 <span className="text-navy-300">К оплате:</span>
-                <span className="text-gold-400 font-semibold">{formatMoney(totalAmount)} ₽</span>
+                <span className="text-navy-100 font-semibold">{formatMoney(totalAmount)} ₽</span>
               </div>
             )}
           </div>

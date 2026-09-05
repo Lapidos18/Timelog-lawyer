@@ -413,7 +413,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                   <div className="bg-navy-800/40 rounded-lg border border-navy-700/50 overflow-hidden">
                     <div className="px-4 py-2.5 border-b border-navy-700/50 flex justify-between items-center">
                       <span className="text-sm text-navy-300">{previewRows.length} записей войдут в акт</span>
-                      <span className="text-gold-400 font-semibold text-sm">{fmt(previewTotal)} руб.</span>
+                      <span className="text-navy-100 font-semibold text-sm">{fmt(previewTotal)} руб.</span>
                     </div>
                     <table className="w-full text-xs">
                       <thead>
@@ -426,12 +426,12 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                       <tbody>
                         {previewRows.map(r => (
                           <tr key={r.id} className="border-b border-navy-800/40">
-                            <td className="px-3 py-1.5 font-mono text-navy-400">{fmtDate(r.work_date)}</td>
+                            <td className="px-3 py-1.5 num text-navy-400">{fmtDate(r.work_date)}</td>
                             <td className="px-3 py-1.5 text-navy-400">{ACTIVITY_LABELS[r.activity_type]}</td>
                             <td className="px-3 py-1.5 text-navy-300 max-w-[160px] truncate">{r.description}</td>
-                            <td className="px-3 py-1.5 text-right font-mono text-navy-300">{r.hours.toFixed(2)}</td>
-                            <td className="px-3 py-1.5 text-right font-mono text-navy-400">{fmt(r.hourly_rate)}</td>
-                            <td className="px-3 py-1.5 text-right font-mono text-gold-400">{fmt(r.amount)}</td>
+                            <td className="px-3 py-1.5 text-right num text-navy-300">{r.hours.toFixed(2)}</td>
+                            <td className="px-3 py-1.5 text-right num text-navy-400">{fmt(r.hourly_rate)}</td>
+                            <td className="px-3 py-1.5 text-right num text-navy-100">{fmt(r.amount)}</td>
                             <td className="px-3 py-1.5 text-navy-300">{displayPerformer(r.performed_by)}</td>
                           </tr>
                         ))}
@@ -461,7 +461,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
         ) : acts.length === 0 ? (
           <p className="text-navy-300 text-sm text-center py-12">Нет актов. <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">Создать первый →</button></p>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-sticky">
             <thead>
               <tr className="border-b border-navy-800">
                 {['Номер','Дело','Доверитель','Период','Сумма','Статус',''].map(h => (
@@ -474,14 +474,14 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                 <tr key={act.id} className="border-b border-navy-800/40 table-row-hover">
                   <td className="py-3 pr-4">
                     <button onClick={() => openPreview(act)}
-                      className="text-gold-400 hover:underline font-mono text-xs">{act.act_no}</button>
+                      className="text-gold-400 hover:underline num text-xs">{act.act_no}</button>
                   </td>
                   <td className="py-3 pr-4 text-navy-300 text-xs max-w-[150px] truncate">{act.matters?.title}</td>
                   <td className="py-3 pr-4 text-navy-400 text-xs max-w-[130px] truncate">{act.matters?.clients?.name}</td>
                   <td className="py-3 pr-4 text-navy-400 text-xs whitespace-nowrap">
                     {fmtDate(act.period_from)} — {fmtDate(act.period_to)}
                   </td>
-                  <td className="py-3 pr-4 font-mono text-gold-400 text-xs whitespace-nowrap">{fmt(act.amount)} ₽</td>
+                  <td className="py-3 pr-4 num text-navy-100 text-xs whitespace-nowrap">{fmt(act.amount)} ₽</td>
                   <td className="py-3 pr-4">
                     <select value={act.status}
                       onChange={e => changeStatus(act.id, e.target.value as Act['status'])}
@@ -524,7 +524,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                     <p className="text-navy-200 text-sm font-medium truncate">{act.matters?.clients?.name}</p>
                     <p className="text-navy-300 text-xs truncate">{act.matters?.title}</p>
                   </div>
-                  <span className="text-gold-400 font-mono text-xs whitespace-nowrap flex-shrink-0">{act.act_no}</span>
+                  <span className="text-navy-200 num text-xs whitespace-nowrap flex-shrink-0">{act.act_no}</span>
                 </div>
                 <p className="text-navy-400 text-xs mb-2">
                   {fmtDate(act.period_from)} — {fmtDate(act.period_to)}
@@ -536,7 +536,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                     className={`text-xs px-2 py-1 rounded-md border-0 cursor-pointer ${STATUS_COLORS[act.status]}`}>
                     {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
-                  <span className="font-mono text-sm text-gold-400 font-semibold">{fmt(act.amount)} ₽</span>
+                  <span className="num text-sm text-navy-100 font-semibold">{fmt(act.amount)} ₽</span>
                 </div>
                 <div className="flex items-center justify-end gap-1 pt-2 border-t border-navy-800/60">
                   <button onClick={ev => { ev.stopPropagation(); openPreview(act) }}
@@ -574,8 +574,8 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                 <b className="text-navy-300">Период:</b> {fmtDate(previewAct.act.period_from)} — {fmtDate(previewAct.act.period_to)}
               </p>
               {/* Таблица (десктоп) */}
-              <div className="hidden md:block overflow-x-auto -mx-6 px-6">
-              <table className="w-full text-xs mb-4 min-w-[640px]">
+              <div className="hidden md:block overflow-x-auto lg:overflow-x-visible -mx-6 px-6">
+              <table className="w-full text-xs mb-4 min-w-[640px] table-sticky">
                 <thead>
                   <tr className="border-b border-navy-800">
                     {['№','Дата','Вид работы','Описание','Часов','Ставка','Сумма','Исполнитель'].map(h => (
@@ -587,12 +587,12 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                   {previewAct.rows.map((r, i) => (
                     <tr key={r.id} className="border-b border-navy-800/40">
                       <td className="py-1.5 pr-3 text-navy-400">{i+1}</td>
-                      <td className="py-1.5 pr-3 font-mono text-navy-400">{fmtDate(r.work_date)}</td>
+                      <td className="py-1.5 pr-3 num text-navy-400">{fmtDate(r.work_date)}</td>
                       <td className="py-1.5 pr-3 text-navy-400">{ACTIVITY_LABELS[r.activity_type]}</td>
                       <td className="py-1.5 pr-3 text-navy-300 max-w-[180px] truncate">{r.description}</td>
-                      <td className="py-1.5 pr-3 text-right font-mono text-navy-300">{r.hours.toFixed(2)}</td>
-                      <td className="py-1.5 pr-3 text-right font-mono text-navy-400">{fmt(r.hourly_rate)}</td>
-                      <td className="py-1.5 pr-3 text-right font-mono text-gold-400">{fmt(r.amount)}</td>
+                      <td className="py-1.5 pr-3 text-right num text-navy-300">{r.hours.toFixed(2)}</td>
+                      <td className="py-1.5 pr-3 text-right num text-navy-400">{fmt(r.hourly_rate)}</td>
+                      <td className="py-1.5 pr-3 text-right num text-navy-100">{fmt(r.amount)}</td>
                       <td className="py-1.5 text-navy-300">{displayPerformer(r.performed_by)}</td>
                     </tr>
                   ))}
@@ -600,7 +600,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                 <tfoot>
                   <tr className="border-t-2 border-navy-700">
                     <td colSpan={6} className="pt-2 text-right text-navy-400 font-medium pr-3">Итого:</td>
-                    <td className="pt-2 text-right font-mono font-bold text-gold-400">
+                    <td className="pt-2 text-right num font-bold text-navy-100">
                       {fmt(previewAct.rows.reduce((s,r) => s+r.amount, 0))} ₽
                     </td>
                     <td />
@@ -618,23 +618,23 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                         <span className="text-navy-400 mr-1.5">{i+1}.</span>
                         {ACTIVITY_LABELS[r.activity_type]}
                       </span>
-                      <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
+                      <span className="text-navy-400 num text-xs whitespace-nowrap flex-shrink-0">
                         {fmtDate(r.work_date)}
                       </span>
                     </div>
                     <p className="text-navy-300 text-xs mb-1.5">{r.description}</p>
                     <div className="flex items-center justify-between gap-2 text-xs">
-                      <span className="text-navy-300 font-mono">
+                      <span className="text-navy-300 num">
                         {r.hours.toFixed(2)} ч × {fmt(r.hourly_rate)} ₽
                       </span>
-                      <span className="font-mono text-gold-400 font-semibold">{fmt(r.amount)} ₽</span>
+                      <span className="num text-navy-100 font-semibold">{fmt(r.amount)} ₽</span>
                     </div>
                     <p className="text-navy-400 text-xs mt-0.5">{displayPerformer(r.performed_by)}</p>
                   </div>
                 ))}
                 <div className="pt-2.5 flex items-center justify-between text-xs">
                   <span className="text-navy-400 font-medium">Итого:</span>
-                  <span className="font-mono font-bold text-gold-400">
+                  <span className="num font-bold text-navy-100">
                     {fmt(previewAct.rows.reduce((s,r) => s+r.amount, 0))} ₽
                   </span>
                 </div>
@@ -654,7 +654,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
             </div>
             <div className="p-6 space-y-4">
               <p className="text-sm text-navy-400">
-                Акт № <span className="text-gold-400 font-mono">{payConfirmAct.act_no}</span> переводится в статус «Оплачен».
+                Акт № <span className="text-navy-100 num">{payConfirmAct.act_no}</span> переводится в статус «Оплачен».
                 Чтобы задолженность на Обзоре и Доходы обновились автоматически, зафиксируйте фактический платёж —
                 либо пропустите этот шаг, если оплата уже внесена вручную ранее.
               </p>

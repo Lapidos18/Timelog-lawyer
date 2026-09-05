@@ -607,7 +607,7 @@ ${reimbBlock}
                           {fmtDate(r.expense_date)} · {r.matters?.title ?? '—'}
                         </span>
                       </span>
-                      <span className="font-mono text-sm text-navy-200 whitespace-nowrap">
+                      <span className="num text-sm text-navy-200 whitespace-nowrap">
                         {fmt(Number(r.amount))} ₽
                       </span>
                     </label>
@@ -616,9 +616,9 @@ ${reimbBlock}
                 {coveredTotal > 0 && (
                   <p className="text-xs mt-2 flex flex-wrap gap-x-2">
                     <span className="text-navy-400">Возмещаемые расходы:</span>
-                    <span className="font-mono text-navy-200">{fmt(coveredTotal)} ₽</span>
+                    <span className="num text-navy-200">{fmt(coveredTotal)} ₽</span>
                     <span className="text-navy-400">· вознаграждение:</span>
-                    <span className="font-mono text-gold-400">
+                    <span className="num text-navy-100">
                       {fmt(Math.max(0, (parseFloat(payForm.amount) || 0) - coveredTotal))} ₽
                     </span>
                     <span className="text-emerald-400">— в доход по НДФЛ пойдёт только вознаграждение</span>
@@ -659,7 +659,9 @@ ${reimbBlock}
             </div>
             <div className="stat-card">
               <p className="text-xs text-navy-400">{balance >= 0 ? 'Задолженность доверителя' : 'Переплата'}</p>
-              <p className={`text-2xl font-semibold ${balance > 0 ? 'text-red-400' : balance < 0 ? 'text-gold-400' : 'text-emerald-400'}`}>
+              {/* Цвет здесь несёт смысл, а не украшает: красный — долг,
+                  янтарный — переплата (аванс, не проблема), зелёный — сошлось */}
+              <p className={`text-2xl font-semibold ${balance > 0 ? 'text-red-400' : balance < 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
                 {fmt(Math.abs(balance))} ₽
               </p>
             </div>
@@ -673,8 +675,8 @@ ${reimbBlock}
             ) : (
               <>
               {/* Table (desktop) */}
-              <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-xs min-w-[640px]">
+              <div className="hidden md:block overflow-x-auto lg:overflow-x-visible">
+              <table className="w-full text-xs min-w-[640px] table-sticky">
                 <thead>
                   <tr className="border-b border-navy-800">
                     {['№','Дата','Дело','Вид работы','Описание','Часов','Ставка','Сумма'].map(h => (
@@ -686,18 +688,18 @@ ${reimbBlock}
                   {services.map((r, i) => (
                     <tr key={r.id} className="border-b border-navy-800/40 hover:bg-navy-800/30">
                       <td className="py-2 pr-3 text-navy-400">{i+1}</td>
-                      <td className="py-2 pr-3 font-mono text-navy-400">{fmtDate(r.work_date)}</td>
+                      <td className="py-2 pr-3 num text-navy-400">{fmtDate(r.work_date)}</td>
                       <td className="py-2 pr-3 text-navy-300 max-w-[140px] truncate">{r.matter_title}</td>
                       <td className="py-2 pr-3 text-navy-400">{ACTIVITY_LABELS[r.activity_type as keyof typeof ACTIVITY_LABELS]}</td>
                       <td className="py-2 pr-3 text-navy-300 max-w-[160px] truncate">{r.description}</td>
-                      <td className="py-2 pr-3 text-right font-mono text-navy-300">{r.hours.toFixed(2)}</td>
-                      <td className="py-2 pr-3 text-right font-mono text-navy-400">{fmt(r.hourly_rate)}</td>
-                      <td className="py-2 text-right font-mono text-gold-400">{fmt(r.amount)}</td>
+                      <td className="py-2 pr-3 text-right num text-navy-300">{r.hours.toFixed(2)}</td>
+                      <td className="py-2 pr-3 text-right num text-navy-400">{fmt(r.hourly_rate)}</td>
+                      <td className="py-2 text-right num text-navy-100">{fmt(r.amount)}</td>
                     </tr>
                   ))}
                   <tr className="border-t-2 border-navy-700">
                     <td colSpan={7} className="pt-2 text-right text-navy-400 font-medium pr-3 text-xs">Итого:</td>
-                    <td className="pt-2 text-right font-mono font-semibold text-gold-400 text-xs">{fmt(totalServices)} ₽</td>
+                    <td className="pt-2 text-right num font-semibold text-navy-100 text-xs">{fmt(totalServices)} ₽</td>
                   </tr>
                 </tbody>
               </table>
@@ -709,21 +711,21 @@ ${reimbBlock}
                   <div key={r.id} className="py-2.5 border-b border-navy-800/40">
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <p className="text-navy-300 text-xs max-w-[70%] truncate">{r.matter_title}</p>
-                      <span className="text-navy-400 font-mono text-xs whitespace-nowrap">{fmtDate(r.work_date)}</span>
+                      <span className="text-navy-400 num text-xs whitespace-nowrap">{fmtDate(r.work_date)}</span>
                     </div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-navy-400 text-xs">{ACTIVITY_LABELS[r.activity_type as keyof typeof ACTIVITY_LABELS]}</span>
-                      <span className="text-navy-400 font-mono text-xs">{r.hours.toFixed(2)} ч</span>
+                      <span className="text-navy-400 num text-xs">{r.hours.toFixed(2)} ч</span>
                     </div>
                     <p className="text-navy-300 text-xs mb-1.5 line-clamp-2">{r.description}</p>
                     <div className="flex justify-end">
-                      <span className="font-mono text-sm text-gold-400 font-semibold">{fmt(r.amount)} ₽</span>
+                      <span className="num text-sm text-navy-100 font-semibold">{fmt(r.amount)} ₽</span>
                     </div>
                   </div>
                 ))}
                 <div className="pt-2.5 flex items-center justify-between text-xs">
                   <span className="text-navy-400 font-medium">Итого:</span>
-                  <span className="font-mono font-semibold text-gold-400">{fmt(totalServices)} ₽</span>
+                  <span className="num font-semibold text-navy-100">{fmt(totalServices)} ₽</span>
                 </div>
               </div>
               </>
@@ -740,8 +742,8 @@ ${reimbBlock}
               </p>
 
               {/* Table (desktop) */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-xs min-w-[560px]">
+              <div className="hidden md:block overflow-x-auto lg:overflow-x-visible">
+                <table className="w-full text-xs min-w-[560px] table-sticky">
                   <thead>
                     <tr className="border-b border-navy-800">
                       {['№','Дата','Дело','Описание','Документ','Статус','Сумма'].map(h => (
@@ -753,7 +755,7 @@ ${reimbBlock}
                     {reimb.map((r, i) => (
                       <tr key={r.id} className="border-b border-navy-800/40 hover:bg-navy-800/30">
                         <td className="py-2 pr-3 text-navy-400">{i+1}</td>
-                        <td className="py-2 pr-3 font-mono text-navy-400">{fmtDate(r.expense_date)}</td>
+                        <td className="py-2 pr-3 num text-navy-400">{fmtDate(r.expense_date)}</td>
                         <td className="py-2 pr-3 text-navy-300 max-w-[140px] truncate">{r.matters?.title ?? '—'}</td>
                         <td className="py-2 pr-3 text-navy-300 max-w-[180px] truncate">{r.description}</td>
                         <td className="py-2 pr-3 text-navy-400">{r.doc_no ?? '—'}</td>
@@ -762,12 +764,12 @@ ${reimbBlock}
                             ? `компенсировано${r.reimbursed_date ? ' ' + fmtDate(r.reimbursed_date) : ''}`
                             : 'выставлено'}
                         </td>
-                        <td className="py-2 text-right font-mono text-gold-400">{fmt(Number(r.amount))}</td>
+                        <td className="py-2 text-right num text-navy-100">{fmt(Number(r.amount))}</td>
                       </tr>
                     ))}
                     <tr className="border-t-2 border-navy-700">
                       <td colSpan={6} className="pt-2 text-right text-navy-400 font-medium pr-3 text-xs">Итого:</td>
-                      <td className="pt-2 text-right font-mono font-semibold text-gold-400 text-xs">{fmt(totalReimb)} ₽</td>
+                      <td className="pt-2 text-right num font-semibold text-navy-100 text-xs">{fmt(totalReimb)} ₽</td>
                     </tr>
                   </tbody>
                 </table>
@@ -779,7 +781,7 @@ ${reimbBlock}
                   <div key={r.id} className="py-2.5 border-b border-navy-800/40">
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <p className="text-navy-300 text-xs max-w-[70%] truncate">{r.matters?.title ?? '—'}</p>
-                      <span className="text-navy-400 font-mono text-xs whitespace-nowrap">{fmtDate(r.expense_date)}</span>
+                      <span className="text-navy-400 num text-xs whitespace-nowrap">{fmtDate(r.expense_date)}</span>
                     </div>
                     <p className="text-navy-300 text-xs mb-1.5 line-clamp-2">{r.description}</p>
                     <div className="flex items-center justify-between gap-2">
@@ -788,13 +790,13 @@ ${reimbBlock}
                           ? `компенсировано${r.reimbursed_date ? ' ' + fmtDate(r.reimbursed_date) : ''}`
                           : 'выставлено'}
                       </span>
-                      <span className="font-mono text-sm text-gold-400 font-semibold">{fmt(Number(r.amount))} ₽</span>
+                      <span className="num text-sm text-navy-100 font-semibold">{fmt(Number(r.amount))} ₽</span>
                     </div>
                   </div>
                 ))}
                 <div className="pt-2.5 flex items-center justify-between text-xs">
                   <span className="text-navy-400 font-medium">Итого:</span>
-                  <span className="font-mono font-semibold text-gold-400">{fmt(totalReimb)} ₽</span>
+                  <span className="num font-semibold text-navy-100">{fmt(totalReimb)} ₽</span>
                 </div>
               </div>
             </div>
@@ -817,8 +819,8 @@ ${reimbBlock}
             ) : (
               <>
               {/* Table (desktop) */}
-              <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-xs min-w-[480px]">
+              <div className="hidden md:block overflow-x-auto lg:overflow-x-visible">
+              <table className="w-full text-xs min-w-[480px] table-sticky">
                 <thead>
                   <tr className="border-b border-navy-800">
                     {['№','Дата','№ документа','Назначение','Сумма',''].map(h => (
@@ -833,10 +835,10 @@ ${reimbBlock}
                       title="Двойной клик — редактировать"
                       className="border-b border-navy-800/40 hover:bg-navy-800/30 cursor-pointer">
                       <td className="py-2 pr-3 text-navy-400">{i+1}</td>
-                      <td className="py-2 pr-3 font-mono text-navy-400">{fmtDate(p.pay_date)}</td>
+                      <td className="py-2 pr-3 num text-navy-400">{fmtDate(p.pay_date)}</td>
                       <td className="py-2 pr-3 text-navy-400">{p.doc_no ?? '—'}</td>
                       <td className="py-2 pr-3 text-navy-300 max-w-[200px] truncate">{p.description}</td>
-                      <td className="py-2 pr-3 text-right font-mono text-emerald-400">{fmt(p.amount)} ₽</td>
+                      <td className="py-2 pr-3 text-right num text-emerald-400">{fmt(p.amount)} ₽</td>
                       <td className="py-2">
                         <button onClick={ev => { ev.stopPropagation(); deletePayment(p.id) }}
                           className="btn-ghost p-1 hover:text-red-400 hover:bg-red-900/10">
@@ -847,7 +849,7 @@ ${reimbBlock}
                   ))}
                   <tr className="border-t-2 border-navy-700">
                     <td colSpan={4} className="pt-2 text-right text-navy-400 font-medium pr-3">Итого:</td>
-                    <td className="pt-2 text-right font-mono font-semibold text-emerald-400">{fmt(totalPayments)} ₽</td>
+                    <td className="pt-2 text-right num font-semibold text-emerald-400">{fmt(totalPayments)} ₽</td>
                     <td />
                   </tr>
                 </tbody>
@@ -864,10 +866,10 @@ ${reimbBlock}
                         <p className="text-navy-300 text-xs truncate">{p.description}</p>
                         {p.doc_no && <p className="text-navy-300 text-xs">№ {p.doc_no}</p>}
                       </div>
-                      <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">{fmtDate(p.pay_date)}</span>
+                      <span className="text-navy-400 num text-xs whitespace-nowrap flex-shrink-0">{fmtDate(p.pay_date)}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-sm text-emerald-400 font-semibold">{fmt(p.amount)} ₽</span>
+                      <span className="num text-sm text-emerald-400 font-semibold">{fmt(p.amount)} ₽</span>
                       <button onClick={ev => { ev.stopPropagation(); deletePayment(p.id) }}
                         className="btn-ghost p-1.5 hover:text-red-400 hover:bg-red-900/10">
                         <Trash2 className="w-3.5 h-3.5" />
@@ -877,7 +879,7 @@ ${reimbBlock}
                 ))}
                 <div className="pt-2.5 flex items-center justify-between text-xs">
                   <span className="text-navy-400 font-medium">Итого:</span>
-                  <span className="font-mono font-semibold text-emerald-400">{fmt(totalPayments)} ₽</span>
+                  <span className="num font-semibold text-emerald-400">{fmt(totalPayments)} ₽</span>
                 </div>
               </div>
               </>

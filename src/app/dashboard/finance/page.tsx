@@ -584,8 +584,8 @@ export default function FinancePage() {
           )}
 
           {/* Desktop table */}
-          <div className="card overflow-x-auto hidden md:block">
-            <table className="w-full text-sm">
+          <div className="card overflow-x-auto lg:overflow-x-visible hidden md:block">
+            <table className="w-full text-sm table-sticky">
               <thead>
                 <tr className="text-left text-navy-300 border-b border-navy-800">
                   <th className="pb-2 font-medium">Дата</th>
@@ -646,7 +646,7 @@ export default function FinancePage() {
                         <p className="text-navy-200 text-sm font-medium truncate">{i.client_name}</p>
                         <p className="text-navy-300 text-xs truncate">{i.matter_title || '—'}</p>
                       </div>
-                      <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
+                      <span className="text-navy-400 num text-xs whitespace-nowrap flex-shrink-0">
                         {format(new Date(i.pay_date), 'dd.MM.yy')}
                       </span>
                     </div>
@@ -657,7 +657,7 @@ export default function FinancePage() {
                         {i.source === 'manual' ? 'Вручную' : 'Акт/Оплата'}
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm font-semibold">{fmt2(i.amount)} ₽</span>
+                        <span className="num text-sm font-semibold">{fmt2(i.amount)} ₽</span>
                         {i.source === 'manual' && (
                           <button onClick={ev => { ev.stopPropagation(); deleteIncome(i.id) }}
                             className="text-navy-400 hover:text-red-400">
@@ -680,7 +680,7 @@ export default function FinancePage() {
           <div className="flex justify-between items-center gap-3 flex-wrap mb-4">
             <div className="card !py-3 !px-4 inline-flex items-baseline gap-2 flex-wrap">
               <span className="text-sm text-navy-300">Итого вычетов за {year} год (документально подтверждённых)</span>
-              <span className="text-lg font-bold text-gold-400 whitespace-nowrap">{fmt2(expensesTotal)} ₽</span>
+              <span className="text-lg font-bold text-navy-100 whitespace-nowrap">{fmt2(expensesTotal)} ₽</span>
             </div>
             <button
               onClick={() => { resetExpenseForm(); setShowExpenseForm(true) }}
@@ -760,8 +760,8 @@ export default function FinancePage() {
           </p>
 
           {/* Desktop table */}
-          <div className="card overflow-x-auto hidden md:block">
-            <table className="w-full text-sm">
+          <div className="card overflow-x-auto lg:overflow-x-visible hidden md:block">
+            <table className="w-full text-sm table-sticky">
               <thead>
                 <tr className="text-left text-navy-300 border-b border-navy-800">
                   <th className="pb-2 font-medium">Дата</th>
@@ -817,7 +817,7 @@ export default function FinancePage() {
                         <p className="text-navy-200 text-sm font-medium truncate">{EXPENSE_CATEGORY_LABELS[e.category]}</p>
                         <p className="text-navy-300 text-xs truncate">{e.description || '—'}</p>
                       </div>
-                      <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
+                      <span className="text-navy-400 num text-xs whitespace-nowrap flex-shrink-0">
                         {format(new Date(e.expense_date), 'dd.MM.yy')}
                       </span>
                     </div>
@@ -828,7 +828,7 @@ export default function FinancePage() {
                           : <><X className="w-3.5 h-3.5 text-red-400" /> Без подтверждения</>}
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm font-semibold">{fmt2(e.amount)} ₽</span>
+                        <span className="num text-sm font-semibold">{fmt2(e.amount)} ₽</span>
                         <button onClick={ev => { ev.stopPropagation(); deleteExpense(e.id) }}
                           className="text-navy-400 hover:text-red-400">
                           <Trash2 className="w-4 h-4" />
@@ -872,12 +872,12 @@ export default function FinancePage() {
                     <p className="text-xs mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
                       <span className={overdue(d.report) ? 'text-amber-400' : 'text-navy-400'}>
                         {d.reportLabel} до{' '}
-                        <span className="font-mono">{format(d.report, 'dd.MM.yyyy')}</span>
+                        <span className="num">{format(d.report, 'dd.MM.yyyy')}</span>
                       </span>
                       {d.pay && (
                         <span className={overdue(d.pay) ? 'text-amber-400' : 'text-navy-400'}>
                           {d.payLabel} до{' '}
-                          <span className="font-mono">{format(d.pay, 'dd.MM.yyyy')}</span>
+                          <span className="num">{format(d.pay, 'dd.MM.yyyy')}</span>
                         </span>
                       )}
                     </p>
@@ -911,7 +911,7 @@ export default function FinancePage() {
                 </div>
                 <div>
                   <div className="text-navy-300 text-xs mb-1">НДФЛ нараст. итогом</div>
-                  <div className="font-medium text-gold-400 whitespace-nowrap">{fmt2(row.ndflCum)} ₽</div>
+                  <div className="font-medium text-navy-100 whitespace-nowrap">{fmt2(row.ndflCum)} ₽</div>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm pt-3 border-t border-navy-800">
@@ -975,7 +975,7 @@ export default function FinancePage() {
               </div>
             )}
             {/* Desktop table */}
-            <table className="w-full text-sm hidden md:table">
+            <table className="w-full text-sm hidden md:table table-sticky">
               <thead>
                 <tr className="text-left text-navy-300 border-b border-navy-800">
                   <th className="pb-2 font-medium">Дата</th>
@@ -1011,14 +1011,14 @@ export default function FinancePage() {
                   <div key={p.id} className="rounded-lg border border-navy-800 p-3">
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <p className="text-navy-200 text-sm">{TAX_PAYMENT_TYPE_LABELS[p.payment_type]}</p>
-                      <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
+                      <span className="text-navy-400 num text-xs whitespace-nowrap flex-shrink-0">
                         {format(new Date(p.payment_date), 'dd.MM.yy')}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-navy-300 text-xs">{p.doc_no || '—'}</span>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm font-semibold">{fmt2(p.amount)} ₽</span>
+                        <span className="num text-sm font-semibold">{fmt2(p.amount)} ₽</span>
                         <button onClick={() => deleteTaxPayment(p.id)} className="text-navy-400 hover:text-red-400">
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -1068,7 +1068,7 @@ export default function FinancePage() {
               </div>
               <div>
                 <div className="text-navy-300 text-xs mb-1">К уплате (пропорционально)</div>
-                <div className="font-semibold text-gold-400 whitespace-nowrap">{fmt2(contributionsCalc.fixedDue)} ₽</div>
+                <div className="font-semibold text-navy-100 whitespace-nowrap">{fmt2(contributionsCalc.fixedDue)} ₽</div>
               </div>
             </div>
             <div className="mt-3 pt-3 border-t border-navy-800 flex justify-between text-sm">
@@ -1108,7 +1108,7 @@ export default function FinancePage() {
               </div>
               <div className="col-span-2">
                 <div className="text-navy-300 text-xs mb-1">К уплате (1% сверх порога)</div>
-                <div className="font-semibold text-gold-400 text-base whitespace-nowrap">{fmt2(contributionsCalc.opsDue)} ₽</div>
+                <div className="font-semibold text-navy-100 text-base whitespace-nowrap">{fmt2(contributionsCalc.opsDue)} ₽</div>
               </div>
             </div>
             <p className="text-xs text-navy-400 mt-3 leading-relaxed">
@@ -1168,7 +1168,7 @@ export default function FinancePage() {
               </div>
             )}
             {/* Desktop table */}
-            <table className="w-full text-sm hidden md:table">
+            <table className="w-full text-sm hidden md:table table-sticky">
               <thead>
                 <tr className="text-left text-navy-300 border-b border-navy-800">
                   <th className="pb-2 font-medium">Дата</th>
@@ -1207,14 +1207,14 @@ export default function FinancePage() {
                   <div key={p.id} className="rounded-lg border border-navy-800 p-3">
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <p className="text-navy-200 text-sm">{TAX_PAYMENT_TYPE_LABELS[p.payment_type]}</p>
-                      <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
+                      <span className="text-navy-400 num text-xs whitespace-nowrap flex-shrink-0">
                         {format(new Date(p.payment_date), 'dd.MM.yy')}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-navy-300 text-xs">{p.doc_no || '—'}</span>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm font-semibold">{fmt2(p.amount)} ₽</span>
+                        <span className="num text-sm font-semibold">{fmt2(p.amount)} ₽</span>
                         <button onClick={() => deleteTaxPayment(p.id)} className="text-navy-400 hover:text-red-400">
                           <Trash2 className="w-4 h-4" />
                         </button>

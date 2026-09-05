@@ -204,9 +204,9 @@ export default function CalculatorTab() {
         </div>
         <p className="text-sm text-navy-400 leading-relaxed">
           Вознаграждение Адвоката составляет{' '}
-          <span className="text-gold-400 font-medium">{fmtMoneyWords(calc.withDeduction.gross)}</span>,
+          <span className="text-navy-100 font-medium">{fmtMoneyWords(calc.withDeduction.gross)}</span>,
           в т.ч. НДФЛ ({Math.round(rateNum*100)}%) —{' '}
-          <span className="text-gold-400 font-medium">{fmtMoneyWords(calc.withDeduction.ndfl)}</span>,
+          <span className="text-navy-100 font-medium">{fmtMoneyWords(calc.withDeduction.ndfl)}</span>,
           уплачиваемый Адвокатом самостоятельно в соответствии с пп. 2 п. 1 ст. 227 НК РФ.
         </p>
       </div>

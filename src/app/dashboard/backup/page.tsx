@@ -144,7 +144,7 @@ export default function BackupPage() {
                   ? <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                   : <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />}
                 <span className="text-sm text-navy-300 flex-1">{TABLE_LABELS[r.table] ?? r.table}</span>
-                <span className={`text-xs font-mono ${r.status === 'ok' ? 'text-navy-400' : 'text-red-400'}`}>
+                <span className={`text-xs num ${r.status === 'ok' ? 'text-navy-400' : 'text-red-400'}`}>
                   {r.status === 'ok' ? `${r.count} записей` : 'ошибка'}
                 </span>
               </div>

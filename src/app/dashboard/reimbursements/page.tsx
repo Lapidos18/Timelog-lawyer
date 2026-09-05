@@ -175,7 +175,7 @@ export default function ReimbursementsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
         <div className="card">
           <div className="text-xs text-navy-300 mb-1">Ожидает компенсации (не оплачено доверителем)</div>
-          <div className="text-xl font-bold text-gold-400">{fmt(totalPending)} ₽</div>
+          <div className="text-xl font-bold text-amber-400">{fmt(totalPending)} ₽</div>
         </div>
         <div className="card">
           <div className="text-xs text-navy-300 mb-1">Итого расходов по фильтру</div>
@@ -287,7 +287,7 @@ export default function ReimbursementsPage() {
         ) : filtered.length === 0 ? (
           <p className="text-navy-300 text-sm text-center py-12">Нет записей.</p>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-sticky">
             <thead>
               <tr className="text-left text-navy-300 border-b border-navy-800">
                 <th className="pb-2 font-medium">Дата</th>
@@ -360,7 +360,7 @@ export default function ReimbursementsPage() {
                     <p className="text-navy-200 text-sm font-medium truncate">{e.matters?.clients?.name}</p>
                     <p className="text-navy-300 text-xs truncate">{e.matters?.title}</p>
                   </div>
-                  <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
+                  <span className="text-navy-400 num text-xs whitespace-nowrap flex-shrink-0">
                     {format(new Date(e.expense_date), 'dd.MM.yy')}
                   </span>
                 </div>
@@ -385,7 +385,7 @@ export default function ReimbursementsPage() {
                   </p>
                 )}
                 <div className="flex items-center justify-between pt-2 border-t border-navy-800/60">
-                  <span className="font-mono text-sm font-medium">{fmt(e.amount)} ₽</span>
+                  <span className="num text-sm font-medium">{fmt(e.amount)} ₽</span>
                   <button onClick={ev => { ev.stopPropagation(); deleteExpense(e.id) }}
                     className="btn-ghost p-1.5 hover:text-red-400 hover:bg-red-900/10">
                     <Trash2 className="w-3.5 h-3.5" />

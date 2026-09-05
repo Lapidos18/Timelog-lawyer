@@ -154,28 +154,28 @@ export default function MattersPage() {
         {hasActivity && (
           <>
             <span className="text-navy-400">
-              Оплачено <span className="font-mono text-navy-200">{fmtMoney(paid)} ₽</span>
+              Оплачено <span className="num text-navy-200">{fmtMoney(paid)} ₽</span>
             </span>
             <span className="text-navy-400">·</span>
             <span className="text-navy-400">
-              Отработано <span className="font-mono text-navy-200">{fmtMoney(worked)} ₽</span>
+              Отработано <span className="num text-navy-200">{fmtMoney(worked)} ₽</span>
             </span>
             <span className="text-navy-400">·</span>
             {reimb > 0 && (
               <>
                 <span className="text-navy-400">
-                  Возмещаемые расходы <span className="font-mono text-navy-200">{fmtMoney(reimb)} ₽</span>
+                  Возмещаемые расходы <span className="num text-navy-200">{fmtMoney(reimb)} ₽</span>
                 </span>
                 <span className="text-navy-400">·</span>
               </>
             )}
             {balance > 0.005 ? (
               <span className="text-emerald-400 font-medium">
-                Остаток аванса <span className="font-mono">{fmtMoney(balance)} ₽</span>
+                Остаток аванса <span className="num">{fmtMoney(balance)} ₽</span>
               </span>
             ) : balance < -0.005 ? (
-              <span className="text-gold-400 font-medium">
-                К выставлению <span className="font-mono">{fmtMoney(-balance)} ₽</span>
+              <span className="text-amber-400 font-medium">
+                К выставлению <span className="num">{fmtMoney(-balance)} ₽</span>
               </span>
             ) : (
               <span className="text-navy-300">Аванс отработан полностью</span>
@@ -186,7 +186,7 @@ export default function MattersPage() {
         {fixed && (
           <>
             <span className="text-navy-400">
-              По соглашению <span className="font-mono text-navy-200">{fmtMoney(fixed)} ₽</span>
+              По соглашению <span className="num text-navy-200">{fmtMoney(fixed)} ₽</span>
               <span className={worked > fixed ? 'text-amber-400' : 'text-navy-300'}>
                 {' '}({Math.round((worked / fixed) * 100)}%)
               </span>

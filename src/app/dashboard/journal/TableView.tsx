@@ -447,7 +447,7 @@ export default function TableView() {
                   </strong>
                 </span>
                 <span className="text-navy-400">Сумма:
-                  <strong className="text-gold-400 ml-1">
+                  <strong className="text-navy-100 ml-1">
                     {form.is_billable
                       ? formatMoney(((parseInt(form.hours||'0')*60+parseInt(form.minutes||'0'))/60)*effectiveRate(form.hourly_rate)) + ' ₽'
                       : '—'}
@@ -484,7 +484,7 @@ export default function TableView() {
             )}
           </p>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-sticky">
             <thead>
               <tr className="border-b border-navy-800">
                 {['Дата','Дело','Вид работы','Описание','Время','Ставка','Сумма','Кто',''].map(h => (
@@ -498,7 +498,7 @@ export default function TableView() {
                   onDoubleClick={() => startEdit(e)}
                   title="Двойной клик — редактировать"
                   className="border-b border-navy-800/40 table-row-hover cursor-pointer">
-                  <td className="py-3 pr-4 text-navy-400 font-mono text-xs whitespace-nowrap">
+                  <td className="py-3 pr-4 text-navy-400 num text-xs whitespace-nowrap">
                     {format(new Date(e.work_date), 'dd.MM.yy')}
                   </td>
                   <td className="py-3 pr-4">
@@ -515,15 +515,15 @@ export default function TableView() {
                   <td className="py-3 pr-4 text-navy-300 text-xs max-w-[200px] truncate">
                     {e.description}
                   </td>
-                  <td className="py-3 pr-4 text-navy-300 font-mono text-xs whitespace-nowrap">
+                  <td className="py-3 pr-4 text-navy-300 num text-xs whitespace-nowrap">
                     {minutesToDisplay(e.duration_min)}
                   </td>
-                  <td className="py-3 pr-4 text-navy-400 font-mono text-xs">
+                  <td className="py-3 pr-4 text-navy-400 num text-xs">
                     {formatMoney(e.hourly_rate)} ₽
                   </td>
-                  <td className="py-3 pr-4 font-mono text-xs whitespace-nowrap">
+                  <td className="py-3 pr-4 num text-xs whitespace-nowrap">
                     {e.is_billable
-                      ? <span className="text-gold-400">{formatMoney(e.amount)} ₽</span>
+                      ? <span className="text-navy-100">{formatMoney(e.amount)} ₽</span>
                       : <span className="text-navy-400">—</span>}
                   </td>
                   <td className="py-3 pr-4 text-navy-300 text-xs truncate max-w-[100px]">
@@ -573,21 +573,21 @@ export default function TableView() {
                     <p className="text-navy-200 text-sm font-medium truncate">{e.matters?.clients?.name}</p>
                     <p className="text-navy-300 text-xs truncate">{e.matters?.title}</p>
                   </div>
-                  <span className="text-navy-400 font-mono text-xs whitespace-nowrap flex-shrink-0">
+                  <span className="text-navy-400 num text-xs whitespace-nowrap flex-shrink-0">
                     {format(new Date(e.work_date), 'dd.MM.yy')}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="badge-gold text-xs">{ACTIVITY_LABELS[e.activity_type]}</span>
-                  <span className="text-navy-400 font-mono text-xs">{minutesToDisplay(e.duration_min)}</span>
+                  <span className="text-navy-400 num text-xs">{minutesToDisplay(e.duration_min)}</span>
                 </div>
                 <p className="text-navy-300 text-xs mb-2 line-clamp-2">{e.description}</p>
                 <div className="flex items-center justify-between pt-2 border-t border-navy-800/60">
                   <span className="text-navy-300 text-xs truncate">{e.profiles?.full_name}</span>
                   <div className="flex items-center gap-3">
-                    <span className="font-mono text-sm">
+                    <span className="num text-sm">
                       {e.is_billable
-                        ? <span className="text-gold-400 font-semibold">{formatMoney(e.amount)} ₽</span>
+                        ? <span className="text-navy-100 font-semibold">{formatMoney(e.amount)} ₽</span>
                         : <span className="text-navy-400">—</span>}
                     </span>
                     <button onClick={ev => { ev.stopPropagation(); handleDelete(e.id) }}

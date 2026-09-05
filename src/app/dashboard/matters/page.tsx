@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Matter, Client, MatterType, MatterStatus, MATTER_TYPE_LABELS, MATTER_STATUS_LABELS } from '@/types'
 import { Plus, Pencil, X, Check, Gavel, Briefcase } from 'lucide-react'
@@ -37,8 +37,12 @@ export default function MattersPage() {
 
     // Оплаты и отработанное время нужны, чтобы показать остаток аванса по делу.
     // Платежи всегда вносятся с указанием дела, поэтому считаем строго по matter_id.
+    // Дела грузим ВСЕ, независимо от фильтра статуса: фильтр применяется ниже,
+    // на отображение. Итог по доверителю обязан считаться по всем его делам,
+    // иначе он менялся бы при переключении фильтра и расходился бы с Обзором
+    // и актом сверки — а он нужен именно чтобы совпадать с ними.
     const [mattersRes, paymentsRes, entriesRes, reimbRes] = await Promise.all([
-      filterStatus === 'all' ? q : q.eq('status', filterStatus),
+      q,
       supabase.from('payments').select('matter_id, amount'),
       supabase.from('time_entries').select('matter_id, amount, is_billable'),
       // Предъявленные доверителю издержки: он платит их вместе с
@@ -68,14 +72,14 @@ export default function MattersPage() {
     setReimbByMatter(reimbursed)
 
     setMatters((mattersRes.data ?? []) as MatterWithClient[]); setLoading(false)
-  }, [filterStatus])
+  }, [])
 
   useEffect(() => {
     supabase.from('clients').select('*').eq('is_active', true).order('name')
       .then(({ data }) => setClients(data ?? []))
   }, [])
 
-  useEffect(() => { loadMatters() }, [filterStatus])
+  useEffect(() => { loadMatters() }, [loadMatters])
 
   function resetForm() {
     setForm({ client_id: '', title: '', agreement_no: '', matter_type: 'litigation',
@@ -124,6 +128,78 @@ export default function MattersPage() {
 
   const fmtMoney = (n: number) =>
     new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+
+  const visible = filterStatus === 'all' ? matters : matters.filter(m => m.status === filterStatus)
+
+  /**
+   * Дела, сгруппированные по доверителям.
+   *
+   * Итог группы считается по ВСЕМ делам доверителя, а список внутри группы
+   * показывает только прошедшие фильтр. Иначе бы вышло, что общая сумма
+   * зависит от того, какой фильтр включён, — а она нужна ровно затем, чтобы
+   * совпадать с задолженностью на Обзоре и в акте сверки.
+   *
+   * Разбивка по делам после этого справочная: она объясняет, из чего сумма
+   * сложилась. Платёж часто вносится с указанием одного дела, хотя покрывает
+   * работу по нескольким, поэтому по отдельному делу может выйти цифра,
+   * которая сама по себе ни о чём не говорит.
+   */
+  const groups = useMemo(() => {
+    const order: string[] = []
+    const shown: Record<string, MatterWithClient[]> = {}
+    for (const m of visible) {
+      if (!shown[m.client_id]) { shown[m.client_id] = []; order.push(m.client_id) }
+      shown[m.client_id].push(m)
+    }
+    return order.map(clientId => {
+      const all = matters.filter(m => m.client_id === clientId)
+      let paid = 0, worked = 0, reimb = 0
+      for (const m of all) {
+        paid   += paidByMatter[m.id]   ?? 0
+        worked += workedByMatter[m.id] ?? 0
+        reimb  += reimbByMatter[m.id]  ?? 0
+      }
+      return {
+        clientId,
+        clientName: shown[clientId][0].clients?.name ?? '—',
+        matters: shown[clientId],
+        hidden: all.length - shown[clientId].length,
+        balance: paid - worked - reimb,
+        hasMoney: paid > 0 || worked > 0 || reimb > 0,
+      }
+    })
+  }, [visible, matters, paidByMatter, workedByMatter, reimbByMatter])
+
+  /** Итог по доверителю над группой дел */
+  function GroupTotal({ g }: { g: (typeof groups)[number] }) {
+    return (
+      <div className="flex items-baseline justify-between gap-3 flex-wrap
+                      px-4 pt-4 pb-2 md:px-4 border-b border-navy-800">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-navy-100">{g.clientName}</h2>
+          {g.hidden > 0 && (
+            <p className="text-xs text-navy-400 mt-0.5">
+              итог по всем делам, {g.hidden}{' '}
+              {g.hidden === 1 ? 'скрыто фильтром' : 'скрыты фильтром'}
+            </p>
+          )}
+        </div>
+        {g.hasMoney && (
+          <p className="text-sm whitespace-nowrap">
+            {g.balance < -0.005 ? (
+              <><span className="text-navy-400">к выставлению </span>
+                <span className="num font-semibold text-amber-400">{fmtMoney(-g.balance)} ₽</span></>
+            ) : g.balance > 0.005 ? (
+              <><span className="text-navy-400">остаток аванса </span>
+                <span className="num font-semibold text-emerald-400">{fmtMoney(g.balance)} ₽</span></>
+            ) : (
+              <span className="text-navy-300">расчёты закрыты</span>
+            )}
+          </p>
+        )}
+      </div>
+    )
+  }
 
   /**
    * Строка «деньги по делу»: сколько получено, сколько отработано и что из этого следует.
@@ -316,13 +392,17 @@ export default function MattersPage() {
       {!loadError && (
       <div className="card">
         {loading ? <SkeletonRows rows={5} />
-          : matters.length === 0 ? (
-            <p className="text-navy-300 text-sm text-center py-12">Нет дел.</p>
-          ) : (
+          : visible.length === 0 ? (
+            <p className="text-navy-300 text-sm text-center py-12">
+              {matters.length === 0 ? 'Нет дел.' : 'Нет дел с таким статусом.'}
+            </p>
+          ) : groups.map(g => (
+          <section key={g.clientId} className="mb-5 last:mb-0 -mx-5 md:mx-0">
+            <GroupTotal g={g} />
             <>
             {/* Список (десктоп) */}
-            <div className="hidden md:grid gap-2">
-              {matters.map(m => (
+            <div className="hidden md:grid gap-2 pt-2">
+              {g.matters.map(m => (
                 <div key={m.id}
                   onDoubleClick={() => startEdit(m)}
                   title="Двойной клик — редактировать"
@@ -359,8 +439,8 @@ export default function MattersPage() {
             {/* Карточки (телефон). Строка денег на узком экране переносилась
                 в четыре ряда точек-разделителей — здесь она разложена
                 парами «подпись — сумма», по одной в ряд. */}
-            <div className="md:hidden divide-y divide-navy-800/60">
-              {matters.map(m => {
+            <div className="md:hidden divide-y divide-navy-800/60 px-5">
+              {g.matters.map(m => {
                 const paid   = paidByMatter[m.id] ?? 0
                 const worked = workedByMatter[m.id] ?? 0
                 const reimb  = reimbByMatter[m.id] ?? 0
@@ -416,7 +496,8 @@ export default function MattersPage() {
               })}
             </div>
             </>
-          )}
+          </section>
+          ))}
       </div>
       )}
     </div>

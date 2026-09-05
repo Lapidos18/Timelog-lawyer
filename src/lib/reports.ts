@@ -2,6 +2,7 @@ import { ReportRow, ACTIVITY_LABELS } from '@/types'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { escapeHtml } from '@/lib/html'
+import { CABINET_LINE } from '@/lib/print'
 import toast from 'react-hot-toast'
 
 function formatDate(d: string) {
@@ -122,9 +123,11 @@ export function exportToPDF(
 <title>${escapeHtml(title)}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  /* Гарнитура и кегль общие с актом и актом сверки — см. src/lib/print.ts */
   body {
-    font-family: Arial, sans-serif;
-    font-size: 10pt;
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 11pt;
+    line-height: 1.35;
     color: #000;
     padding: 20mm 20mm 25mm 20mm;
   }
@@ -297,7 +300,7 @@ export async function exportToWord(
 ) {
   const {
     Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun,
-    WidthType, AlignmentType, BorderStyle, HeadingLevel,
+    WidthType, AlignmentType, BorderStyle, HeadingLevel, Footer, PageNumber,
   } = await import('docx')
 
   const billableRows = rows.filter(r => r.is_billable)
@@ -412,8 +415,27 @@ export async function exportToWord(
   })
 
   const doc = new Document({
+    // Times New Roman — та же гарнитура, что в печатных акте и акте сверки.
+    // По умолчанию docx ставит Calibri, и Word-версия отчёта выглядела чужой
+    // рядом с остальными документами кабинета.
+    styles: { default: { document: { run: { font: 'Times New Roman', size: 22 } } } },
     sections: [{
       properties: { page: { margin: { top: 1100, bottom: 1100, left: 1100, right: 1100 } } },
+      // Колонтитул с номером листа. В PDF-печати такого нет: она идёт через
+      // окно браузера, а Chrome не поддерживает счётчики страниц в CSS.
+      footers: {
+        default: new Footer({
+          children: [new Paragraph({
+            alignment: AlignmentType.RIGHT,
+            children: [
+              new TextRun({ text: `Отчёт №${reportNo} от ${reportDate} · стр. `, size: 16 }),
+              new TextRun({ children: [PageNumber.CURRENT], size: 16 }),
+              new TextRun({ text: ' из ', size: 16 }),
+              new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16 }),
+            ],
+          })],
+        }),
+      },
       children: [
         new Paragraph({
           alignment: AlignmentType.CENTER,
@@ -456,8 +478,12 @@ export async function exportToWord(
           spacing: { before: 400 },
           children: [new TextRun({
             text: `Отчёт №${reportNo} от ${reportDate} по соглашению ${meta?.agreementNo ?? '—'}`,
-            size: 16,
+            size: 18,
           })],
+        }),
+        new Paragraph({
+          spacing: { before: 120 },
+          children: [new TextRun({ text: CABINET_LINE, size: 16 })],
         }),
       ],
     }],

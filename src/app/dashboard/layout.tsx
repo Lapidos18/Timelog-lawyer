@@ -7,8 +7,9 @@ import { Profile } from '@/types'
 import {
   LayoutDashboard, Users, Briefcase,
   FileBarChart2, LogOut, Scale, ChevronRight,
-  BookOpen, ClipboardList, Menu, X, FileCheck, HardDrive, Wallet, Receipt
+  BookOpen, ClipboardList, Menu, X, FileCheck, HardDrive, Wallet, Receipt, Search
 } from 'lucide-react'
+import CommandPalette from '@/components/CommandPalette'
 
 const NAV = [
   { href: '/dashboard',                icon: LayoutDashboard, label: 'Обзор' },
@@ -66,6 +67,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <span className="text-sm font-semibold text-navy-200 leading-tight">АК Бухмин А.А.</span>
       </div>
 
+      {/* Кнопка быстрого перехода: и подсказка о Ctrl+K, и способ открыть
+          палитру там, где клавиатуры нет */}
+      <button
+        onClick={() => window.dispatchEvent(new Event('timelog:open-palette'))}
+        className="flex items-center gap-2 w-full px-3 py-2 mb-3 rounded-lg text-sm
+                   bg-navy-900 border border-navy-800 text-navy-400
+                   hover:text-navy-200 hover:border-navy-700 transition-colors">
+        <Search className="w-4 h-4 flex-shrink-0" />
+        <span className="flex-1 text-left">Быстрый переход</span>
+        <kbd className="hidden md:inline text-[10px] border border-navy-700 rounded px-1 py-0.5">Ctrl K</kbd>
+      </button>
+
       <nav className="flex-1 space-y-0.5">
         {NAV.map(({ href, icon: Icon, label, group }) => {
           const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
@@ -112,6 +125,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-dvh bg-navy-950">
+
+      {/* Быстрый переход по Ctrl+K — работает на любой странице раздела */}
+      <CommandPalette />
 
       {/* ── Desktop sidebar ── */}
       <aside className="hidden md:flex w-56 flex-shrink-0 bg-navy-950 border-r border-navy-800

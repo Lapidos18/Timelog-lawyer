@@ -7,6 +7,7 @@ import { ru } from 'date-fns/locale'
 import { Plus, X, Check, Printer, Trash2, FileCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { escapeHtml } from '@/lib/html'
+import { printDocument, CABINET_LINE } from '@/lib/print'
 import LoadError from '@/components/LoadError'
 import { fmtMoneyWords } from '@/lib/money-words'
 import { SkeletonRows, SkeletonCards } from '@/components/Skeleton'
@@ -277,36 +278,11 @@ export default function ActsPage() {
 
     const total = rows.reduce((s, r) => s + r.amount, 0)
 
-    const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">
-<title>${escapeHtml(act.act_no)}</title>
-<style>
-  body{font-family:Arial,sans-serif;font-size:10pt;margin:20mm;color:#000}
-  h2{text-align:center;font-size:13pt;margin-bottom:4px}
-  .sub{text-align:center;font-size:10pt;margin-bottom:16px}
-  .meta{font-size:10pt;margin-bottom:16px;line-height:1.8}
-  table{width:100%;border-collapse:collapse;margin-bottom:14px}
-  th{background:#1e3a5f;color:#fff;padding:5px 4px;font-size:9pt;text-align:left;border:1px solid #ccc}
-  td{padding:4px;border:1px solid #ddd;font-size:9pt}
-  tfoot td{font-weight:bold;background:#f5f5f5}
-  .total{font-size:11pt;font-weight:bold;margin:12px 0 4px}
-  .total-words{font-size:10pt;margin-bottom:12px}
-  .signs{margin-top:40px;display:flex;justify-content:space-between}
-  .sign{width:45%}
-  @media print{
-    body{margin:15mm}
-    /* Акт на несколько листов: шапка таблицы повторяется, строки не рвутся
-       пополам, блок подписей не уезжает на отдельный лист */
-    thead{display:table-header-group}
-    tfoot{display:table-footer-group}
-    tr{break-inside:avoid;page-break-inside:avoid}
-    .signs{break-inside:avoid;page-break-inside:avoid}
-    .total,.total-words{break-inside:avoid;page-break-inside:avoid}
-  }
-</style></head><body>
-<h2>АКТ ОБ ОКАЗАНИИ ЮРИДИЧЕСКОЙ ПОМОЩИ</h2>
+    const body = `
+<h2>Акт об оказании юридической помощи</h2>
 <div class="sub">${escapeHtml(act.act_no)} от ${fmtDate(act.created_at.split('T')[0])}</div>
 <div class="meta">
-  <b>Адвокат:</b> Адвокатский кабинет Бухмина Антона Андреевича, рег. № 54/1831, ИНН 540233730471<br>
+  <b>Адвокат:</b> ${CABINET_LINE}<br>
   <b>Доверитель:</b> ${escapeHtml(act.matters.clients.name)}${act.matters.clients.inn ? `, ИНН ${escapeHtml(act.matters.clients.inn)}` : ''}<br>
   <b>Дело:</b> ${escapeHtml(act.matters.title)}${act.matters.agreement_no ? ` по соглашению № ${escapeHtml(act.matters.agreement_no)}` : ''}<br>
   <b>Период:</b> ${fmtDate(act.period_from)} — ${fmtDate(act.period_to)}
@@ -319,8 +295,8 @@ export default function ActsPage() {
   </tr></thead>
   <tbody>${rowsHtml}</tbody>
   <tfoot><tr>
-    <td colspan="6" style="text-align:right">Итого:</td>
-    <td style="text-align:right">${fmt(total)}</td><td></td>
+    <td colspan="6" class="r">Итого:</td>
+    <td class="r">${fmt(total)}</td><td></td>
   </tr></tfoot>
 </table>
 <div class="total">Итого к оплате: ${fmt(total)} руб. (НДС не облагается)</div>
@@ -337,18 +313,12 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
     _________________ /${escapeHtml(act.matters.clients.name)}/
   </div>
 </div>
-</body></html>`
+<div class="footer">${CABINET_LINE}</div>`
 
-    const w = window.open('', '_blank', 'width=900,height=700')
-    if (!w) {
+    if (!printDocument(escapeHtml(act.act_no), body)) {
       toast.error('Браузер заблокировал всплывающее окно. Разрешите всплывающие окна для этого сайта и попробуйте снова.')
       return
     }
-    w.document.open()
-    w.document.write(html)
-    w.document.close()
-    w.focus()
-    setTimeout(() => { w.print() }, 400)
     toast.success('Открыт диалог печати')
   }
 

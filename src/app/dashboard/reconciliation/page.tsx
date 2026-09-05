@@ -8,6 +8,7 @@ import { FileDown, FileSpreadsheet, Plus, Trash2, X, Check, ClipboardList } from
 import toast from 'react-hot-toast'
 import { escapeHtml } from '@/lib/html'
 import PageHeader from '@/components/PageHeader'
+import { printDocument, CABINET_LINE } from '@/lib/print'
 
 interface Payment {
   id: string
@@ -328,16 +329,16 @@ export default function ReconciliationPage() {
         <td>${i+1}</td><td>${fmtDate(r.work_date)}</td><td>${escapeHtml(r.matter_title)}</td>
         <td>${escapeHtml(ACTIVITY_LABELS[r.activity_type as keyof typeof ACTIVITY_LABELS])}</td>
         <td>${escapeHtml(r.description)}</td>
-        <td style="text-align:right">${r.hours.toFixed(2)}</td>
-        <td style="text-align:right">${fmt(r.hourly_rate)}</td>
-        <td style="text-align:right">${fmt(r.amount)}</td>
+        <td class="r">${r.hours.toFixed(2)}</td>
+        <td class="r">${fmt(r.hourly_rate)}</td>
+        <td class="r">${fmt(r.amount)}</td>
       </tr>`).join('')
 
     const payRows = payments.map((p, i) => `
       <tr>
         <td>${i+1}</td><td>${fmtDate(p.pay_date)}</td>
         <td>${escapeHtml(p.doc_no ?? '—')}</td><td>${escapeHtml(p.description)}</td>
-        <td style="text-align:right">${fmt(p.amount)}</td>
+        <td class="r">${fmt(p.amount)}</td>
       </tr>`).join('')
 
     const reimbBlock = reimb.length === 0 ? '' : `
@@ -350,83 +351,49 @@ export default function ReconciliationPage() {
         <td>${escapeHtml(r.matters?.title ?? '—')}</td>
         <td>${escapeHtml(r.description)}</td>
         <td>${escapeHtml(r.doc_no ?? '—')}</td>
-        <td style="text-align:right">${fmt(Number(r.amount))}</td>
+        <td class="r">${fmt(Number(r.amount))}</td>
       </tr>`).join('')}</tbody>
-  <tfoot><tr><td colspan="5" style="text-align:right">Итого:</td><td style="text-align:right">${fmt(totalReimb)}</td></tr></tfoot>
+  <tfoot><tr><td colspan="5" class="r">Итого:</td><td class="r">${fmt(totalReimb)}</td></tr></tfoot>
 </table>
-<div class="charged">Всего начислено (вознаграждение и возмещаемые расходы): ${fmt(totalCharged)} руб.</div>`
+<div class="total">Всего начислено (вознаграждение и возмещаемые расходы): ${fmt(totalCharged)} руб.</div>`
 
-    const html = `<!DOCTYPE html>
-<html lang="ru"><head><meta charset="UTF-8"><title>Акт сверки</title>
-<style>
-  body{font-family:Arial,sans-serif;font-size:10px;margin:15mm;color:#111}
-  h2{text-align:center;font-size:14px;margin-bottom:4px}
-  .sub{text-align:center;font-size:10px;color:#555;margin-bottom:6px}
-  .meta{font-size:10px;margin-bottom:14px}
-  h3{font-size:11px;margin:14px 0 4px}
-  table{width:100%;border-collapse:collapse;margin-bottom:8px}
-  th{background:#1e3a5f;color:#fff;padding:5px 4px;font-size:9px;text-align:left}
-  td{padding:4px;border-bottom:1px solid #ddd;font-size:9px}
-  tr:nth-child(even) td{background:#f5f7fa}
-  tfoot td{font-weight:bold;border-top:2px solid #1e3a5f;background:#eef2f7}
-  .balance{font-size:12px;font-weight:bold;margin:16px 0;padding:10px;background:#f0f4f8;border-left:4px solid #1e3a5f}
-  .charged{font-size:10px;font-weight:bold;margin:6px 0 4px;text-align:right}
-  .signs{margin-top:30px;display:flex;justify-content:space-between;font-size:10px}
-  .sign-block{width:45%}
-  @media print{
-    body{margin:10mm}
-    /* Акт сверки на несколько листов — см. пояснение в акте */
-    thead{display:table-header-group}
-    tfoot{display:table-footer-group}
-    tr{break-inside:avoid;page-break-inside:avoid}
-    .signs{break-inside:avoid;page-break-inside:avoid}
-    .balance{break-inside:avoid;page-break-inside:avoid}
-    .charged{break-inside:avoid;page-break-inside:avoid}
-    h3{break-after:avoid;page-break-after:avoid}
-  }
-</style></head><body>
-<h2>АКТ СВЕРКИ ВЗАИМОРАСЧЁТОВ</h2>
+    const body = `
+<h2>Акт сверки взаиморасчётов</h2>
 <div class="sub">за период: ${period}</div>
 <div class="meta">
-  <b>Адвокат:</b> Адвокатский кабинет Бухмина Антона Андреевича, рег. № 54/1831, ИНН 540233730471<br>
+  <b>Адвокат:</b> ${CABINET_LINE}<br>
   <b>Доверитель:</b> ${escapeHtml(client?.name ?? '')}${client?.inn ? `, ИНН ${escapeHtml(client.inn)}` : ''}
 </div>
 <h3>Оказанные услуги</h3>
 <table>
   <thead><tr><th>№</th><th>Дата</th><th>Дело</th><th>Вид работы</th><th>Описание</th><th>Часов</th><th>Ставка, руб./ч.</th><th>Сумма, руб.</th></tr></thead>
   <tbody>${svcRows}</tbody>
-  <tfoot><tr><td colspan="7" style="text-align:right">Итого:</td><td style="text-align:right">${fmt(totalServices)}</td></tr></tfoot>
+  <tfoot><tr><td colspan="7" class="r">Итого:</td><td class="r">${fmt(totalServices)}</td></tr></tfoot>
 </table>
 ${reimbBlock}
 <h3>Поступившие оплаты</h3>
 <table>
   <thead><tr><th>№</th><th>Дата</th><th>№ документа</th><th>Назначение</th><th>Сумма, руб.</th></tr></thead>
-  <tbody>${payRows.length ? payRows : '<tr><td colspan="5" style="text-align:center;color:#999">Платежей не поступало</td></tr>'}</tbody>
-  <tfoot><tr><td colspan="4" style="text-align:right">Итого:</td><td style="text-align:right">${fmt(totalPayments)}</td></tr></tfoot>
+  <tbody>${payRows.length ? payRows : '<tr><td colspan="5" style="text-align:center">Платежей не поступало</td></tr>'}</tbody>
+  <tfoot><tr><td colspan="4" class="r">Итого:</td><td class="r">${fmt(totalPayments)}</td></tr></tfoot>
 </table>
-<div class="balance">${balLabel}: ${fmt(Math.abs(balance))} руб.</div>
+<div class="total">${balLabel}: ${fmt(Math.abs(balance))} руб.</div>
 <div class="signs">
-  <div class="sign-block">
+  <div class="sign">
     <b>Адвокат:</b><br><br>
     _________________________ /А.А. Бухмин/
   </div>
-  <div class="sign-block">
+  <div class="sign">
     <b>Доверитель:</b><br><br>
     _________________________ /${escapeHtml(client?.name ?? '')}/
   </div>
 </div>
-</body></html>`
+<div class="footer">${CABINET_LINE}</div>`
 
-    const w = window.open('', '_blank', 'width=900,height=700')
-    if (!w) {
+    if (!printDocument('Акт сверки', body)) {
       toast.error('Браузер заблокировал всплывающее окно. Разрешите всплывающие окна для этого сайта и попробуйте снова.')
       return
     }
-    w.document.open()
-    w.document.write(html)
-    w.document.close()
-    w.focus()
-    setTimeout(() => { w.print() }, 400)
     toast.success('Откроется диалог печати — выберите «Сохранить как PDF»')
   }
 

@@ -273,12 +273,12 @@ export default function ReconciliationPage() {
         })
         .in('id', coveredReimb)
       if (linkError) {
-        toast.error('Платёж внесён, но не удалось отметить возмещение издержек: ' + linkError.message)
+        toast.error('Платёж внесён, но не удалось отметить возмещаемые расходы: ' + linkError.message)
       }
     }
 
     toast.success(coveredReimb.length > 0
-      ? `Поступление внесено, возмещено издержек на ${fmt(coveredTotal)} ₽`
+      ? `Поступление внесено, возмещено расходов на ${fmt(coveredTotal)} ₽`
       : 'Поступление внесено')
     setShowPayForm(false)
     resetPayForm()
@@ -340,7 +340,7 @@ export default function ReconciliationPage() {
       </tr>`).join('')
 
     const reimbBlock = reimb.length === 0 ? '' : `
-<h3>Возмещаемые издержки</h3>
+<h3>Возмещаемые расходы</h3>
 <table>
   <thead><tr><th>№</th><th>Дата</th><th>Дело</th><th>Описание</th><th>Документ</th><th>Сумма, руб.</th></tr></thead>
   <tbody>${reimb.map((r, i) => `
@@ -353,7 +353,7 @@ export default function ReconciliationPage() {
       </tr>`).join('')}</tbody>
   <tfoot><tr><td colspan="5" style="text-align:right">Итого:</td><td style="text-align:right">${fmt(totalReimb)}</td></tr></tfoot>
 </table>
-<div class="charged">Всего начислено (вознаграждение и издержки): ${fmt(totalCharged)} руб.</div>`
+<div class="charged">Всего начислено (вознаграждение и возмещаемые расходы): ${fmt(totalCharged)} руб.</div>`
 
     const html = `<!DOCTYPE html>
 <html lang="ru"><head><meta charset="UTF-8"><title>Акт сверки</title>
@@ -450,7 +450,7 @@ ${reimbBlock}
       ['','','','','','','Итого:', totalServices],
       [],
       ...(reimb.length === 0 ? [] : [
-        ['ВОЗМЕЩАЕМЫЕ ИЗДЕРЖКИ'],
+        ['ВОЗМЕЩАЕМЫЕ РАСХОДЫ'],
         ['№','Дата','Дело','Описание','Документ','','','Сумма'],
         ...reimb.map((r, i) => [
           i+1, fmtDate(r.expense_date), r.matters?.title ?? '',
@@ -592,7 +592,7 @@ ${reimbBlock}
                 в доход при расчёте НДФЛ и 1% ОПС — это компенсация, а не гонорар. */}
             {openReimb.length > 0 && (
               <div className="md:col-span-4">
-                <label className="label">Входит ли в платёж возмещение издержек?</label>
+                <label className="label">Входит ли в платёж возмещение расходов?</label>
                 <div className="rounded-lg border border-navy-700 divide-y divide-navy-800">
                   {openReimb.map(r => (
                     <label key={r.id}
@@ -615,7 +615,7 @@ ${reimbBlock}
                 </div>
                 {coveredTotal > 0 && (
                   <p className="text-xs mt-2 flex flex-wrap gap-x-2">
-                    <span className="text-navy-400">Возмещение издержек:</span>
+                    <span className="text-navy-400">Возмещаемые расходы:</span>
                     <span className="font-mono text-navy-200">{fmt(coveredTotal)} ₽</span>
                     <span className="text-navy-400">· вознаграждение:</span>
                     <span className="font-mono text-gold-400">
@@ -649,7 +649,7 @@ ${reimbBlock}
               <p className="text-2xl font-semibold text-navy-100">{fmt(totalCharged)} ₽</p>
               {totalReimb > 0 && (
                 <p className="text-xs text-navy-400 mt-1">
-                  услуги {fmt(totalServices)} + издержки {fmt(totalReimb)}
+                  услуги {fmt(totalServices)} + возмещаемые расходы {fmt(totalReimb)}
                 </p>
               )}
             </div>
@@ -733,7 +733,7 @@ ${reimbBlock}
           {/* Reimbursable expenses */}
           {reimb.length > 0 && (
             <div className="card mb-4">
-              <h2 className="font-medium text-navy-200 mb-1 text-sm">Возмещаемые издержки</h2>
+              <h2 className="font-medium text-navy-200 mb-1 text-sm">Возмещаемые расходы</h2>
               <p className="text-xs text-navy-400 mb-4">
                 Расходы, предъявленные доверителю к возмещению. Он оплачивает их
                 вместе с вознаграждением, поэтому они входят в начисленную сумму.

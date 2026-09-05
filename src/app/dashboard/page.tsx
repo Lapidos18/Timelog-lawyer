@@ -247,7 +247,7 @@ export default function DashboardPage() {
                 <span className="text-xs text-navy-300">
                   начислено {formatMoney(b.billed + b.reimb)} ₽
                   {b.reimb > 0 && (
-                    <span className="text-navy-400"> (в т.ч. издержки {formatMoney(b.reimb)} ₽)</span>
+                    <span className="text-navy-400"> (в т.ч. возмещаемые расходы {formatMoney(b.reimb)} ₽)</span>
                   )}
                 </span>
                 <span className="text-xs text-emerald-400">оплачено {formatMoney(b.paid)} ₽</span>

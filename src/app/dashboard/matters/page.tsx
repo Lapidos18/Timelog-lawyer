@@ -164,7 +164,7 @@ export default function MattersPage() {
             {reimb > 0 && (
               <>
                 <span className="text-navy-400">
-                  Издержки <span className="font-mono text-navy-200">{fmtMoney(reimb)} ₽</span>
+                  Возмещаемые расходы <span className="font-mono text-navy-200">{fmtMoney(reimb)} ₽</span>
                 </span>
                 <span className="text-navy-400">·</span>
               </>

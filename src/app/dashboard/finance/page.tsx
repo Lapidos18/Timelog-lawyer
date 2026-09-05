@@ -892,7 +892,7 @@ export default function FinancePage() {
                       <div className="font-medium text-navy-100 whitespace-nowrap">{fmt2(row.grossCum)} ₽</div>
                     </div>
                     <div>
-                      <div className="text-navy-300 text-xs mb-1">Минус возмещение издержек</div>
+                      <div className="text-navy-300 text-xs mb-1">Минус возмещаемые расходы</div>
                       <div className="font-medium text-navy-100 whitespace-nowrap">−{fmt2(row.reimbCum)} ₽</div>
                     </div>
                   </>

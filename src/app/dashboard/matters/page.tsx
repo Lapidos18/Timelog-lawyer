@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import LoadError from '@/components/LoadError'
 import PageHeader from '@/components/PageHeader'
+import Modal from '@/components/Modal'
 import EmptyState from '@/components/EmptyState'
 import { SkeletonRows } from '@/components/Skeleton'
 
@@ -111,7 +112,6 @@ export default function MattersPage() {
       closed_at: m.closed_at ?? '', notes: m.notes ?? '',
     })
     setEditId(m.id); setShowForm(true)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function handleSubmit(ev: React.FormEvent) {
@@ -301,12 +301,8 @@ export default function MattersPage() {
         </button>
       </PageHeader>
 
-      {showForm && (
-        <div className="card mb-6 border-gold-800/40">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="font-medium text-navy-200">{editId ? 'Редактировать дело' : 'Новое дело'}</h2>
-            <button aria-label="Закрыть" onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
-          </div>
+      <Modal open={showForm} onClose={resetForm}
+        title={editId ? 'Редактировать дело' : 'Новое дело'} wide>
           <form onKeyDown={submitOnCtrlEnter} onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
             <div>
               <label className="label">Доверитель *</label>
@@ -381,8 +377,7 @@ export default function MattersPage() {
               <button type="button" onClick={resetForm} className="btn-secondary">Отмена</button>
             </div>
           </form>
-        </div>
-      )}
+      </Modal>
 
       {/* Filter tabs */}
       <div className="flex gap-2 mb-4">

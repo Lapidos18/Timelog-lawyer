@@ -10,6 +10,7 @@ import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import { SkeletonRows, SkeletonCards } from '@/components/Skeleton'
 import PageHeader from '@/components/PageHeader'
+import Modal from '@/components/Modal'
 import EmptyState from '@/components/EmptyState'
 
 function fmt(n: number) {
@@ -222,14 +223,8 @@ export default function ReimbursementsPage() {
       </div>
 
       {/* Form */}
-      {showForm && (
-        <div className="card mb-5 border-gold-800/40">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-medium text-navy-200 text-sm">
-              {editId ? 'Редактировать расход' : 'Новый возмещаемый расход'}
-            </h2>
-            <button aria-label="Закрыть" onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
-          </div>
+      <Modal open={showForm} onClose={resetForm}
+        title={editId ? 'Редактировать расход' : 'Новый возмещаемый расход'}>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div className="md:col-span-2">
               <label className="label">Дело *</label>
@@ -286,8 +281,7 @@ export default function ReimbursementsPage() {
               <button onClick={resetForm} className="btn-secondary">Отмена</button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Table (desktop) */}
       {!loading && filtered.length > 0 && (

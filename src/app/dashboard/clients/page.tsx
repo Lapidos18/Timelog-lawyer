@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import LoadError from '@/components/LoadError'
 import PageHeader from '@/components/PageHeader'
+import Modal from '@/components/Modal'
 import EmptyState from '@/components/EmptyState'
 import { SkeletonRows } from '@/components/Skeleton'
 
@@ -47,7 +48,6 @@ export default function ClientsPage() {
     setForm({ name: c.name, type: c.type, inn: c.inn ?? '', phone: c.phone ?? '',
       email: c.email ?? '', address: c.address ?? '', notes: c.notes ?? '', is_active: c.is_active })
     setEditId(c.id); setShowForm(true)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function handleSubmit(ev: React.FormEvent) {
@@ -75,12 +75,8 @@ export default function ClientsPage() {
         </button>
       </PageHeader>
 
-      {showForm && (
-        <div className="card mb-6 border-gold-800/40">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="font-medium text-navy-200">{editId ? 'Редактировать' : 'Новый доверитель'}</h2>
-            <button aria-label="Закрыть" onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
-          </div>
+      <Modal open={showForm} onClose={resetForm}
+        title={editId ? 'Редактировать доверителя' : 'Новый доверитель'}>
           <form onKeyDown={submitOnCtrlEnter} onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div className="md:col-span-1">
               <label className="label">Наименование / ФИО *</label>
@@ -138,8 +134,7 @@ export default function ClientsPage() {
               <button type="button" onClick={resetForm} className="btn-secondary">Отмена</button>
             </div>
           </form>
-        </div>
-      )}
+      </Modal>
 
       {!loading && clients.length > 0 && (
         <p className="text-xs text-navy-400 mb-2">

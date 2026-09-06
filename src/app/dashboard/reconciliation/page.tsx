@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Client, Matter, ACTIVITY_LABELS, ReimbursableExpense } from '@/types'
 import { format } from 'date-fns'
@@ -9,6 +9,7 @@ import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import { escapeHtml } from '@/lib/html'
 import PageHeader from '@/components/PageHeader'
+import Modal from '@/components/Modal'
 import { printDocument, CABINET_LINE } from '@/lib/print'
 
 interface Payment {
@@ -74,7 +75,6 @@ export default function ReconciliationPage() {
   // id редактируемого платежа. Раньше исправить сумму можно было только
   // удалением и повторным вводом — легко потерять привязку издержек.
   const [editPayId, setEditPayId] = useState<string | null>(null)
-  const payFormRef = useRef<HTMLDivElement>(null)
 
   // Возмещаемые расходы доверителя, которые ещё не компенсированы.
   // Платёж от доверителя обычно включает и вознаграждение, и компенсацию издержек;
@@ -175,11 +175,6 @@ export default function ReconciliationPage() {
       matter_id: p.matter_id ?? '',
     })
     setShowPayForm(true)
-    // Форма стоит вверху страницы, а платежи — в самом низу. Без прокрутки
-    // двойной клик выглядит так, будто ничего не произошло.
-    setTimeout(() => {
-      payFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 50)
   }
 
   async function addPayment(e: React.FormEvent) {
@@ -526,14 +521,8 @@ ${reimbBlock}
       </div>
 
       {/* Payment form */}
-      {showPayForm && (
-        <div ref={payFormRef} className="card mb-5 border-gold-800/40 scroll-mt-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-medium text-navy-200 text-sm">
-              {editPayId ? 'Изменение поступления' : 'Новое поступление'}
-            </h2>
-            <button onClick={() => { setShowPayForm(false); resetPayForm() }} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
-          </div>
+      <Modal open={showPayForm} onClose={() => { setShowPayForm(false); resetPayForm() }}
+        title={editPayId ? 'Изменение поступления' : 'Новое поступление'} wide>
           <form onKeyDown={submitOnCtrlEnter} onSubmit={addPayment} className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div className="md:col-span-2">
               <label className="label">Доверитель</label>
@@ -628,8 +617,7 @@ ${reimbBlock}
                 className="btn-secondary">Отмена</button>
             </div>
           </form>
-        </div>
-      )}
+      </Modal>
 
       {/* Result */}
       {generated && (

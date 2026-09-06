@@ -13,6 +13,7 @@ import LoadError from '@/components/LoadError'
 import { fmtMoneyWords } from '@/lib/money-words'
 import { SkeletonRows, SkeletonCards } from '@/components/Skeleton'
 import PageHeader from '@/components/PageHeader'
+import Modal from '@/components/Modal'
 import EmptyState from '@/components/EmptyState'
 
 interface Act {
@@ -376,12 +377,8 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
       </PageHeader>
 
       {/* Form */}
-      {showForm && (
-        <div className="card mb-6 border-gold-800/40">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="font-medium text-navy-200">Создать акт</h2>
-            <button onClick={() => setShowForm(false)} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
-          </div>
+      <Modal open={showForm} onClose={() => setShowForm(false)}
+        title={'Создать акт'} wide>
           <form onKeyDown={submitOnCtrlEnter} onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="label">Номер акта</label>
@@ -466,8 +463,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
               <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">Отмена</button>
             </div>
           </form>
-        </div>
-      )}
+      </Modal>
 
       {loadError && !loading && <LoadError onRetry={loadActs} />}
 

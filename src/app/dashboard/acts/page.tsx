@@ -13,6 +13,7 @@ import LoadError from '@/components/LoadError'
 import { fmtMoneyWords } from '@/lib/money-words'
 import { SkeletonRows, SkeletonCards } from '@/components/Skeleton'
 import PageHeader from '@/components/PageHeader'
+import EmptyState from '@/components/EmptyState'
 
 interface Act {
   id: string
@@ -55,6 +56,18 @@ function displayPerformer(fullName: string): string {
 }
 function fmtDate(s: string) {
   return format(new Date(s), 'dd.MM.yyyy')
+}
+
+/**
+ * Акт больше месяца лежит черновиком.
+ *
+ * Черновик не подписан и не оплачен: работа сделана, деньги не выставлены.
+ * Через месяц про такой акт обычно уже забыли, поэтому отмечаем его в списке.
+ */
+function staleDraft(act: { status: string; created_at: string }) {
+  if (act.status !== 'draft') return false
+  const days = (Date.now() - new Date(act.created_at).getTime()) / 86_400_000
+  return days > 30
 }
 
 export default function ActsPage() {
@@ -463,7 +476,11 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
         {loading ? (
           <SkeletonRows rows={6} />
         ) : acts.length === 0 ? (
-          <p className="text-navy-300 text-sm text-center py-12">Нет актов. <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">Создать первый →</button></p>
+          <EmptyState icon={FileCheck} title="Актов пока нет"
+            description="Акт закрывает работу за период: подтверждает объём и сумму, подписывается доверителем."
+            action={<button onClick={() => setShowForm(true)} className="btn-primary">
+              <Plus className="w-4 h-4" /> Создать первый акт
+            </button>} />
         ) : (
           <table className="w-full text-sm table-sticky">
             <thead>
@@ -475,7 +492,9 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
             </thead>
             <tbody>
               {acts.map(act => (
-                <tr key={act.id} className="border-b border-navy-800/40 table-row-hover">
+                <tr key={act.id} className={`border-b border-navy-800/40 table-row-hover ${
+                  staleDraft(act) ? 'needs-attention' : ''
+                }`}>
                   <td className="py-3 pr-4">
                     <button onClick={() => openPreview(act)}
                       className="text-gold-400 hover:underline num text-xs">{act.act_no}</button>
@@ -516,13 +535,19 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
         {loading ? (
           <SkeletonCards rows={4} />
         ) : acts.length === 0 ? (
-          <p className="text-navy-300 text-sm text-center py-12">Нет актов. <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">Создать первый →</button></p>
+          <EmptyState icon={FileCheck} title="Актов пока нет"
+            description="Акт закрывает работу за период: подтверждает объём и сумму, подписывается доверителем."
+            action={<button onClick={() => setShowForm(true)} className="btn-primary">
+              <Plus className="w-4 h-4" /> Создать первый акт
+            </button>} />
         ) : (
           <div className="space-y-2">
             {acts.map(act => (
               <div key={act.id}
                 onClick={() => openPreview(act)}
-                className="card p-3 active:bg-navy-800/60 transition-colors">
+                className={`card p-3 active:bg-navy-800/60 transition-colors ${
+                  staleDraft(act) ? 'needs-attention' : ''
+                }`}>
                 <div className="flex items-start justify-between gap-2 mb-1.5">
                   <div className="min-w-0">
                     <p className="text-navy-200 text-sm font-medium truncate">{act.matters?.clients?.name}</p>

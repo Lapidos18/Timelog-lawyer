@@ -689,7 +689,7 @@ ${reimbBlock}
                       <td className="py-2 text-right num text-navy-100">{fmt(r.amount)}</td>
                     </tr>
                   ))}
-                  <tr className="border-t-2 border-navy-700">
+                  <tr className="total-sticky border-t-2 border-navy-700">
                     <td colSpan={7} className="pt-2 text-right text-navy-400 font-medium pr-3 text-xs">Итого:</td>
                     <td className="pt-2 text-right num font-semibold text-navy-100 text-xs">{fmt(totalServices)} ₽</td>
                   </tr>
@@ -759,7 +759,7 @@ ${reimbBlock}
                         <td className="py-2 text-right num text-navy-100">{fmt(Number(r.amount))}</td>
                       </tr>
                     ))}
-                    <tr className="border-t-2 border-navy-700">
+                    <tr className="total-sticky border-t-2 border-navy-700">
                       <td colSpan={6} className="pt-2 text-right text-navy-400 font-medium pr-3 text-xs">Итого:</td>
                       <td className="pt-2 text-right num font-semibold text-navy-100 text-xs">{fmt(totalReimb)} ₽</td>
                     </tr>
@@ -839,7 +839,7 @@ ${reimbBlock}
                       </td>
                     </tr>
                   ))}
-                  <tr className="border-t-2 border-navy-700">
+                  <tr className="total-sticky border-t-2 border-navy-700">
                     <td colSpan={4} className="pt-2 text-right text-navy-400 font-medium pr-3">Итого:</td>
                     <td className="pt-2 text-right num font-semibold text-emerald-400">{fmt(totalPayments)} ₽</td>
                     <td />

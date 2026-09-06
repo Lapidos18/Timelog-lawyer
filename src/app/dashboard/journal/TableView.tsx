@@ -3,9 +3,10 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format } from 'date-fns'
-import { Plus, Pencil, Trash2, X, Check, ChevronDown, Filter } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, ChevronDown, Filter, BookOpen } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
+import EmptyState from '@/components/EmptyState'
 import LoadError from '@/components/LoadError'
 import { SkeletonRows, SkeletonCards } from '@/components/Skeleton'
 
@@ -479,16 +480,16 @@ export default function TableView() {
         {loading ? (
           <SkeletonRows rows={7} />
         ) : entries.length === 0 ? (
-          <p className="text-navy-300 text-sm text-center py-12">
-            {hasActiveFilters ? 'Нет записей по заданным фильтрам.' : (
-              <>
-                Нет записей.{' '}
-                <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">
-                  Добавить первую →
-                </button>
-              </>
-            )}
-          </p>
+          hasActiveFilters ? (
+            <EmptyState icon={Filter} title="По этим фильтрам записей нет"
+              description="Снимите часть условий или измените период." />
+          ) : (
+            <EmptyState icon={BookOpen} title="Записей пока нет"
+              description="Записанное время — основа отчётов, актов и расчёта дохода."
+              action={<button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
+                <Plus className="w-4 h-4" /> Добавить первую запись
+              </button>} />
+          )
         ) : (
           <table className="w-full text-sm table-sticky">
             <thead>
@@ -558,16 +559,16 @@ export default function TableView() {
         {loading ? (
           <SkeletonCards rows={5} />
         ) : entries.length === 0 ? (
-          <p className="text-navy-300 text-sm text-center py-12">
-            {hasActiveFilters ? 'Нет записей по заданным фильтрам.' : (
-              <>
-                Нет записей.{' '}
-                <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">
-                  Добавить первую →
-                </button>
-              </>
-            )}
-          </p>
+          hasActiveFilters ? (
+            <EmptyState icon={Filter} title="По этим фильтрам записей нет"
+              description="Снимите часть условий или измените период." />
+          ) : (
+            <EmptyState icon={BookOpen} title="Записей пока нет"
+              description="Записанное время — основа отчётов, актов и расчёта дохода."
+              action={<button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
+                <Plus className="w-4 h-4" /> Добавить первую запись
+              </button>} />
+          )
         ) : (
           <div className="space-y-2">
             {entries.map(e => (

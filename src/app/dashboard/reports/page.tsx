@@ -11,6 +11,7 @@ import { FileDown, FileSpreadsheet, Filter, ChevronDown, ChevronRight, FileText,
 import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import PageHeader from '@/components/PageHeader'
+import EmptyState from '@/components/EmptyState'
 
 type GroupBy = 'none' | 'client' | 'matter'
 
@@ -413,7 +414,8 @@ export default function ReportsPage() {
       {/* Results */}
       {searched && rows.length === 0 && (
         <div className="card">
-          <p className="text-navy-300 text-sm text-center py-12">Нет данных по заданным фильтрам.</p>
+          <EmptyState icon={Filter} title="По этим условиям ничего не найдено"
+            description="Попробуйте другой период — кнопки быстрого выбора над фильтрами — или снимите часть условий." />
         </div>
       )}
 

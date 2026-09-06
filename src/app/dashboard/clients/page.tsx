@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import LoadError from '@/components/LoadError'
 import PageHeader from '@/components/PageHeader'
+import EmptyState from '@/components/EmptyState'
 import { SkeletonRows } from '@/components/Skeleton'
 
 const TYPE_LABELS: Record<ClientType, string> = {
@@ -153,12 +154,11 @@ export default function ClientsPage() {
       <div className="card">
         {loading ? <SkeletonRows rows={6} />
           : clients.length === 0 ? (
-            <p className="text-navy-300 text-sm text-center py-12">
-              Нет доверителей.{' '}
-              <button onClick={() => setShowForm(true)} className="text-gold-400 hover:underline">
-                Добавить →
-              </button>
-            </p>
+            <EmptyState icon={Users} title="Доверителей пока нет"
+              description="С доверителя начинается всё остальное: дела, записи времени, акты и расчёты."
+              action={<button onClick={() => setShowForm(true)} className="btn-primary">
+                <Plus className="w-4 h-4" /> Добавить доверителя
+              </button>} />
           ) : (
             <>
             {/* Список (десктоп) — всё в одну строку */}

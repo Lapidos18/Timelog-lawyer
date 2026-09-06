@@ -10,6 +10,7 @@ import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import { SkeletonRows, SkeletonCards } from '@/components/Skeleton'
 import PageHeader from '@/components/PageHeader'
+import EmptyState from '@/components/EmptyState'
 
 function fmt(n: number) {
   return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
@@ -19,6 +20,17 @@ const STATUS_COLORS: Record<ReimbursementStatus, string> = {
   pending: 'text-navy-200 bg-navy-800',
   invoiced: 'text-amber-400 bg-amber-900/30',
   reimbursed: 'text-emerald-400 bg-emerald-900/30',
+}
+
+/**
+ * Расход отмечен компенсированным, но без даты поступления денег.
+ *
+ * Это тихая ошибка: исключение из дохода по НДФЛ применяется по
+ * `reimbursed_date`, и без неё сумма останется в доходе, а в списке всё
+ * будет выглядеть законченным. Отмечаем такие строки полосой.
+ */
+function needsAttention(e: ReimbursableExpense) {
+  return e.status === 'reimbursed' && !e.reimbursed_date
 }
 
 const emptyForm = {
@@ -288,7 +300,11 @@ export default function ReimbursementsPage() {
         {loading ? (
           <SkeletonRows rows={6} />
         ) : filtered.length === 0 ? (
-          <p className="text-navy-300 text-sm text-center py-12">Нет записей.</p>
+          <EmptyState icon={Receipt} title="Возмещаемых расходов пока нет"
+            description="Такси, почта, госпошлина — деньги, потраченные из своего кармана по делу доверителя. Записанное здесь не забудется при выставлении счёта и не попадёт в доход по НДФЛ."
+            action={<button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
+              <Plus className="w-4 h-4" /> Добавить расход
+            </button>} />
         ) : (
           <table className="w-full text-sm table-sticky">
             <thead>
@@ -307,7 +323,9 @@ export default function ReimbursementsPage() {
                 <tr key={e.id}
                   onDoubleClick={() => startEdit(e)}
                   title="Двойной клик — редактировать"
-                  className="border-b border-navy-800/40 table-row-hover cursor-pointer">
+                  className={`border-b border-navy-800/40 table-row-hover cursor-pointer ${
+                    needsAttention(e) ? 'needs-attention' : ''
+                  }`}>
                   <td className="py-2">{format(new Date(e.expense_date), 'dd.MM.yyyy')}</td>
                   <td className="py-2 text-navy-400 max-w-[180px] truncate">
                     {e.matters?.clients?.name} / {e.matters?.title}
@@ -351,13 +369,19 @@ export default function ReimbursementsPage() {
         {loading ? (
           <SkeletonCards rows={4} />
         ) : filtered.length === 0 ? (
-          <p className="text-navy-300 text-sm text-center py-12">Нет записей.</p>
+          <EmptyState icon={Receipt} title="Возмещаемых расходов пока нет"
+            description="Такси, почта, госпошлина — деньги, потраченные из своего кармана по делу доверителя. Записанное здесь не забудется при выставлении счёта и не попадёт в доход по НДФЛ."
+            action={<button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
+              <Plus className="w-4 h-4" /> Добавить расход
+            </button>} />
         ) : (
           <div className="space-y-2">
             {filtered.map(e => (
               <div key={e.id}
                 onClick={() => startEdit(e)}
-                className="card p-3 active:bg-navy-800/60 transition-colors">
+                className={`card p-3 active:bg-navy-800/60 transition-colors ${
+                  needsAttention(e) ? 'needs-attention' : ''
+                }`}>
                 <div className="flex items-start justify-between gap-2 mb-1.5">
                   <div className="min-w-0">
                     <p className="text-navy-200 text-sm font-medium truncate">{e.matters?.clients?.name}</p>

@@ -7,9 +7,22 @@ import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import LoadError from '@/components/LoadError'
 import PageHeader from '@/components/PageHeader'
+import EmptyState from '@/components/EmptyState'
 import { SkeletonRows } from '@/components/Skeleton'
 
 interface MatterWithClient extends Matter { clients: Client }
+
+/**
+ * У дела не задана ни почасовая ставка, ни фиксированная сумма.
+ *
+ * Записи времени по такому делу считаются по ставке из профиля, и в акт
+ * попадает не та цифра, которую вы держали в голове, договариваясь
+ * с доверителем. Ошибка всплывает уже в готовом документе, поэтому
+ * такие дела отмечаем в списке.
+ */
+function noRate(m: MatterWithClient) {
+  return !m.hourly_rate && !m.fixed_fee
+}
 
 export default function MattersPage() {
   const supabase = createClient()
@@ -398,9 +411,16 @@ export default function MattersPage() {
       <div className="card">
         {loading ? <SkeletonRows rows={5} />
           : visible.length === 0 ? (
-            <p className="text-navy-300 text-sm text-center py-12">
-              {matters.length === 0 ? 'Нет дел.' : 'Нет дел с таким статусом.'}
-            </p>
+            matters.length === 0 ? (
+              <EmptyState icon={Briefcase} title="Дел пока нет"
+                description="Дело связывает доверителя, соглашение и ставку — к нему привязываются записи времени и платежи."
+                action={<button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
+                  <Plus className="w-4 h-4" /> Завести дело
+                </button>} />
+            ) : (
+              <EmptyState icon={Briefcase} title="Нет дел с таким статусом"
+                description="Переключите фильтр выше, чтобы увидеть остальные." />
+            )
           ) : groups.map(g => (
           <section key={g.clientId} className="mb-5 last:mb-0 -mx-5 md:mx-0">
             <GroupTotal g={g} />
@@ -411,9 +431,9 @@ export default function MattersPage() {
                 <div key={m.id}
                   onDoubleClick={() => startEdit(m)}
                   title="Двойной клик — редактировать"
-                  className="flex items-start gap-4 px-4 py-3 rounded-lg cursor-pointer
+                  className={`${noRate(m) ? 'needs-attention ' : ''}flex items-start gap-4 px-4 py-3 rounded-lg cursor-pointer
                                             hover:bg-navy-800/50 transition-colors border border-transparent
-                                            hover:border-navy-700/50">
+                                            hover:border-navy-700/50`}>
                   <div className="w-8 h-8 rounded-full bg-navy-800 flex items-center justify-center flex-shrink-0 mt-0.5">
                     <Gavel className="w-4 h-4 text-navy-400" />
                   </div>
@@ -453,7 +473,9 @@ export default function MattersPage() {
                 const hasMoney = paid > 0 || worked > 0 || reimb > 0
                 return (
                   <div key={m.id} onClick={() => startEdit(m)}
-                    className="py-3 cursor-pointer active:bg-navy-800/40">
+                    className={`py-3 cursor-pointer active:bg-navy-800/40 ${
+                      noRate(m) ? 'needs-attention pl-3' : ''
+                    }`}>
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-navy-200 font-medium text-sm">{m.title}</p>
                       <span className={`${statusBadge(m.status)} flex-shrink-0`}>

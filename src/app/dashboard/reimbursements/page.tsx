@@ -136,7 +136,10 @@ export default function ReimbursementsPage() {
     const patch = status === 'reimbursed'
       ? { status }
       : { status, reimbursed_date: null, payment_id: null }
-    await supabase.from('reimbursable_expenses').update(patch).eq('id', e.id)
+    // Статус этого расхода определяет, вычтется ли сумма из дохода по НДФЛ,
+    // поэтому молча проглотить отказ базы здесь нельзя
+    const { error } = await supabase.from('reimbursable_expenses').update(patch).eq('id', e.id)
+    if (error) { toast.error('Не удалось изменить статус: ' + error.message); return }
     loadAll()
   }
 

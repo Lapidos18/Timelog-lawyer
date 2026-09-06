@@ -138,7 +138,7 @@ export default function ClientsPage() {
       {!loading && clients.length > 0 && (
         <p className="text-xs text-navy-400 mb-2">
           💡 <span className="hidden md:inline">Двойной клик по доверителю — редактировать</span>
-          <span className="md:hidden">Нажмите на карандаш — редактировать</span>
+          <span className="md:hidden">Нажмите на карточку — редактировать</span>
         </p>
       )}
 

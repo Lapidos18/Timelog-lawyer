@@ -174,7 +174,7 @@ export default function MattersPage() {
   function GroupTotal({ g }: { g: (typeof groups)[number] }) {
     return (
       <div className="flex items-baseline justify-between gap-3 flex-wrap
-                      px-4 pt-4 pb-2 md:px-4 border-b border-navy-800">
+                      px-5 md:px-4 pt-4 pb-2 border-b border-navy-800">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-navy-100">{g.clientName}</h2>
           {g.hidden > 0 && (
@@ -383,7 +383,7 @@ export default function MattersPage() {
       {!loading && !loadError && matters.length > 0 && (
         <p className="text-xs text-navy-400 mb-2">
           💡 <span className="hidden md:inline">Двойной клик по делу — редактировать</span>
-          <span className="md:hidden">Нажмите на карандаш — редактировать</span>
+          <span className="md:hidden">Нажмите на карточку — редактировать</span>
         </p>
       )}
 

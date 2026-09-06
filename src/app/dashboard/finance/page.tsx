@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeader from '@/components/PageHeader'
+import { calcNdfl, yearFraction } from '@/lib/tax'
 import Link from 'next/link'
 import CalculatorTab from './CalculatorTab'
 
@@ -50,7 +51,15 @@ export default function FinancePage() {
   const supabase = createClient()
   const [tab, setTab] = useState<Tab>('calc')
   const [loading, setLoading] = useState(true)
-  const [year] = useState(() => new Date().getFullYear())
+  // Год выбирается, а не берётся жёстко текущий: декларация за прошедший год
+  // подаётся до 30 апреля следующего, и в этот момент нужны цифры именно
+  // прошлого года. Раньше приложение уже показывало новый год, и достать
+  // отчётные суммы из интерфейса было нельзя.
+  const [year, setYear] = useState(() => new Date().getFullYear())
+  const yearOptions = (() => {
+    const now = new Date().getFullYear()
+    return [now + 1, now, now - 1, now - 2, now - 3]
+  })()
 
   const [incomes, setIncomes] = useState<IncomeRow[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
@@ -198,10 +207,10 @@ export default function FinancePage() {
       const incomeCum = Math.max(0, grossCum - reimbCum)
       const expenseCum = expenseByQ.slice(0, qIdx + 1).reduce((a, b) => a + b, 0)
       const base = Math.max(0, incomeCum - expenseCum)
-      const ndflCum = base <= taxSettings.ndfl_progressive_threshold
-        ? base * taxSettings.ndfl_rate_low
-        : taxSettings.ndfl_progressive_threshold * taxSettings.ndfl_rate_low +
-          (base - taxSettings.ndfl_progressive_threshold) * taxSettings.ndfl_rate_high
+      // Прогрессивная шкала ст. 224 НК РФ — пять ступеней, см. src/lib/tax.ts.
+      // Поля ndfl_rate_low/high в tax_settings остались от прежнего
+      // двухступенчатого расчёта и больше не используются.
+      const ndflCum = calcNdfl(base)
       const paidBefore = qIdx < 3 ? (qIdx === 0 ? 0 : paidCumulative[qIdx - 1]) : paidCumulative[2]
       const advanceDue = Math.max(0, ndflCum - paidBefore)
       const actuallyPaidThisQ = qIdx < 3
@@ -240,14 +249,12 @@ export default function FinancePage() {
     // пропорцию не даёт — год оплачивается полностью.
     // У текущего пользователя удостоверение адвоката от 25.10.2019, кабинет с
     // 01.04.2026: за 2026 год платится полная сумма. Не «чинить» на дату кабинета.
-    let months = 12
-    if (taxSettings.cabinet_start_date) {
-      const start = new Date(taxSettings.cabinet_start_date)
-      if (start.getFullYear() === year) {
-        months = 12 - start.getMonth()
-      }
-    }
-    const fixedDue = taxSettings.fixed_contribution_total * months / 12
+    // Доля года считается по календарным дням внутри неполного месяца
+    // (п. 3 ст. 430 НК РФ), а не месяцами целиком — см. src/lib/tax.ts
+    const fraction = taxSettings.cabinet_start_date
+      ? yearFraction(new Date(taxSettings.cabinet_start_date), year)
+      : 1
+    const fixedDue = taxSettings.fixed_contribution_total * fraction
 
     // 1% ОПС считается от той же базы, что и НДФЛ: доход за вычетом расходов.
     // Учитываются только документально подтверждённые расходы — как в ст. 221 НК РФ
@@ -263,7 +270,7 @@ export default function FinancePage() {
     const paidOps = taxPayments.filter(p => p.payment_type === 'ops_one_percent').reduce((a, b) => a + b.amount, 0)
 
     return {
-      totalIncome, months, fixedDue,
+      totalIncome, fraction, fixedDue,
       documentedExpenses, opsIncomeBase, opsBase, opsDue,
       paidFixed, paidOps,
     }
@@ -471,7 +478,15 @@ export default function FinancePage() {
   return (
     <div className="p-4 md:p-7 max-w-6xl">
       <PageHeader title="Доходы и налоги" icon={Wallet}
-        description={`Учёт доходов и профессиональных вычетов, расчёт НДФЛ и страховых взносов за ${year} год`} />
+        description="Учёт доходов и профессиональных вычетов, расчёт НДФЛ и страховых взносов">
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-navy-400" htmlFor="year-select">Год</label>
+          <select id="year-select" className="select w-auto" value={year}
+            onChange={e => setYear(Number(e.target.value))}>
+            {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+      </PageHeader>
 
       {/* Tabs */}
       <div className="flex gap-2 mb-5 flex-wrap">
@@ -1057,8 +1072,10 @@ export default function FinancePage() {
                 <div className="font-medium text-navy-100 whitespace-nowrap">{fmt2(taxSettings.fixed_contribution_total)} ₽</div>
               </div>
               <div>
-                <div className="text-navy-300 text-xs mb-1">Месяцев деятельности</div>
-                <div className="font-medium text-navy-100">{contributionsCalc.months}</div>
+                <div className="text-navy-300 text-xs mb-1">Учтено месяцев</div>
+                <div className="font-medium text-navy-100 num">
+                  {(contributionsCalc.fraction * 12).toFixed(1).replace('.', ',').replace(',0', '')}
+                </div>
               </div>
               <div>
                 <div className="text-navy-300 text-xs mb-1">К уплате (пропорционально)</div>

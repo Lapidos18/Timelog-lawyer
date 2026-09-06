@@ -208,18 +208,29 @@ export default function ReconciliationPage() {
       const unlinked = openReimb
         .filter(r => r.payment_id === editPayId && !coveredReimb.includes(r.id))
         .map(r => r.id)
+
+      // Привязка расходов решает, вычтутся ли эти суммы из дохода по НДФЛ.
+      // Если платёж сохранился, а привязка нет — цифры разъедутся молча,
+      // поэтому о неудаче надо сказать прямо.
+      let linkError: string | null = null
       if (unlinked.length > 0) {
-        await supabase.from('reimbursable_expenses')
+        const { error } = await supabase.from('reimbursable_expenses')
           .update({ status: 'invoiced', payment_id: null, reimbursed_date: null })
           .in('id', unlinked)
+        if (error) linkError = error.message
       }
-      if (coveredReimb.length > 0) {
-        await supabase.from('reimbursable_expenses')
+      if (!linkError && coveredReimb.length > 0) {
+        const { error } = await supabase.from('reimbursable_expenses')
           .update({ status: 'reimbursed', payment_id: editPayId, reimbursed_date: payForm.pay_date })
           .in('id', coveredReimb)
+        if (error) linkError = error.message
       }
 
-      toast.success('Платёж изменён')
+      if (linkError) {
+        toast.error('Платёж изменён, но не удалось обновить возмещаемые расходы: ' + linkError)
+      } else {
+        toast.success('Платёж изменён')
+      }
       setShowPayForm(false)
       resetPayForm()
       if (generated) generate()
@@ -297,13 +308,25 @@ export default function ReconciliationPage() {
     const { data: linked } = await supabase.from('reimbursable_expenses')
       .select('id').eq('payment_id', id)
 
+    // Сначала отвязываем расходы, потом удаляем платёж. Если отвязать не
+    // удалось — платёж НЕ удаляем: иначе расходы остались бы «Компенсировано»
+    // со ссылкой на несуществующий платёж и продолжали бы уменьшать доход.
     if (linked && linked.length > 0) {
-      await supabase.from('reimbursable_expenses')
+      const { error } = await supabase.from('reimbursable_expenses')
         .update({ status: 'invoiced', payment_id: null, reimbursed_date: null })
         .eq('payment_id', id)
+      if (error) {
+        toast.error('Платёж не удалён: не удалось открепить возмещаемые расходы. ' + error.message)
+        return
+      }
     }
 
-    await supabase.from('payments').delete().eq('id', id)
+    const { error: delError } = await supabase.from('payments').delete().eq('id', id)
+    if (delError) {
+      toast.error('Не удалось удалить платёж: ' + delError.message)
+      if (generated) generate()
+      return
+    }
     toast.success(linked && linked.length > 0
       ? `Платёж удалён, ${linked.length} возмещаемых расходов вернулись в «Выставлено доверителю»`
       : 'Удалено')

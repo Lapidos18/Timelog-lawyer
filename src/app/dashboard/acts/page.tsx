@@ -137,6 +137,28 @@ export default function ActsPage() {
       })
   }, [form.matter_id, form.period_from, form.period_to])
 
+  /**
+   * Следующий номер акта: сквозная нумерация в пределах года — АКТ-2026-001.
+   *
+   * Раньше подставлялось «АКТ-20260906-1430» — дата со временем. Это не
+   * совпадало с форматом в подсказке поля, не давало сквозного счёта и
+   * ломалось, если два акта создать в одну минуту.
+   *
+   * Максимум ищется среди уже существующих номеров этого года; номера,
+   * набранные вручную в другом формате, просто не попадают под шаблон
+   * и на счёт не влияют.
+   */
+  const nextActNo = (() => {
+    const y = new Date().getFullYear()
+    const re = new RegExp(`^АКТ-${y}-(\\d+)$`)
+    const used = acts
+      .map(a => a.act_no.trim().match(re))
+      .filter((m): m is RegExpMatchArray => m !== null)
+      .map(m => parseInt(m[1], 10))
+    const next = used.length > 0 ? Math.max(...used) + 1 : 1
+    return `АКТ-${y}-${String(next).padStart(3, '0')}`
+  })()
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.matter_id) { toast.error('Выберите дело'); return }
@@ -144,7 +166,7 @@ export default function ActsPage() {
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
     const m = matters.find(x => x.id === form.matter_id)!
-    const actNo = form.act_no || `АКТ-${format(new Date(), 'yyyyMMdd-HHmm')}`
+    const actNo = form.act_no || nextActNo
     const { error } = await supabase.from('acts').insert({
       act_no: actNo,
       matter_id: form.matter_id,
@@ -209,7 +231,8 @@ export default function ActsPage() {
       return // статус пока не меняем — дождёмся подтверждения в модалке
     }
 
-    await supabase.from('acts').update({ status }).eq('id', id)
+    const { error } = await supabase.from('acts').update({ status }).eq('id', id)
+    if (error) { toast.error('Не удалось изменить статус: ' + error.message); return }
     loadActs()
     toast.success('Статус обновлён')
   }
@@ -251,7 +274,8 @@ export default function ActsPage() {
 
   async function markPaidWithoutPayment() {
     if (!payConfirmAct) return
-    await supabase.from('acts').update({ status: 'paid' }).eq('id', payConfirmAct.id)
+    const { error } = await supabase.from('acts').update({ status: 'paid' }).eq('id', payConfirmAct.id)
+    if (error) { toast.error('Не удалось изменить статус: ' + error.message); return }
     toast.success('Статус обновлён без записи платежа')
     setPayConfirmAct(null)
     loadActs()
@@ -259,7 +283,8 @@ export default function ActsPage() {
 
   async function deleteAct(id: string) {
     if (!confirm('Удалить акт?')) return
-    await supabase.from('acts').delete().eq('id', id)
+    const { error } = await supabase.from('acts').delete().eq('id', id)
+    if (error) { toast.error('Не удалось удалить: ' + error.message); return }
     toast.success('Удалено'); loadActs()
   }
 
@@ -340,8 +365,9 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="label">Номер акта</label>
-              <input type="text" className="input" placeholder="АКТ-2026-001"
+              <input type="text" className="input" placeholder={nextActNo}
                 value={form.act_no} onChange={e => setForm(f => ({ ...f, act_no: e.target.value }))} />
+              <p className="text-xs text-navy-400 mt-1">Оставьте пустым — подставится {nextActNo}</p>
             </div>
             <div>
               <label className="label">Период с</label>

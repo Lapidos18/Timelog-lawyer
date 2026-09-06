@@ -116,8 +116,12 @@ export default function CalculatorTab() {
           <div>
             <label className="label">Ставка НДФЛ</label>
             <select className="select" value={rate} onChange={e => setRate(e.target.value)}>
-              <option value="0.13">13% (доход ≤ 2,4 млн ₽/год)</option>
-              <option value="0.15">15% (доход &gt; 2,4 млн ₽/год)</option>
+              {/* Полная шкала ст. 224 НК РФ с 2025 года — пять ступеней */}
+              <option value="0.13">13% (до 2,4 млн ₽/год)</option>
+              <option value="0.15">15% (2,4–5 млн ₽/год)</option>
+              <option value="0.18">18% (5–20 млн ₽/год)</option>
+              <option value="0.20">20% (20–50 млн ₽/год)</option>
+              <option value="0.22">22% (свыше 50 млн ₽/год)</option>
             </select>
           </div>
           <div>

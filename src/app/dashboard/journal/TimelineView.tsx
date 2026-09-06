@@ -7,6 +7,7 @@ import { ru } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Plus, X, Check, Calendar, Trash2, Pencil } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
+import Modal from '@/components/Modal'
 import LoadError from '@/components/LoadError'
 import { SkeletonRows } from '@/components/Skeleton'
 
@@ -428,14 +429,8 @@ export default function TimelineView() {
       </div>
 
       {/* Form */}
-      {showForm && (
-        <div className="card mb-3 border-gold-800/40">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-medium text-navy-200 text-sm capitalize">
-              {editId ? 'Редактировать запись' : `Новая запись — ${format(date, 'd MMMM yyyy', { locale: ru })}`}
-            </h2>
-            <button aria-label="Закрыть" onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
-          </div>
+      <Modal open={showForm} onClose={resetForm}
+        title={editId ? 'Редактировать запись' : `Новая запись — ${format(date, 'd MMMM yyyy', { locale: ru })}`} wide>
           <form onKeyDown={submitOnCtrlEnter} onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div className="md:col-span-2">
               <label className="label">Дело *</label>
@@ -515,8 +510,7 @@ export default function TimelineView() {
               )}
             </div>
           </form>
-        </div>
-      )}
+      </Modal>
 
       {/* NDFL toggle */}
       {showForm && (

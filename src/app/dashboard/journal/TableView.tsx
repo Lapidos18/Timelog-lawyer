@@ -8,6 +8,7 @@ import toast from 'react-hot-toast'
 import { useDraft, loadDraft, clearDraft } from '@/lib/draft'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import EmptyState from '@/components/EmptyState'
+import Modal from '@/components/Modal'
 import LoadError from '@/components/LoadError'
 import { SkeletonRows, SkeletonCards } from '@/components/Skeleton'
 
@@ -354,14 +355,8 @@ export default function TableView() {
         </div>
       )}
 
-      {showForm && (
-        <div className="card mb-6 border-gold-800/40">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="font-medium text-navy-200">
-              {editId ? 'Редактировать запись' : 'Новая запись'}
-            </h2>
-            <button aria-label="Закрыть" onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
-          </div>
+      <Modal open={showForm} onClose={resetForm}
+        title={editId ? 'Редактировать запись' : 'Новая запись'} wide>
 
           <form onKeyDown={submitOnCtrlEnter} onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
             <div className="md:col-span-1">
@@ -522,8 +517,7 @@ export default function TableView() {
               <button type="button" onClick={resetForm} className="btn-secondary">Отмена</button>
             </div>
           </form>
-        </div>
-      )}
+      </Modal>
 
       {loadError && !loading && <LoadError onRetry={() => loadEntries()} />}
 

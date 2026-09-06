@@ -141,7 +141,10 @@ export default function ImportStatement({
             {fileName} · разобрано поступлений: {rows.length}
           </p>
 
-          <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1">
+          {/* Своя прокрутка только на десктопе. На телефоне окно и так лист
+              снизу со своей прокруткой — вложенная область внутри него
+              превращается в две полосы прокрутки на одном экране. */}
+          <div className="space-y-2 md:max-h-[45vh] md:overflow-y-auto md:pr-1">
             {rows.map(r => (
               <label key={r.index}
                 className={`tap flex items-start gap-3 px-3 py-2.5 rounded-lg border cursor-pointer ${
@@ -172,8 +175,10 @@ export default function ImportStatement({
                     {r.counterpartyName}{r.counterpartyInn ? ` · ИНН ${r.counterpartyInn}` : ''}
                   </span>
                   <span className="block text-xs text-navy-400 truncate">{r.purpose}</span>
+                  {/* select внутри label браузер не считает поводом
+                      переключить галочку — это его штатное поведение для
+                      вложенных элементов управления, гасить клик не нужно */}
                   <select className="select mt-2 text-xs" value={r.clientId}
-                    onClick={e => e.preventDefault()}
                     onChange={e => setRows(rs => rs!.map(x =>
                       x.index === r.index ? { ...x, clientId: e.target.value } : x))}>
                     <option value="">— без доверителя (уйдёт в «Доходы» отдельной строкой) —</option>

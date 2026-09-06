@@ -13,6 +13,7 @@ import LoadError from '@/components/LoadError'
 import { fmtMoneyWords } from '@/lib/money-words'
 import { SkeletonRows, SkeletonCards } from '@/components/Skeleton'
 import PageHeader from '@/components/PageHeader'
+import ChangeHistory from '@/components/ChangeHistory'
 import Modal from '@/components/Modal'
 import EmptyState from '@/components/EmptyState'
 
@@ -664,6 +665,8 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                   </span>
                 </div>
               </div>
+
+              <ChangeHistory table="acts" rowId={previewAct.act.id} />
             </div>
           </div>
         </div>

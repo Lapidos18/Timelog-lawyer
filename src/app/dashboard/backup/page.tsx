@@ -36,12 +36,14 @@ export default function BackupPage() {
       'tax_payments',
       'manual_income',
       'reimbursable_expenses',
+      'audit_log',
     ]
 
     // tax_settings не имеет столбца created_at (первичный ключ — year, дата
     // строки не нужна), поэтому для неё сортируем по году, а не по умолчанию
     const orderColumn: Record<string, string> = {
       tax_settings: 'year',
+      audit_log: 'changed_at',
     }
 
     for (const table of tables) {
@@ -96,6 +98,7 @@ export default function BackupPage() {
     tax_payments:          'Уплата налогов и взносов',
     manual_income:         'Ручные доходы',
     reimbursable_expenses: 'Возмещаемые расходы',
+    audit_log:             'История изменений',
   }
 
   return (

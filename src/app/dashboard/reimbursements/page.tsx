@@ -10,6 +10,7 @@ import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import { SkeletonRows, SkeletonCards } from '@/components/Skeleton'
 import PageHeader from '@/components/PageHeader'
+import ChangeHistory from '@/components/ChangeHistory'
 import Modal from '@/components/Modal'
 import EmptyState from '@/components/EmptyState'
 
@@ -281,6 +282,7 @@ export default function ReimbursementsPage() {
               <button onClick={resetForm} className="btn-secondary">Отмена</button>
             </div>
           </div>
+          {editId && <ChangeHistory table="reimbursable_expenses" rowId={editId} />}
       </Modal>
 
       {/* Table (desktop) */}

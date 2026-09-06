@@ -9,6 +9,7 @@ import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import { escapeHtml } from '@/lib/html'
 import PageHeader from '@/components/PageHeader'
+import ChangeHistory from '@/components/ChangeHistory'
 import Modal from '@/components/Modal'
 import { printDocument, CABINET_LINE } from '@/lib/print'
 
@@ -617,6 +618,8 @@ ${reimbBlock}
                 className="btn-secondary">Отмена</button>
             </div>
           </form>
+          {/* История только при правке: у нового платежа её ещё нет */}
+          {editPayId && <ChangeHistory table="payments" rowId={editPayId} />}
       </Modal>
 
       {/* Result */}

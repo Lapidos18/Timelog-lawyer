@@ -7,6 +7,7 @@ import {
 import { format } from 'date-fns'
 import { Plus, X, Check, Trash2, Receipt } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import { SkeletonRows, SkeletonCards } from '@/components/Skeleton'
 import PageHeader from '@/components/PageHeader'
 
@@ -163,6 +164,11 @@ export default function ReimbursementsPage() {
   const totalPending = filtered.filter(e => e.status !== 'reimbursed').reduce((s, e) => s + Number(e.amount), 0)
   const totalAll = filtered.reduce((s, e) => s + Number(e.amount), 0)
 
+
+  // Esc закрывает открытую форму или модалку — см. src/lib/form-keys.ts
+  useEscapeKey(showForm, resetForm)
+  useEscapeKey(!!dateAskFor, () => setDateAskFor(null))
+
   return (
     <div className="p-4 md:p-7">
       <PageHeader title="Возмещаемые расходы" icon={Receipt}
@@ -210,7 +216,7 @@ export default function ReimbursementsPage() {
             <h2 className="font-medium text-navy-200 text-sm">
               {editId ? 'Редактировать расход' : 'Новый возмещаемый расход'}
             </h2>
-            <button onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
+            <button aria-label="Закрыть" onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div className="md:col-span-2">
@@ -328,7 +334,7 @@ export default function ReimbursementsPage() {
                   </td>
                   <td className="py-2 text-right font-medium">{fmt(e.amount)} ₽</td>
                   <td className="py-2 text-right">
-                    <button onClick={ev => { ev.stopPropagation(); deleteExpense(e.id) }}
+                    <button aria-label="Удалить расход" onClick={ev => { ev.stopPropagation(); deleteExpense(e.id) }}
                       className="text-navy-400 hover:text-red-400">
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -383,7 +389,7 @@ export default function ReimbursementsPage() {
                 )}
                 <div className="flex items-center justify-between pt-2 border-t border-navy-800/60">
                   <span className="num text-sm font-medium">{fmt(e.amount)} ₽</span>
-                  <button onClick={ev => { ev.stopPropagation(); deleteExpense(e.id) }}
+                  <button aria-label="Удалить расход" onClick={ev => { ev.stopPropagation(); deleteExpense(e.id) }}
                     className="btn-ghost p-1.5 hover:text-red-400 hover:bg-red-900/10">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>

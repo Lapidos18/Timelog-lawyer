@@ -5,6 +5,7 @@ import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format } from 'date-fns'
 import { Plus, Pencil, Trash2, X, Check, ChevronDown, Filter } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import LoadError from '@/components/LoadError'
 import { SkeletonRows, SkeletonCards } from '@/components/Skeleton'
 
@@ -229,6 +230,10 @@ export default function TableView() {
 
   const templates = TEMPLATES[form.activity_type] ?? []
 
+
+  // Esc закрывает форму записи — см. src/lib/form-keys.ts
+  useEscapeKey(showForm, resetForm)
+
   return (
     <div>
       <div className="flex items-center justify-end mb-4">
@@ -302,10 +307,10 @@ export default function TableView() {
             <h2 className="font-medium text-navy-200">
               {editId ? 'Редактировать запись' : 'Новая запись'}
             </h2>
-            <button onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
+            <button aria-label="Закрыть" onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
           </div>
 
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+          <form onKeyDown={submitOnCtrlEnter} onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
             <div className="md:col-span-1">
               <label className="label">Дело *</label>
               <select className="select" value={form.matter_id}
@@ -532,10 +537,10 @@ export default function TableView() {
                   </td>
                   <td className="py-3">
                     <div className="flex gap-1">
-                      <button onClick={() => startEdit(e)} className="btn-ghost p-1.5">
+                      <button aria-label="Редактировать запись" onClick={() => startEdit(e)} className="btn-ghost p-1.5">
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => handleDelete(e.id)}
+                      <button aria-label="Удалить запись" onClick={() => handleDelete(e.id)}
                         className="btn-ghost p-1.5 hover:text-red-400 hover:bg-red-900/10">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -591,7 +596,7 @@ export default function TableView() {
                         ? <span className="text-navy-100 font-semibold">{formatMoney(e.amount)} ₽</span>
                         : <span className="text-navy-400">—</span>}
                     </span>
-                    <button onClick={ev => { ev.stopPropagation(); handleDelete(e.id) }}
+                    <button aria-label="Удалить запись" onClick={ev => { ev.stopPropagation(); handleDelete(e.id) }}
                       className="btn-ghost p-1.5 hover:text-red-400 hover:bg-red-900/10">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

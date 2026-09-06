@@ -152,7 +152,10 @@ export default function CommandPalette() {
   return (
     // На телефоне окно поднято выше: с открытой клавиатурой при отступе в 12vh
     // список результатов уезжал под неё почти целиком
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[8vh] md:pt-[12vh] safe-x"
+    // data-palette-open — метка для useEscapeKey: пока палитра открыта,
+    // Esc закрывает её, а не форму под ней
+    <div data-palette-open
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[8vh] md:pt-[12vh] safe-x"
       onClick={() => setOpen(false)}>
       <div className="absolute inset-0 bg-black/60" />
       <div className="relative w-full max-w-xl bg-navy-900 border border-navy-700 rounded-xl shadow-2xl overflow-hidden"

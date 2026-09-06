@@ -2,12 +2,41 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { ReportRow, ReportFilters, Client, Matter, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
-import { format, startOfMonth, endOfMonth } from 'date-fns'
+import {
+  format, startOfMonth, endOfMonth, subMonths,
+  startOfQuarter, endOfQuarter, subQuarters,
+  startOfYear, endOfYear, subYears,
+} from 'date-fns'
 import { FileDown, FileSpreadsheet, Filter, ChevronDown, ChevronRight, FileText, X, Check, Trash2, FileBarChart2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import PageHeader from '@/components/PageHeader'
 
 type GroupBy = 'none' | 'client' | 'matter'
+
+const d = (x: Date) => format(x, 'yyyy-MM-dd')
+
+/**
+ * Готовые периоды для фильтра отчёта.
+ *
+ * Диапазон считается в момент нажатия, а не при загрузке страницы: вкладку
+ * оставляют открытой на весь день, и «Этот месяц», посчитанный утром
+ * 31 декабря, к вечеру 1 января был бы уже неверным.
+ */
+const PERIOD_PRESETS: { label: string; range: () => { from: string; to: string } }[] = [
+  { label: 'Этот месяц',   range: () => { const n = new Date()
+      return { from: d(startOfMonth(n)), to: d(endOfMonth(n)) } } },
+  { label: 'Прошлый месяц', range: () => { const p = subMonths(new Date(), 1)
+      return { from: d(startOfMonth(p)), to: d(endOfMonth(p)) } } },
+  { label: 'Этот квартал', range: () => { const n = new Date()
+      return { from: d(startOfQuarter(n)), to: d(endOfQuarter(n)) } } },
+  { label: 'Прошлый квартал', range: () => { const p = subQuarters(new Date(), 1)
+      return { from: d(startOfQuarter(p)), to: d(endOfQuarter(p)) } } },
+  { label: 'Этот год',     range: () => { const n = new Date()
+      return { from: d(startOfYear(n)), to: d(endOfYear(n)) } } },
+  { label: 'Прошлый год',  range: () => { const p = subYears(new Date(), 1)
+      return { from: d(startOfYear(p)), to: d(endOfYear(p)) } } },
+]
 
 function formatMoney(n: number) {
   return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
@@ -230,6 +259,10 @@ export default function ReportsPage() {
 
   const fmtDate = (d: string) => format(new Date(d), 'dd.MM.yy')
 
+
+  // Esc закрывает открытую форму или модалку — см. src/lib/form-keys.ts
+  useEscapeKey(!!editRow, () => setEditRow(null))
+
   return (
     <div className="p-4 md:p-7">
       <PageHeader title="Отчёты" icon={FileBarChart2}>
@@ -253,6 +286,27 @@ export default function ReportsPage() {
         <div className="flex items-center gap-2 mb-4 text-navy-400 text-sm">
           <Filter className="w-4 h-4" /> Фильтры
         </div>
+
+        {/* Готовые периоды: почти все отчёты запрашиваются за месяц, квартал
+            или год, а даты приходилось вбивать вручную каждый раз */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {PERIOD_PRESETS.map(p => {
+            const { from, to } = p.range()
+            const active = filters.date_from === from && filters.date_to === to
+            return (
+              <button key={p.label} type="button"
+                onClick={() => setFilters(f => ({ ...f, date_from: from, date_to: to }))}
+                className={`tap px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  active
+                    ? 'bg-gold-500/10 border-gold-600/50 text-gold-400'
+                    : 'bg-navy-800 border-navy-700 text-navy-300 hover:text-navy-100'
+                }`}>
+                {p.label}
+              </button>
+            )
+          })}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4 mb-4">
           <div>
             <label className="label">Дата с</label>

@@ -141,7 +141,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           <span className="text-sm font-semibold text-navy-200">АК Бухмин А.А.</span>
         </div>
-        <button onClick={() => setMobileOpen(o => !o)}
+        <button aria-label="Меню разделов" onClick={() => setMobileOpen(o => !o)}
           className="p-2 text-navy-400 hover:text-navy-200 hover:bg-navy-800 rounded-lg transition-colors">
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>

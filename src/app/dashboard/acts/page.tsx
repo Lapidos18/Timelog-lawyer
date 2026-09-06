@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { Plus, X, Check, Printer, Trash2, FileCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import { escapeHtml } from '@/lib/html'
 import { printDocument, CABINET_LINE } from '@/lib/print'
 import LoadError from '@/components/LoadError'
@@ -347,6 +348,12 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
     toast.success('Открыт диалог печати')
   }
 
+
+  // Esc закрывает открытую форму или модалку — см. src/lib/form-keys.ts
+  useEscapeKey(showForm, () => setShowForm(false))
+  useEscapeKey(!!previewAct, () => setPreviewAct(null))
+  useEscapeKey(!!payConfirmAct, () => setPayConfirmAct(null))
+
   return (
     <div className="p-4 md:p-7">
       <PageHeader title="Акты об оказании юридической помощи" icon={FileCheck}>
@@ -362,7 +369,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
             <h2 className="font-medium text-navy-200">Создать акт</h2>
             <button onClick={() => setShowForm(false)} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
           </div>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <form onKeyDown={submitOnCtrlEnter} onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="label">Номер акта</label>
               <input type="text" className="input" placeholder={nextActNo}
@@ -488,10 +495,10 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                   </td>
                   <td className="py-3">
                     <div className="flex gap-1">
-                      <button onClick={() => openPreview(act)} className="btn-ghost p-1.5" title="Просмотр / печать">
+                      <button aria-label="Просмотр и печать акта" onClick={() => openPreview(act)} className="btn-ghost p-1.5" title="Просмотр / печать">
                         <Printer className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => deleteAct(act.id)}
+                      <button aria-label="Удалить акт" onClick={() => deleteAct(act.id)}
                         className="btn-ghost p-1.5 hover:text-red-400 hover:bg-red-900/10">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -536,11 +543,11 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                   <span className="num text-sm text-navy-100 font-semibold">{fmt(act.amount)} ₽</span>
                 </div>
                 <div className="flex items-center justify-end gap-1 pt-2 border-t border-navy-800/60">
-                  <button onClick={ev => { ev.stopPropagation(); openPreview(act) }}
+                  <button aria-label="Просмотр и печать акта" onClick={ev => { ev.stopPropagation(); openPreview(act) }}
                     className="btn-ghost p-1.5" title="Просмотр / печать">
                     <Printer className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={ev => { ev.stopPropagation(); deleteAct(act.id) }}
+                  <button aria-label="Удалить акт" onClick={ev => { ev.stopPropagation(); deleteAct(act.id) }}
                     className="btn-ghost p-1.5 hover:text-red-400 hover:bg-red-900/10">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -558,7 +565,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
             <div className="flex items-center justify-between gap-2 px-4 md:px-6 py-4 border-b border-navy-800">
               <h2 className="font-semibold text-navy-200 truncate">{previewAct.act.act_no}</h2>
               <div className="flex gap-2 flex-shrink-0">
-                <button onClick={() => printAct(previewAct.act, previewAct.rows)} className="btn-primary">
+                <button aria-label="Просмотр и печать акта" onClick={() => printAct(previewAct.act, previewAct.rows)} className="btn-primary">
                   <Printer className="w-4 h-4" /> <span className="hidden sm:inline">Печать / </span>PDF
                 </button>
                 <button onClick={() => setPreviewAct(null)} className="btn-ghost p-2"><X className="w-4 h-4" /></button>

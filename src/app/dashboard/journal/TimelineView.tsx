@@ -6,6 +6,7 @@ import { format, addDays, subDays, addMonths, subMonths, startOfMonth, endOfMont
 import { ru } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Plus, X, Check, Calendar, Trash2, Pencil } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import LoadError from '@/components/LoadError'
 import { SkeletonRows } from '@/components/Skeleton'
 
@@ -305,12 +306,16 @@ export default function TimelineView() {
   const totalHours = entries.reduce((s, e) => s + e.duration_min / 60, 0)
   const totalAmount = entries.filter(e => e.is_billable).reduce((s, e) => s + Number(e.amount), 0)
 
+
+  // Esc закрывает форму записи — см. src/lib/form-keys.ts
+  useEscapeKey(showForm, resetForm)
+
   return (
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div className="flex items-center gap-2 md:gap-3 flex-wrap min-w-0">
-          <button onClick={() => setDate(d => subDays(d, 1))} className="btn-ghost p-2">
+          <button aria-label="Предыдущий день" onClick={() => setDate(d => subDays(d, 1))} className="btn-ghost p-2">
             <ChevronLeft className="w-4 h-4" />
           </button>
           <div className="min-w-0">
@@ -319,7 +324,7 @@ export default function TimelineView() {
               {entries.length} записей · {totalHours.toFixed(1)} ч · {formatMoney(totalAmount)} ₽
             </p>
           </div>
-          <button onClick={() => setDate(d => addDays(d, 1))} className="btn-ghost p-2">
+          <button aria-label="Следующий день" onClick={() => setDate(d => addDays(d, 1))} className="btn-ghost p-2">
             <ChevronRight className="w-4 h-4" />
           </button>
 
@@ -336,13 +341,13 @@ export default function TimelineView() {
                               z-50 bg-navy-900 border border-navy-700
                               rounded-xl shadow-2xl p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <button onClick={() => setCalMonth(m => subMonths(m, 1))} className="btn-ghost p-1">
+                  <button aria-label="Предыдущий месяц" onClick={() => setCalMonth(m => subMonths(m, 1))} className="btn-ghost p-1">
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <span className="text-sm font-medium text-navy-200 capitalize">
                     {format(calMonth, 'LLLL yyyy', { locale: ru })}
                   </span>
-                  <button onClick={() => setCalMonth(m => addMonths(m, 1))} className="btn-ghost p-1">
+                  <button aria-label="Следующий месяц" onClick={() => setCalMonth(m => addMonths(m, 1))} className="btn-ghost p-1">
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -429,9 +434,9 @@ export default function TimelineView() {
             <h2 className="font-medium text-navy-200 text-sm capitalize">
               {editId ? 'Редактировать запись' : `Новая запись — ${format(date, 'd MMMM yyyy', { locale: ru })}`}
             </h2>
-            <button onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
+            <button aria-label="Закрыть" onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
           </div>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <form onKeyDown={submitOnCtrlEnter} onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div className="md:col-span-2">
               <label className="label">Дело *</label>
               <select className="select" required value={form.matter_id}

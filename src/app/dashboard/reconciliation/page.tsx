@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { FileDown, FileSpreadsheet, Plus, Trash2, X, Check, ClipboardList } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import { escapeHtml } from '@/lib/html'
 import PageHeader from '@/components/PageHeader'
 import { printDocument, CABINET_LINE } from '@/lib/print'
@@ -87,6 +88,9 @@ export default function ReconciliationPage() {
   }, [])
 
   const clientMatters = matters.filter(m => m.client_id === selectedClient)
+
+  // Esc закрывает форму поступления — см. src/lib/form-keys.ts
+  useEscapeKey(showPayForm, () => { setShowPayForm(false); resetPayForm() })
 
   // Невозмещённые расходы того доверителя, который выбран В ФОРМЕ поступления.
   // При редактировании добавляем ещё и те, что уже привязаны к этому платежу —
@@ -530,7 +534,7 @@ ${reimbBlock}
             </h2>
             <button onClick={() => { setShowPayForm(false); resetPayForm() }} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
           </div>
-          <form onSubmit={addPayment} className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <form onKeyDown={submitOnCtrlEnter} onSubmit={addPayment} className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div className="md:col-span-2">
               <label className="label">Доверитель</label>
               {/* При правке доверителя не меняем: к платежу привязаны издержки
@@ -828,7 +832,7 @@ ${reimbBlock}
                       <td className="py-2 pr-3 text-navy-300 max-w-[200px] truncate">{p.description}</td>
                       <td className="py-2 pr-3 text-right num text-emerald-400">{fmt(p.amount)} ₽</td>
                       <td className="py-2">
-                        <button onClick={ev => { ev.stopPropagation(); deletePayment(p.id) }}
+                        <button aria-label="Удалить платёж" onClick={ev => { ev.stopPropagation(); deletePayment(p.id) }}
                           className="btn-ghost p-1 hover:text-red-400 hover:bg-red-900/10">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -858,7 +862,7 @@ ${reimbBlock}
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="num text-sm text-emerald-400 font-semibold">{fmt(p.amount)} ₽</span>
-                      <button onClick={ev => { ev.stopPropagation(); deletePayment(p.id) }}
+                      <button aria-label="Удалить платёж" onClick={ev => { ev.stopPropagation(); deletePayment(p.id) }}
                         className="btn-ghost p-1.5 hover:text-red-400 hover:bg-red-900/10">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

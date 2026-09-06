@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { Matter, Client, MatterType, MatterStatus, MATTER_TYPE_LABELS, MATTER_STATUS_LABELS } from '@/types'
 import { Plus, Pencil, X, Check, Gavel, Briefcase } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import LoadError from '@/components/LoadError'
 import PageHeader from '@/components/PageHeader'
 import { SkeletonRows } from '@/components/Skeleton'
@@ -275,6 +276,10 @@ export default function MattersPage() {
     )
   }
 
+
+  // Esc закрывает открытую форму или модалку — см. src/lib/form-keys.ts
+  useEscapeKey(showForm, resetForm)
+
   return (
     <div className="p-4 md:p-7">
       <PageHeader title="Дела" icon={Briefcase}>
@@ -287,9 +292,9 @@ export default function MattersPage() {
         <div className="card mb-6 border-gold-800/40">
           <div className="flex items-center justify-between mb-5">
             <h2 className="font-medium text-navy-200">{editId ? 'Редактировать дело' : 'Новое дело'}</h2>
-            <button onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
+            <button aria-label="Закрыть" onClick={resetForm} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
           </div>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+          <form onKeyDown={submitOnCtrlEnter} onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
             <div>
               <label className="label">Доверитель *</label>
               <select className="select" required value={form.client_id}
@@ -429,7 +434,7 @@ export default function MattersPage() {
                     </p>
                     {renderMoneyLine(m)}
                   </div>
-                  <button onClick={() => startEdit(m)} className="btn-ghost p-1.5 flex-shrink-0">
+                  <button aria-label="Редактировать дело" onClick={() => startEdit(m)} className="btn-ghost p-1.5 flex-shrink-0">
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
                 </div>

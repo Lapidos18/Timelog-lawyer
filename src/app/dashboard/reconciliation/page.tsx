@@ -4,13 +4,14 @@ import { createClient } from '@/lib/supabase'
 import { Client, Matter, ACTIVITY_LABELS, ReimbursableExpense } from '@/types'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { FileDown, FileSpreadsheet, Plus, Trash2, X, Check, ClipboardList } from 'lucide-react'
+import { FileDown, FileSpreadsheet, Plus, Trash2, X, Check, ClipboardList, Upload } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import { escapeHtml } from '@/lib/html'
 import PageHeader from '@/components/PageHeader'
 import ChangeHistory from '@/components/ChangeHistory'
 import Modal from '@/components/Modal'
+import ImportStatement from './ImportStatement'
 import { printDocument, CABINET_LINE } from '@/lib/print'
 
 interface Payment {
@@ -76,6 +77,7 @@ export default function ReconciliationPage() {
   // id редактируемого платежа. Раньше исправить сумму можно было только
   // удалением и повторным вводом — легко потерять привязку издержек.
   const [editPayId, setEditPayId] = useState<string | null>(null)
+  const [showImport, setShowImport] = useState(false)
 
   // Возмещаемые расходы доверителя, которые ещё не компенсированы.
   // Платёж от доверителя обычно включает и вознаграждение, и компенсацию издержек;
@@ -512,6 +514,9 @@ ${reimbBlock}
             className="btn-primary">
             <Plus className="w-4 h-4" /> Внести поступление
           </button>
+          <button onClick={() => setShowImport(true)} className="btn-secondary">
+            <Upload className="w-4 h-4" /> Загрузить выписку
+          </button>
           <button onClick={generate} disabled={loading} className="btn-secondary">
             {loading ? 'Загрузка...' : 'Сформировать акт сверки'}
           </button>
@@ -520,6 +525,9 @@ ${reimbBlock}
           )}
         </div>
       </div>
+
+      <ImportStatement open={showImport} onClose={() => setShowImport(false)}
+        clients={clients} onImported={() => { if (generated) generate() }} />
 
       {/* Payment form */}
       <Modal open={showPayForm} onClose={() => { setShowPayForm(false); resetPayForm() }}

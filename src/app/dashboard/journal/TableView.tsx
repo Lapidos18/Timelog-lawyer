@@ -3,8 +3,9 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format } from 'date-fns'
-import { Plus, Pencil, Trash2, X, Check, ChevronDown, Filter, BookOpen } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, ChevronDown, Filter, BookOpen, CopyPlus } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useDraft, loadDraft, clearDraft } from '@/lib/draft'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import EmptyState from '@/components/EmptyState'
 import LoadError from '@/components/LoadError'
@@ -29,6 +30,9 @@ interface EntryWithRelations {
 }
 
 const ACTIVITY_OPTIONS = Object.entries(ACTIVITY_LABELS) as [ActivityType, string][]
+
+// Ключ черновика формы записи — см. src/lib/draft.ts
+const DRAFT_KEY = 'timelog-draft-entry'
 
 // Шаблоны описаний по виду работы
 const TEMPLATES: Record<ActivityType, string[]> = {
@@ -157,6 +161,9 @@ export default function TableView() {
     setForm(f => ({ ...f, matter_id: matterId, hourly_rate: rate ? String(rate) : f.hourly_rate }))
   }
 
+  // Черновик только для новой записи: при правке он затёр бы реальные данные
+  useDraft(DRAFT_KEY, form, showForm && !editId)
+
   function resetForm() {
     setForm({
       matter_id: '',
@@ -172,7 +179,52 @@ export default function TableView() {
     setEditId(null)
     setShowForm(false)
     setShowTemplates(false)
+    clearDraft(DRAFT_KEY)
     if (profile) setSelectedUserId(profile.id)
+  }
+
+  /**
+   * Открыть форму новой записи, восстановив недописанный черновик.
+   *
+   * Ставку и дело из черновика берём как есть: если человек их выбрал,
+   * значит выбрал осознанно, и подставлять поверх значения по умолчанию
+   * было бы обиднее, чем не восстановить ничего.
+   */
+  function openNewEntry() {
+    const draft = loadDraft<typeof form>(DRAFT_KEY)
+    if (draft && (draft.description?.trim() || draft.matter_id)) {
+      setForm(draft)
+      setEditId(null)
+      setShowForm(true)
+      toast('Восстановлен незаконченный черновик', { icon: '📝' })
+      return
+    }
+    resetForm()
+    setShowForm(true)
+  }
+
+  /**
+   * Повторить запись сегодняшней датой.
+   *
+   * В работе адвоката половина записей похожа на вчерашние: то же дело,
+   * тот же вид работы, та же ставка — меняются дата и время. Открываем
+   * форму добавления с этими полями, но БЕЗ времени: его надо указать
+   * заново, иначе легко сохранить вчерашние часы, не заметив.
+   */
+  function repeatEntry(e: EntryWithRelations) {
+    setForm({
+      matter_id: e.matter_id,
+      work_date: format(new Date(), 'yyyy-MM-dd'),
+      hours: '',
+      minutes: '0',
+      hourly_rate: String(e.hourly_rate),
+      activity_type: e.activity_type,
+      description: e.description,
+      is_billable: e.is_billable,
+      notes: '',
+    })
+    setEditId(null)
+    setShowForm(true)
   }
 
   function startEdit(e: EntryWithRelations) {
@@ -243,7 +295,7 @@ export default function TableView() {
             className={`btn-secondary ${hasActiveFilters ? 'border-gold-600/50 text-gold-400' : ''}`}>
             <Filter className="w-4 h-4" /> Фильтры{hasActiveFilters ? ' •' : ''}
           </button>
-          <button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
+          <button onClick={openNewEntry} className="btn-primary">
             <Plus className="w-4 h-4" /> Новая запись
           </button>
         </div>
@@ -486,7 +538,7 @@ export default function TableView() {
           ) : (
             <EmptyState icon={BookOpen} title="Записей пока нет"
               description="Записанное время — основа отчётов, актов и расчёта дохода."
-              action={<button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
+              action={<button onClick={openNewEntry} className="btn-primary">
                 <Plus className="w-4 h-4" /> Добавить первую запись
               </button>} />
           )
@@ -538,6 +590,10 @@ export default function TableView() {
                   </td>
                   <td className="py-3">
                     <div className="flex gap-1">
+                      <button aria-label="Повторить запись" title="Повторить сегодняшней датой"
+                        onClick={() => repeatEntry(e)} className="btn-ghost p-1.5">
+                        <CopyPlus className="w-3.5 h-3.5" />
+                      </button>
                       <button aria-label="Редактировать запись" onClick={() => startEdit(e)} className="btn-ghost p-1.5">
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
@@ -565,7 +621,7 @@ export default function TableView() {
           ) : (
             <EmptyState icon={BookOpen} title="Записей пока нет"
               description="Записанное время — основа отчётов, актов и расчёта дохода."
-              action={<button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
+              action={<button onClick={openNewEntry} className="btn-primary">
                 <Plus className="w-4 h-4" /> Добавить первую запись
               </button>} />
           )

@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { Search, CornerDownLeft, Briefcase, Users, LayoutDashboard } from 'lucide-react'
+import { Search, CornerDownLeft, Briefcase, Users, LayoutDashboard, BookOpen } from 'lucide-react'
 
 /**
  * Быстрый переход по Ctrl+K (⌘K на Mac).
@@ -19,7 +19,7 @@ type Item = {
   id: string
   label: string
   hint?: string
-  group: 'Разделы' | 'Доверители' | 'Дела'
+  group: 'Разделы' | 'Доверители' | 'Дела' | 'Записи'
   href: string
 }
 
@@ -83,7 +83,14 @@ export default function CommandPalette() {
     Promise.all([
       supabase.from('clients').select('id, name').order('name'),
       supabase.from('matters').select('id, title, clients(name)').order('title'),
-    ]).then(([c, m]) => {
+      // Описания записей: «нотариус», «ходатайство» — так проще вспомнить,
+      // когда именно это делалось. Берём последние 300: за пару лет работы
+      // их накопятся тысячи, а искать обычно нужно среди недавних.
+      supabase.from('time_entries')
+        .select('id, work_date, description, matters(title)')
+        .order('work_date', { ascending: false })
+        .limit(300),
+    ]).then(([c, m, e]) => {
       const clientItems: Item[] = (c.data ?? []).map(x => ({
         id: 'c-' + x.id,
         label: x.name,
@@ -98,7 +105,14 @@ export default function CommandPalette() {
         group: 'Дела',
         href: '/dashboard/matters',
       }))
-      setData([...clientItems, ...matterItems])
+      const entryItems: Item[] = (e.data ?? []).filter((x: any) => x.description?.trim()).map((x: any) => ({
+        id: 'e-' + x.id,
+        label: x.description,
+        hint: `${x.work_date.split('-').reverse().join('.')} · ${x.matters?.title ?? '—'}`,
+        group: 'Записи',
+        href: '/dashboard/journal',
+      }))
+      setData([...clientItems, ...matterItems, ...entryItems])
     })
   }, [open, loaded])
 
@@ -145,6 +159,7 @@ export default function CommandPalette() {
     'Разделы': LayoutDashboard,
     'Доверители': Users,
     'Дела': Briefcase,
+    'Записи': BookOpen,
   } as const
 
   let lastGroup = ''

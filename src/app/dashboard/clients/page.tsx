@@ -9,6 +9,7 @@ import LoadError from '@/components/LoadError'
 import PageHeader from '@/components/PageHeader'
 import Modal from '@/components/Modal'
 import EmptyState from '@/components/EmptyState'
+import { checkInn } from '@/lib/inn'
 import { SkeletonRows } from '@/components/Skeleton'
 
 const TYPE_LABELS: Record<ClientType, string> = {
@@ -67,6 +68,9 @@ export default function ClientsPage() {
   // Esc закрывает открытую форму или модалку — см. src/lib/form-keys.ts
   useEscapeKey(showForm, resetForm)
 
+  // Контрольная сумма ИНН — см. src/lib/inn.ts
+  const innCheck = checkInn(form.inn)
+
   return (
     <div className="p-4 md:p-7">
       <PageHeader title="Доверители" icon={Users}>
@@ -94,8 +98,13 @@ export default function ClientsPage() {
             </div>
             <div>
               <label className="label">ИНН</label>
-              <input className="input" value={form.inn}
+              <input className="input" value={form.inn} inputMode="numeric"
                 onChange={e => setForm(f => ({ ...f, inn: e.target.value }))} placeholder="540200000000" />
+              {/* Предупреждение, а не запрет: ИНН может быть известен не полностью,
+                  а карточку доверителя всё равно надо сохранить */}
+              {!innCheck.valid && (
+                <p className="text-xs text-amber-400 mt-1">{innCheck.reason}</p>
+              )}
             </div>
             <div>
               <label className="label">Телефон</label>

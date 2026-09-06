@@ -942,6 +942,62 @@ export default function FinancePage() {
             </div>
           ))}
 
+          {/* Сводка для декларации: те же числа, что и выше, но собранные
+              в порядке, в котором их спрашивает 3-НДФЛ. Раньше их приходилось
+              выбирать глазами из четырёх квартальных карточек. */}
+          <div className="card">
+            <h2 className="text-sm font-semibold text-navy-200 mb-1">Сводка для декларации 3-НДФЛ за {year} год</h2>
+            <p className="text-xs text-navy-400 mb-4">
+              Подаётся до 30 апреля {year + 1} года. Итоги нарастающим итогом за IV квартал.
+            </p>
+            <dl className="text-sm divide-y divide-navy-800">
+              {[
+                ['Доход от адвокатской деятельности', quarterlyCalc[3].grossCum,
+                  'все поступления за год'],
+                ['Минус возмещаемые расходы', -quarterlyCalc[3].reimbCum,
+                  'компенсация издержек — не доход адвоката'],
+                ['Доход, учитываемый в декларации', quarterlyCalc[3].incomeCum, ''],
+                ['Профессиональный вычет (ст. 221 НК РФ)', -quarterlyCalc[3].expenseCum,
+                  'документально подтверждённые расходы кабинета'],
+                ['Налоговая база', quarterlyCalc[3].base, ''],
+                ['Исчислено НДФЛ', quarterlyCalc[3].ndflCum, 'по шкале ст. 224 НК РФ'],
+                ['Уплачено авансами за I–III кварталы',
+                  -(quarterlyCalc[2].actuallyPaidThisQ + quarterlyCalc[1].actuallyPaidThisQ + quarterlyCalc[0].actuallyPaidThisQ),
+                  ''],
+              ].map(([label, value, note], i) => (
+                <div key={i} className="flex items-baseline justify-between gap-3 py-2">
+                  <dt className="text-navy-300">
+                    {label as string}
+                    {note ? <span className="block text-xs text-navy-400">{note as string}</span> : null}
+                  </dt>
+                  <dd className="num text-navy-100 whitespace-nowrap">{fmt2(value as number)} ₽</dd>
+                </div>
+              ))}
+              <div className="flex items-baseline justify-between gap-3 pt-3">
+                <dt className="font-medium text-navy-200">К доплате по декларации</dt>
+                <dd className="num font-semibold text-navy-100 whitespace-nowrap">
+                  {fmt2(Math.max(0, quarterlyCalc[3].ndflCum
+                    - quarterlyCalc[0].actuallyPaidThisQ
+                    - quarterlyCalc[1].actuallyPaidThisQ
+                    - quarterlyCalc[2].actuallyPaidThisQ))} ₽
+                </dd>
+              </div>
+            </dl>
+
+            {/* Страховые взносы в состав вычета сейчас НЕ включаются — это
+                решение пользователя, а не упущение расчёта. См. пояснение. */}
+            {contributionsCalc && (contributionsCalc.paidFixed + contributionsCalc.paidOps) > 0 && (
+              <p className="text-xs text-amber-400 mt-4 leading-relaxed">
+                За год уплачено страховых взносов на{' '}
+                <span className="num">{fmt2(contributionsCalc.paidFixed + contributionsCalc.paidOps)}</span> ₽.
+                В профессиональный вычет выше они не входят: в расчёт берутся только записи
+                из раздела «Расходы». Абз. 3 п. 3 ст. 221 НК РФ относит страховые взносы
+                к профвычету — если вы их туда включаете, заведите уплату отдельной строкой
+                в «Расходах» либо скажите, и я добавлю их в расчёт автоматически.
+              </p>
+            )}
+          </div>
+
           <div className="card border-gold-800/40">
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-sm font-semibold text-gold-400">Внести фактическую уплату</h2>

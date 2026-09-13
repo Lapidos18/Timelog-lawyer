@@ -2,13 +2,14 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Matter, Client, MatterType, MatterStatus, MATTER_TYPE_LABELS, MATTER_STATUS_LABELS } from '@/types'
-import { Plus, Pencil, X, Check, Gavel, Briefcase } from 'lucide-react'
+import { Plus, Pencil, X, Check, Gavel, Briefcase, FolderOpen } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import LoadError from '@/components/LoadError'
 import PageHeader from '@/components/PageHeader'
 import Modal from '@/components/Modal'
 import EmptyState from '@/components/EmptyState'
+import { isDriveUrl, driveUrlHint } from '@/lib/drive-link'
 import { SkeletonRows } from '@/components/Skeleton'
 
 interface MatterWithClient extends Matter { clients: Client }
@@ -43,7 +44,7 @@ export default function MattersPage() {
     client_id: '', title: '', agreement_no: '',
     matter_type: 'litigation' as MatterType, status: 'active' as MatterStatus,
     court: '', case_no: '', hourly_rate: '', fixed_fee: '',
-    started_at: '', closed_at: '', notes: '',
+    started_at: '', closed_at: '', notes: '', drive_folder_url: '',
   })
 
   const loadMatters = useCallback(async () => {
@@ -99,7 +100,7 @@ export default function MattersPage() {
   function resetForm() {
     setForm({ client_id: '', title: '', agreement_no: '', matter_type: 'litigation',
       status: 'active', court: '', case_no: '', hourly_rate: '', fixed_fee: '',
-      started_at: '', closed_at: '', notes: '' })
+      started_at: '', closed_at: '', notes: '', drive_folder_url: '' })
     setEditId(null); setShowForm(false)
   }
 
@@ -110,12 +111,20 @@ export default function MattersPage() {
       case_no: m.case_no ?? '', hourly_rate: m.hourly_rate ? String(m.hourly_rate) : '',
       fixed_fee: m.fixed_fee ? String(m.fixed_fee) : '', started_at: m.started_at ?? '',
       closed_at: m.closed_at ?? '', notes: m.notes ?? '',
+      drive_folder_url: m.drive_folder_url ?? '',
     })
     setEditId(m.id); setShowForm(true)
   }
 
   async function handleSubmit(ev: React.FormEvent) {
-    ev.preventDefault(); setSubmitting(true)
+    ev.preventDefault()
+    const original = editId ? (matters.find(x => x.id === editId)?.drive_folder_url ?? '') : ''
+    const driveLinkChanged = form.drive_folder_url.trim() !== original.trim()
+    if (driveLinkChanged && form.drive_folder_url.trim() && !isDriveUrl(form.drive_folder_url)) {
+      toast.error('Ссылка на папку должна вести на Google Диск')
+      return
+    }
+    setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
     const payload = {
       client_id: form.client_id, title: form.title,
@@ -125,6 +134,10 @@ export default function MattersPage() {
       fixed_fee: form.fixed_fee ? parseFloat(form.fixed_fee) : null,
       started_at: form.started_at || null, closed_at: form.closed_at || null,
       notes: form.notes || null,
+      // Ссылку отправляем, только если её ввели или изменили. Пока миграция
+      // 014 не выполнена, колонки в базе нет, и лишнее поле в запросе
+      // уронило бы сохранение ЛЮБОГО дела — даже без ссылки.
+      ...(driveLinkChanged ? { drive_folder_url: form.drive_folder_url.trim() || null } : {}),
     }
     const { error } = editId
       ? await supabase.from('matters').update(payload).eq('id', editId)
@@ -366,6 +379,15 @@ export default function MattersPage() {
                 onChange={e => setForm(f => ({ ...f, closed_at: e.target.value }))} />
             </div>
             <div className="md:col-span-3">
+              <label className="label">Папка на Google Диске</label>
+              <input type="url" inputMode="url" className="input" value={form.drive_folder_url}
+                placeholder="https://drive.google.com/drive/folders/…"
+                onChange={e => setForm(f => ({ ...f, drive_folder_url: e.target.value }))} />
+              {driveUrlHint(form.drive_folder_url)
+                ? <p className="text-xs text-amber-400 mt-1">{driveUrlHint(form.drive_folder_url)}</p>
+                : <p className="text-xs text-navy-400 mt-1">Откройте папку дела на Диске и скопируйте адрес из строки браузера</p>}
+            </div>
+            <div className="md:col-span-3">
               <label className="label">Примечания</label>
               <textarea className="input resize-none" rows={2} value={form.notes}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
@@ -449,6 +471,14 @@ export default function MattersPage() {
                     </p>
                     {renderMoneyLine(m)}
                   </div>
+                  {isDriveUrl(m.drive_folder_url) && (
+                    <a href={m.drive_folder_url!.trim()} target="_blank" rel="noopener noreferrer"
+                      aria-label="Открыть папку дела на Google Диске" title="Папка на Google Диске"
+                      onDoubleClick={ev => ev.stopPropagation()}
+                      className="btn-ghost p-1.5 flex-shrink-0">
+                      <FolderOpen className="w-3.5 h-3.5" />
+                    </a>
+                  )}
                   <button aria-label="Редактировать дело" onClick={() => startEdit(m)} className="btn-ghost p-1.5 flex-shrink-0">
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
@@ -512,6 +542,16 @@ export default function MattersPage() {
                       <p className="text-navy-400 text-xs mt-1.5">
                         По соглашению <span className="num text-navy-200">{fmtMoney(Number(m.fixed_fee))} ₽</span>
                       </p>
+                    )}
+                    {/* Нажатие на ссылку не должно открывать правку дела —
+                        карточка целиком реагирует на касание */}
+                    {isDriveUrl(m.drive_folder_url) && (
+                      <a href={m.drive_folder_url!.trim()} target="_blank" rel="noopener noreferrer"
+                        onClick={ev => ev.stopPropagation()}
+                        className="tap mt-2 inline-flex items-center gap-2 px-3 rounded-lg text-xs
+                                   bg-navy-800 border border-navy-700 text-navy-200">
+                        <FolderOpen className="w-4 h-4 flex-shrink-0" /> Папка на Google Диске
+                      </a>
                     )}
                   </div>
                 )

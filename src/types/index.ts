@@ -72,6 +72,8 @@ export interface Matter {
   started_at: string | null
   closed_at: string | null
   notes: string | null
+  // Миграция 014. Может отсутствовать совсем, пока миграция не выполнена
+  drive_folder_url?: string | null
   created_by: string | null
   created_at: string
   updated_at: string

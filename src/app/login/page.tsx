@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { Scale } from 'lucide-react'
+import Link from 'next/link'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -80,6 +81,15 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
+
+        {/* Под карточкой, а не над полем пароля: там увеличенная до 44 px
+            область касания наезжала на поле, и попытка ткнуть в поле
+            уводила со страницы */}
+        <p className="text-center text-sm mt-4">
+          <Link href="/forgot-password" className="tap inline-flex items-center text-gold-400 hover:underline">
+            Забыли пароль?
+          </Link>
+        </p>
 
         <p className="text-center text-xs text-navy-400 mt-6">
           Адвокатская тайна охраняется ст. 8 ФЗ-63

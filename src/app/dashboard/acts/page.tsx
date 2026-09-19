@@ -4,13 +4,14 @@ import { createClient } from '@/lib/supabase'
 import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { Plus, X, Check, Printer, Trash2, FileCheck } from 'lucide-react'
+import { Plus, X, Check, Printer, Trash2, FileCheck, RefreshCw, Lock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import { escapeHtml } from '@/lib/html'
 import { printDocument, CABINET_LINE } from '@/lib/print'
 import LoadError from '@/components/LoadError'
 import { fmtMoneyWords } from '@/lib/money-words'
+import { nextActNo as computeNextActNo, toActRows, actRowsTotal } from '@/lib/acts'
 import { SkeletonRows, SkeletonCards } from '@/components/Skeleton'
 import PageHeader from '@/components/PageHeader'
 import ChangeHistory from '@/components/ChangeHistory'
@@ -28,6 +29,9 @@ interface Act {
   description: string | null
   status: 'draft' | 'signed' | 'paid'
   created_at: string
+  // Миграция 015: копия строк на момент создания. null — старый акт,
+  // undefined — миграция ещё не выполнена
+  rows?: ServiceRow[] | null
   matters: Matter & { clients: Client }
 }
 
@@ -148,7 +152,7 @@ export default function ActsPage() {
           performed_by: r.performed_by,
         }))
         setPreviewRows(rows)
-        setPreviewTotal(rows.reduce((s: number, r: ServiceRow) => s + r.amount, 0))
+        setPreviewTotal(actRowsTotal(rows))
         setLoadingPreview(false)
       })
   }, [form.matter_id, form.period_from, form.period_to])
@@ -164,16 +168,7 @@ export default function ActsPage() {
    * набранные вручную в другом формате, просто не попадают под шаблон
    * и на счёт не влияют.
    */
-  const nextActNo = (() => {
-    const y = new Date().getFullYear()
-    const re = new RegExp(`^АКТ-${y}-(\\d+)$`)
-    const used = acts
-      .map(a => a.act_no.trim().match(re))
-      .filter((m): m is RegExpMatchArray => m !== null)
-      .map(m => parseInt(m[1], 10))
-    const next = used.length > 0 ? Math.max(...used) + 1 : 1
-    return `АКТ-${y}-${String(next).padStart(3, '0')}`
-  })()
+  const nextActNo = computeNextActNo(acts.map(a => a.act_no), new Date().getFullYear())
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -183,7 +178,7 @@ export default function ActsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     const m = matters.find(x => x.id === form.matter_id)!
     const actNo = form.act_no || nextActNo
-    const { error } = await supabase.from('acts').insert({
+    const base = {
       act_no: actNo,
       matter_id: form.matter_id,
       client_id: m.client_id,
@@ -192,7 +187,16 @@ export default function ActsPage() {
       amount: previewTotal,
       description: form.description || null,
       created_by: user!.id,
-    })
+    }
+    // Копия строк — чтобы акт печатался таким, каким был создан, а не
+    // тем, что лежит в журнале сегодня (миграция 015).
+    let { error } = await supabase.from('acts').insert({ ...base, rows: previewRows })
+    // Сайт выкатывается раньше, чем выполнена миграция. Пока колонки rows
+    // нет, создаём акт без копии — это старое поведение, лучше, чем отказ.
+    if (error && /rows/.test(error.message) && /column|schema/i.test(error.message)) {
+      ({ error } = await supabase.from('acts').insert(base))
+      if (!error) toast('Акт создан без сохранения состава — выполните миграцию 015', { icon: '⚠️' })
+    }
     if (error) {
       // 23505 — нарушение уникальности: акт с таким номером уже существует.
       // Показываем это по-человечески, а не текстом ошибки базы.
@@ -206,26 +210,55 @@ export default function ActsPage() {
     setSubmitting(false)
   }
 
-  async function openPreview(act: Act) {
+  /** Текущий состав из журнала — для актов без копии и для «Обновить из журнала» */
+  async function fetchLiveRows(act: Act): Promise<ServiceRow[] | null> {
     const { data, error } = await supabase.from('report_view').select('*')
       .eq('matter_id', act.matter_id)
       .gte('work_date', act.period_from)
       .lte('work_date', act.period_to)
       .eq('is_billable', true)
       .order('work_date')
-    if (error) {
+    if (error) return null
+    return toActRows(data ?? []) as ServiceRow[]
+  }
+
+  async function openPreview(act: Act) {
+    // Акт показывается и печатается из своей копии — таким, каким был создан.
+    // Из журнала — только старые акты, созданные до миграции 015.
+    if (Array.isArray(act.rows)) {
+      setPreviewAct({ act, rows: act.rows as ServiceRow[] })
+      return
+    }
+    const rows = await fetchLiveRows(act)
+    if (!rows) {
       toast.error('Не удалось загрузить содержание акта. Проверьте связь и попробуйте снова.')
       return
     }
-    setPreviewAct({
-      act,
-      rows: (data ?? []).map((r: any) => ({
-        id: r.id, work_date: r.work_date, activity_type: r.activity_type,
-        description: r.description, hours: Number(r.hours),
-        hourly_rate: Number(r.hourly_rate), amount: Number(r.amount),
-        performed_by: r.performed_by,
-      }))
-    })
+    setPreviewAct({ act, rows })
+  }
+
+  /**
+   * Пересобрать черновик из журнала.
+   *
+   * Только для черновика: подписанный акт — это документ, который видел
+   * доверитель, и меняться он не должен. Сумма нового состава показывается
+   * до сохранения, чтобы расхождение не прошло незамеченным.
+   */
+  async function refreshDraft(act: Act) {
+    if (act.status !== 'draft') return
+    const rows = await fetchLiveRows(act)
+    if (!rows) { toast.error('Не удалось получить записи журнала'); return }
+    const total = actRowsTotal(rows)
+    const was = Number(act.amount)
+    const msg = Math.abs(total - was) < 0.005
+      ? `Сумма не изменится: ${fmt(total)} руб. Обновить состав акта из журнала?`
+      : `Сумма акта изменится: было ${fmt(was)} руб., станет ${fmt(total)} руб. Обновить?`
+    if (!confirm(msg)) return
+    const { error } = await supabase.from('acts').update({ rows, amount: total }).eq('id', act.id)
+    if (error) { toast.error('Не удалось обновить акт: ' + error.message); return }
+    toast.success('Состав акта обновлён из журнала')
+    setPreviewAct({ act: { ...act, rows, amount: total }, rows })
+    loadActs()
   }
 
   async function changeStatus(id: string, status: Act['status']) {
@@ -317,7 +350,7 @@ export default function ActsPage() {
         <td>${escapeHtml(displayPerformer(r.performed_by))}</td>
       </tr>`).join('')
 
-    const total = rows.reduce((s, r) => s + r.amount, 0)
+    const total = actRowsTotal(rows)
 
     const body = `
 <h2>Акт об оказании юридической помощи</h2>
@@ -590,7 +623,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                 <button aria-label="Просмотр и печать акта" onClick={() => printAct(previewAct.act, previewAct.rows)} className="btn-primary">
                   <Printer className="w-4 h-4" /> <span className="hidden sm:inline">Печать / </span>PDF
                 </button>
-                <button onClick={() => setPreviewAct(null)} className="btn-ghost p-2"><X className="w-4 h-4" /></button>
+                <button aria-label="Закрыть" onClick={() => setPreviewAct(null)} className="btn-ghost p-2"><X className="w-4 h-4" /></button>
               </div>
             </div>
             <div className="overflow-y-auto p-4 md:p-6">
@@ -599,6 +632,28 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                 <b className="text-navy-300">Дело:</b> {previewAct.act.matters.title} &nbsp;·&nbsp;
                 <b className="text-navy-300">Период:</b> {fmtDate(previewAct.act.period_from)} — {fmtDate(previewAct.act.period_to)}
               </p>
+
+              {/* Откуда взят состав акта — от этого зависит, что можно сделать */}
+              {!Array.isArray(previewAct.act.rows) ? (
+                <p className="text-xs text-amber-400 mb-3">
+                  Акт создан до сохранения состава — строки показаны по текущему журналу.
+                </p>
+              ) : previewAct.act.status === 'draft' ? (
+                <div className="flex items-center justify-between gap-3 flex-wrap mb-3 px-3 py-2 rounded-lg bg-navy-800/60">
+                  <p className="text-xs text-navy-300">
+                    Черновик: состав зафиксирован при создании. Если после этого правили журнал — обновите.
+                  </p>
+                  <button onClick={() => refreshDraft(previewAct.act)} className="btn-secondary text-xs">
+                    <RefreshCw className="w-3.5 h-3.5" /> Обновить из журнала
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-navy-400 mb-3 flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 flex-shrink-0" />
+                  Акт {previewAct.act.status === 'paid' ? 'оплачен' : 'подписан'}: состав зафиксирован,
+                  записи из него в журнале изменить нельзя. Чтобы исправить — переведите акт в «Черновик».
+                </p>
+              )}
               {/* Таблица (десктоп) */}
               <div className="hidden md:block overflow-x-auto lg:overflow-x-visible -mx-6 px-6">
               <table className="w-full text-xs mb-4 min-w-[640px] table-sticky">
@@ -627,7 +682,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                   <tr className="border-t-2 border-navy-700">
                     <td colSpan={6} className="pt-2 text-right text-navy-400 font-medium pr-3">Итого:</td>
                     <td className="pt-2 text-right num font-bold text-navy-100">
-                      {fmt(previewAct.rows.reduce((s,r) => s+r.amount, 0))} ₽
+                      {fmt(actRowsTotal(previewAct.rows))} ₽
                     </td>
                     <td />
                   </tr>
@@ -661,7 +716,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                 <div className="pt-2.5 flex items-center justify-between text-xs">
                   <span className="text-navy-400 font-medium">Итого:</span>
                   <span className="num font-bold text-navy-100">
-                    {fmt(previewAct.rows.reduce((s,r) => s+r.amount, 0))} ₽
+                    {fmt(actRowsTotal(previewAct.rows))} ₽
                   </span>
                 </div>
               </div>

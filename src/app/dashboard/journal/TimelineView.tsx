@@ -9,6 +9,7 @@ import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import Modal from '@/components/Modal'
 import LoadError from '@/components/LoadError'
+import { useLockedEntries, lockedMessage } from '@/lib/locked-entries'
 import { SkeletonRows } from '@/components/Skeleton'
 
 interface DayEntry {
@@ -58,6 +59,8 @@ export default function TimelineView() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
+  // Записи из подписанных и оплаченных актов — править нельзя
+  const { locked } = useLockedEntries()
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [editUserId, setEditUserId] = useState<string | null>(null)
@@ -239,6 +242,8 @@ export default function TimelineView() {
 
   // Double-click to edit
   function openEdit(entry: DayEntry) {
+    const actNo = locked.get(entry.id)
+    if (actNo) { toast.error(lockedMessage(actNo)); return }
     const startDec = timeToDecimal(entry.start_time)
     const startH = Math.floor(startDec)
     const startM = Math.round((startDec - startH) * 60)

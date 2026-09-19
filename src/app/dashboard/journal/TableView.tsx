@@ -3,9 +3,10 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format } from 'date-fns'
-import { Plus, Pencil, Trash2, X, Check, ChevronDown, Filter, BookOpen, CopyPlus } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, ChevronDown, Filter, BookOpen, CopyPlus, Lock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useDraft, loadDraft, clearDraft } from '@/lib/draft'
+import { useLockedEntries, lockedMessage } from '@/lib/locked-entries'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import EmptyState from '@/components/EmptyState'
 import Modal from '@/components/Modal'
@@ -162,6 +163,9 @@ export default function TableView() {
     setForm(f => ({ ...f, matter_id: matterId, hourly_rate: rate ? String(rate) : f.hourly_rate }))
   }
 
+  // Записи из подписанных и оплаченных актов — править и удалять нельзя
+  const { locked } = useLockedEntries()
+
   // Черновик только для новой записи: при правке он затёр бы реальные данные
   useDraft(DRAFT_KEY, form, showForm && !editId)
 
@@ -229,6 +233,8 @@ export default function TableView() {
   }
 
   function startEdit(e: EntryWithRelations) {
+    const actNo = locked.get(e.id)
+    if (actNo) { toast.error(lockedMessage(actNo)); return }
     const h = Math.floor(e.duration_min / 60)
     const m = e.duration_min % 60
     setForm({
@@ -276,9 +282,11 @@ export default function TableView() {
   }
 
   async function handleDelete(id: string) {
+    const actNo = locked.get(id)
+    if (actNo) { toast.error(lockedMessage(actNo)); return }
     if (!confirm('Удалить запись?')) return
     const { error } = await supabase.from('time_entries').delete().eq('id', id)
-    if (error) { toast.error('Ошибка удаления') }
+    if (error) { toast.error('Не удалось удалить: ' + error.message) }
     else { toast.success('Удалено'); loadEntries() }
   }
 
@@ -588,6 +596,13 @@ export default function TableView() {
                         onClick={() => repeatEntry(e)} className="btn-ghost p-1.5">
                         <CopyPlus className="w-3.5 h-3.5" />
                       </button>
+                      {locked.has(e.id) ? (
+                        <span className="btn-ghost p-1.5 cursor-default" role="img"
+                          aria-label={`Входит в акт ${locked.get(e.id)}`}
+                          title={`Входит в акт ${locked.get(e.id)} — изменить нельзя`}>
+                          <Lock className="w-3.5 h-3.5" />
+                        </span>
+                      ) : (<>
                       <button aria-label="Редактировать запись" onClick={() => startEdit(e)} className="btn-ghost p-1.5">
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
@@ -595,6 +610,7 @@ export default function TableView() {
                         className="btn-ghost p-1.5 hover:text-red-400 hover:bg-red-900/10">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
+                      </>)}
                     </div>
                   </td>
                 </tr>
@@ -630,7 +646,10 @@ export default function TableView() {
                     <p className="text-navy-200 text-sm font-medium truncate">{e.matters?.clients?.name}</p>
                     <p className="text-navy-300 text-xs truncate">{e.matters?.title}</p>
                   </div>
-                  <span className="text-navy-400 num text-xs whitespace-nowrap flex-shrink-0">
+                  <span className="text-navy-400 num text-xs whitespace-nowrap flex-shrink-0 flex items-center gap-1">
+                    {locked.has(e.id) && (
+                      <Lock className="w-3 h-3" aria-label={`Входит в акт ${locked.get(e.id)}`} />
+                    )}
                     {format(new Date(e.work_date), 'dd.MM.yy')}
                   </span>
                 </div>

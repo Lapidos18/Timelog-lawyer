@@ -12,6 +12,7 @@ import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import PageHeader from '@/components/PageHeader'
 import EmptyState from '@/components/EmptyState'
+import { useLockedEntries, lockedMessage } from '@/lib/locked-entries'
 
 type GroupBy = 'none' | 'client' | 'matter'
 
@@ -83,6 +84,8 @@ export default function ReportsPage() {
     description: '', is_billable: true, notes: '',
   })
   const [editSaving, setEditSaving] = useState(false)
+  // Записи из подписанных и оплаченных актов — править нельзя
+  const { locked } = useLockedEntries()
 
   const now = new Date()
   const [filters, setFilters] = useState<ReportFilters>({
@@ -145,6 +148,8 @@ export default function ReportsPage() {
   }
 
   function openEdit(row: ReportRow) {
+    const actNo = locked.get(row.id)
+    if (actNo) { toast.error(lockedMessage(actNo)); return }
     const h = Math.floor(row.duration_min / 60)
     const m = row.duration_min % 60
     setEditForm({

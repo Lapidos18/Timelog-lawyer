@@ -1,8 +1,34 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
+import { createClient as createPlainClient } from '@supabase/supabase-js'
 import { Scale, MailCheck } from 'lucide-react'
+
+/**
+ * Отдельный клиент только для запроса письма.
+ *
+ * Основной клиент приложения работает по схеме PKCE: секрет для обмена
+ * кода из письма остаётся в браузере, где сброс запросили. Письмо,
+ * открытое в другом месте — в приложении Gmail на телефоне, на другом
+ * компьютере, — не сработает.
+ *
+ * Обычно это решают правкой шаблона письма, но в бесплатном тарифе
+ * Supabase шаблоны без собственного почтового сервера не редактируются.
+ * Поэтому запрос отправляется по схеме implicit: Supabase не ждёт
+ * секрета и сам возвращает ключ сессии в адресе ссылки. Такая ссылка
+ * работает на любом устройстве. Защищена она так же, как и вариант из
+ * документации Supabase для открытия с другого устройства: у кого письмо,
+ * тот и может задать пароль — поэтому ссылка живёт один час.
+ *
+ * Сессию этот клиент не хранит и не подхватывает — только отправляет запрос.
+ */
+function recoveryClient() {
+  return createPlainClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { flowType: 'implicit', persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }
+  )
+}
 
 /**
  * Запрос ссылки для сброса пароля.
@@ -15,7 +41,6 @@ import { Scale, MailCheck } from 'lucide-react'
  * превратилась бы в способ проверять, какие адреса зарегистрированы.
  */
 export default function ForgotPasswordPage() {
-  const supabase = createClient()
   const [email, setEmail] = useState('')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
@@ -25,7 +50,7 @@ export default function ForgotPasswordPage() {
     e.preventDefault()
     setSending(true)
     setError('')
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    const { error } = await recoveryClient().auth.resetPasswordForEmail(email.trim(), {
       redirectTo: `${window.location.origin}/reset-password`,
     })
     setSending(false)

@@ -9,17 +9,18 @@ import toast from 'react-hot-toast'
 /**
  * Установка нового пароля по ссылке из письма.
  *
- * Ссылка приходит в одном из двух видов, и поддерживаются оба:
+ * Поддерживаются три вида ссылки:
  *
- *  • ?token_hash=…&type=recovery — работает на ЛЮБОМ устройстве. Для этого
- *    в Supabase нужно поправить шаблон письма (см. инструкцию). Запросили
- *    сброс на компьютере, открыли письмо на телефоне — всё сработает.
+ *  • #access_token=…&type=recovery — основной. Так приходит ссылка, если
+ *    сброс запрошен по схеме implicit (см. forgot-password/page.tsx).
+ *    Работает на любом устройстве и не требует правки шаблона письма,
+ *    которая в бесплатном тарифе Supabase недоступна.
  *
- *  • ?code=… — вид по умолчанию. Здесь Supabase использует защищённый поток
- *    PKCE: секрет для обмена кода остаётся в браузере, где сброс запросили.
- *    Открыть такую ссылку можно только в том же браузере — на другом
- *    устройстве обмен не пройдёт, и об этом надо сказать прямо, а не
- *    выдать непонятную ошибку.
+ *  • ?token_hash=…&type=recovery — если когда-нибудь подключат свой
+ *    почтовый сервер и поправят шаблон. Тоже работает на любом устройстве.
+ *
+ *  • ?code=… — схема PKCE, открывается только в том же браузере, где
+ *    сброс запросили. Оставлена на случай старых писем.
  *
  * Параметры читаются из window.location, а не через useSearchParams:
  * тому в Next 15 нужна обёртка Suspense, без неё падает сборка.
@@ -38,15 +39,38 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     async function verify() {
       const q = new URLSearchParams(window.location.search)
+      // Ключ сессии и ошибки Supabase кладёт после «#», а не после «?»
+      const h = new URLSearchParams(window.location.hash.replace(/^#/, ''))
       const tokenHash = q.get('token_hash')
       const code = q.get('code')
-      const urlError = q.get('error_description')
+      const accessToken = h.get('access_token')
+      const refreshToken = h.get('refresh_token')
+      const urlError = q.get('error_description') || h.get('error_description')
+      const urlErrorCode = q.get('error_code') || h.get('error_code')
 
-      if (urlError) {
-        setFailure(/expired/i.test(urlError)
+      // Ключ в адресе строки — это пропуск в кабинет на час. Убираем его
+      // из адресной строки и истории браузера сразу, как только прочитали,
+      // чтобы он не остался в истории и не ушёл дальше при копировании адреса.
+      if (window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname)
+      }
+
+      if (urlError || urlErrorCode) {
+        setFailure(/expired/i.test(`${urlError} ${urlErrorCode}`)
           ? 'Ссылка устарела — она действует один час. Запросите новую.'
-          : 'Ссылка недействительна. Запросите новую.')
+          : 'Ссылка недействительна или уже была использована. Запросите новую.')
         setStage('failed'); return
+      }
+
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken, refresh_token: refreshToken,
+        })
+        if (error) {
+          setFailure('Ссылка устарела или уже была использована. Запросите новую.')
+          setStage('failed'); return
+        }
+        setStage('ready'); return
       }
 
       if (tokenHash) {

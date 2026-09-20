@@ -626,7 +626,7 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                 <button aria-label="Закрыть" onClick={() => setPreviewAct(null)} className="btn-ghost p-2"><X className="w-4 h-4" /></button>
               </div>
             </div>
-            <div className="overflow-y-auto p-4 md:p-6">
+            <div className="overflow-y-auto p-4 md:p-6 pb-[calc(1rem_+_env(safe-area-inset-bottom))]">
               <p className="text-xs text-navy-400 mb-3">
                 <b className="text-navy-300">Доверитель:</b> {previewAct.act.matters.clients.name} &nbsp;·&nbsp;
                 <b className="text-navy-300">Дело:</b> {previewAct.act.matters.title} &nbsp;·&nbsp;
@@ -730,8 +730,13 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
       {/* Подтверждение фактической оплаты при переводе акта в статус "Оплачен" */}
       {payConfirmAct && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="bg-navy-900 rounded-xl border border-navy-700 w-full max-w-md">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-navy-800">
+          {/* Высота ограничена и включена прокрутка: на телефоне при открытой
+              клавиатуре видимая часть экрана сжимается примерно вдвое, и без
+              этого нижние кнопки оказывались за краем окна без возможности
+              их докрутить */}
+          <div className="bg-navy-900 rounded-xl border border-navy-700 w-full max-w-md
+                          max-h-[90dvh] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
+            <div className="sticky top-0 z-10 bg-navy-900 flex items-center justify-between px-6 py-4 border-b border-navy-800">
               <h2 className="font-semibold text-navy-200">Зафиксировать оплату?</h2>
               <button onClick={() => setPayConfirmAct(null)} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
             </div>

@@ -527,7 +527,7 @@ export default function FinancePage() {
             {/* Ввод поступлений живёт только в «Платежи / Акт сверки» — иначе
                 получаются два места для одного действия и непонятно, чем они различаются */}
             <Link href="/dashboard/reconciliation"
-              className="flex items-center gap-1.5 bg-gold-500 text-navy-950 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gold-400">
+              className="tap inline-flex items-center gap-1.5 bg-gold-500 text-navy-950 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gold-400">
               <Plus className="w-4 h-4" /> Внести поступление
             </Link>
           </div>
@@ -538,7 +538,7 @@ export default function FinancePage() {
                 <h2 className="text-sm font-semibold text-gold-400">
                   {editIncomeId ? 'Редактировать доход' : 'Новый доход (ручная запись)'}
                 </h2>
-                <button aria-label="Закрыть" onClick={resetIncomeForm} className="text-navy-400 hover:text-navy-200">
+                <button aria-label="Закрыть" onClick={resetIncomeForm} className="tap-icon text-navy-400 hover:text-navy-200">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -626,7 +626,7 @@ export default function FinancePage() {
                     <td className="py-2 text-right font-medium">{fmt2(i.amount)} ₽</td>
                     <td className="py-2 text-right">
                       {i.source === 'manual' && (
-                        <button aria-label="Удалить доход" onClick={() => deleteIncome(i.id)} className="text-navy-400 hover:text-red-400">
+                        <button aria-label="Удалить доход" onClick={() => deleteIncome(i.id)} className="tap-icon text-navy-400 hover:text-red-400">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       )}
@@ -669,7 +669,7 @@ export default function FinancePage() {
                         <span className="num text-sm font-semibold">{fmt2(i.amount)} ₽</span>
                         {i.source === 'manual' && (
                           <button aria-label="Удалить доход" onClick={ev => { ev.stopPropagation(); deleteIncome(i.id) }}
-                            className="text-navy-400 hover:text-red-400">
+                            className="tap-icon text-navy-400 hover:text-red-400">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         )}
@@ -693,7 +693,7 @@ export default function FinancePage() {
             </div>
             <button
               onClick={() => { resetExpenseForm(); setShowExpenseForm(true) }}
-              className="flex items-center gap-1.5 bg-gold-500 text-navy-950 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gold-400"
+              className="tap inline-flex items-center gap-1.5 bg-gold-500 text-navy-950 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gold-400"
             >
               <Plus className="w-4 h-4" /> Добавить расход
             </button>
@@ -756,7 +756,7 @@ export default function FinancePage() {
                   <Check className="w-4 h-4" /> {editExpenseId ? 'Сохранить' : 'Добавить'}
                 </button>
                 <button onClick={resetExpenseForm}
-                  className="flex items-center gap-1.5 bg-navy-800 text-navy-400 py-2 px-4 rounded-lg text-sm font-medium hover:text-navy-200">
+                  className="tap inline-flex items-center gap-1.5 bg-navy-800 text-navy-400 py-2 px-4 rounded-lg text-sm font-medium hover:text-navy-200">
                   <X className="w-4 h-4" /> Отмена
                 </button>
               </div>
@@ -798,7 +798,7 @@ export default function FinancePage() {
                     <td className="py-2 text-right font-medium">{fmt2(e.amount)} ₽</td>
                     <td className="py-2 text-right">
                       <button aria-label="Удалить расход" onClick={(ev) => { ev.stopPropagation(); deleteExpense(e.id) }}
-                        className="text-navy-400 hover:text-red-400">
+                        className="tap-icon text-navy-400 hover:text-red-400">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -839,7 +839,7 @@ export default function FinancePage() {
                       <div className="flex items-center gap-2">
                         <span className="num text-sm font-semibold">{fmt2(e.amount)} ₽</span>
                         <button aria-label="Удалить расход" onClick={ev => { ev.stopPropagation(); deleteExpense(e.id) }}
-                          className="text-navy-400 hover:text-red-400">
+                          className="tap-icon text-navy-400 hover:text-red-400">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -1001,7 +1001,7 @@ export default function FinancePage() {
           <div className="card border-gold-800/40">
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-sm font-semibold text-gold-400">Внести фактическую уплату</h2>
-              <button onClick={() => setShowPaymentForm(v => !v)} className="text-navy-400 hover:text-navy-200">
+              <button onClick={() => setShowPaymentForm(v => !v)} className="tap-icon text-navy-400 hover:text-navy-200">
                 <ChevronDown className={`w-4 h-4 transition-transform ${showPaymentForm ? 'rotate-180' : ''}`} />
               </button>
             </div>
@@ -1058,7 +1058,7 @@ export default function FinancePage() {
                     <td className="py-2 text-navy-300">{p.doc_no || '—'}</td>
                     <td className="py-2 text-right font-medium">{fmt2(p.amount)} ₽</td>
                     <td className="py-2 text-right">
-                      <button aria-label="Удалить платёж" onClick={() => deleteTaxPayment(p.id)} className="text-navy-400 hover:text-red-400">
+                      <button aria-label="Удалить платёж" onClick={() => deleteTaxPayment(p.id)} className="tap-icon text-navy-400 hover:text-red-400">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -1084,7 +1084,7 @@ export default function FinancePage() {
                       <span className="text-navy-300 text-xs">{p.doc_no || '—'}</span>
                       <div className="flex items-center gap-2">
                         <span className="num text-sm font-semibold">{fmt2(p.amount)} ₽</span>
-                        <button aria-label="Удалить платёж" onClick={() => deleteTaxPayment(p.id)} className="text-navy-400 hover:text-red-400">
+                        <button aria-label="Удалить платёж" onClick={() => deleteTaxPayment(p.id)} className="tap-icon text-navy-400 hover:text-red-400">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -1197,7 +1197,7 @@ export default function FinancePage() {
           <div className="card border-gold-800/40">
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-sm font-semibold text-gold-400">Внести фактическую уплату взносов</h2>
-              <button onClick={() => setShowContribPaymentForm(v => !v)} className="text-navy-400 hover:text-navy-200">
+              <button onClick={() => setShowContribPaymentForm(v => !v)} className="tap-icon text-navy-400 hover:text-navy-200">
                 <ChevronDown className={`w-4 h-4 transition-transform ${showContribPaymentForm ? 'rotate-180' : ''}`} />
               </button>
             </div>
@@ -1253,7 +1253,7 @@ export default function FinancePage() {
                     <td className="py-2 text-navy-300">{p.doc_no || '—'}</td>
                     <td className="py-2 text-right font-medium">{fmt2(p.amount)} ₽</td>
                     <td className="py-2 text-right">
-                      <button aria-label="Удалить платёж" onClick={() => deleteTaxPayment(p.id)} className="text-navy-400 hover:text-red-400">
+                      <button aria-label="Удалить платёж" onClick={() => deleteTaxPayment(p.id)} className="tap-icon text-navy-400 hover:text-red-400">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -1282,7 +1282,7 @@ export default function FinancePage() {
                       <span className="text-navy-300 text-xs">{p.doc_no || '—'}</span>
                       <div className="flex items-center gap-2">
                         <span className="num text-sm font-semibold">{fmt2(p.amount)} ₽</span>
-                        <button aria-label="Удалить платёж" onClick={() => deleteTaxPayment(p.id)} className="text-navy-400 hover:text-red-400">
+                        <button aria-label="Удалить платёж" onClick={() => deleteTaxPayment(p.id)} className="tap-icon text-navy-400 hover:text-red-400">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>

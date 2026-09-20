@@ -193,17 +193,22 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Stats */}
+      {/* Stats.
+          Четыре плитки в ряд — только от 1024 px. На промежуточной ширине
+          (телефон в альбомной ориентации, узкое окно) колонка выходила
+          уже суммы, и «95 001,50 ₽» вылезало за край плитки */}
       {loading ? (
         <div className="mb-5 md:mb-6"><SkeletonStats count={4} /></div>
       ) : (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-5 md:mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-5 md:mb-6">
         <div className="stat-card">
           <div className="flex items-center gap-2 mb-2">
             <Clock className="w-4 h-4 text-navy-300" />
             <span className="text-xs text-navy-400">Часов за месяц</span>
           </div>
-          <p className="text-2xl font-semibold text-navy-100">
+          {/* На телефоне плитка шириной ~160 px: при 24 px знак ₽ отрывался
+              на вторую строку, и «95 001,50» выглядело как обрезанное число */}
+          <p className="text-xl md:text-2xl font-semibold text-navy-100 whitespace-nowrap">
             {stats.hoursThisMonth}
           </p>
         </div>
@@ -212,7 +217,9 @@ export default function DashboardPage() {
             <Banknote className="w-4 h-4 text-navy-300" />
             <span className="text-xs text-navy-400">Выручка за месяц</span>
           </div>
-          <p className="text-2xl font-semibold text-navy-100">
+          {/* На телефоне плитка шириной ~160 px: при 24 px знак ₽ отрывался
+              на вторую строку, и «95 001,50» выглядело как обрезанное число */}
+          <p className="text-xl md:text-2xl font-semibold text-navy-100 whitespace-nowrap">
             {formatMoney(stats.revenueThisMonth) + ' ₽'}
           </p>
         </div>
@@ -221,7 +228,9 @@ export default function DashboardPage() {
             <Briefcase className="w-4 h-4 text-navy-300" />
             <span className="text-xs text-navy-400">Активных дел</span>
           </div>
-          <p className="text-2xl font-semibold text-navy-100">
+          {/* На телефоне плитка шириной ~160 px: при 24 px знак ₽ отрывался
+              на вторую строку, и «95 001,50» выглядело как обрезанное число */}
+          <p className="text-xl md:text-2xl font-semibold text-navy-100 whitespace-nowrap">
             {stats.activeMatters}
           </p>
         </div>
@@ -230,7 +239,9 @@ export default function DashboardPage() {
             <TrendingUp className="w-4 h-4 text-navy-300" />
             <span className="text-xs text-navy-400">Ср. ставка</span>
           </div>
-          <p className="text-2xl font-semibold text-navy-100">
+          {/* На телефоне плитка шириной ~160 px: при 24 px знак ₽ отрывался
+              на вторую строку, и «95 001,50» выглядело как обрезанное число */}
+          <p className="text-xl md:text-2xl font-semibold text-navy-100 whitespace-nowrap">
             {formatMoney(stats.avgRate) + ' ₽/ч'}
           </p>
         </div>
@@ -244,20 +255,29 @@ export default function DashboardPage() {
             <AlertCircle className="w-4 h-4 text-amber-400" />
             Задолженность доверителей
           </h2>
+          {/* На телефоне — столбиком: имя, начислено, и отдельной строкой
+              оплачено с долгом по краям. Раньше всё это переносилось как
+              придётся, и у одного доверителя строка выглядела иначе, чем
+              у соседнего. md:contents убирает обёртку на десктопе, чтобы
+              строка осталась прежней */}
           <div className="space-y-3">
             {clientBalances.map(b => (
-              <div key={b.id} className="flex items-center gap-3 flex-wrap">
-                <span className="text-sm text-navy-200 flex-1 min-w-[120px] truncate">{b.name}</span>
+              <div key={b.id} className="flex flex-col md:flex-row md:items-center md:flex-wrap
+                                         gap-1 md:gap-3 pt-3 first:pt-0 border-t first:border-0
+                                         border-navy-800/60 md:border-0 md:pt-0">
+                <span className="text-sm text-navy-200 md:flex-1 md:min-w-[120px] truncate">{b.name}</span>
                 <span className="text-xs text-navy-300">
                   начислено {formatMoney(b.billed + b.reimb)} ₽
                   {b.reimb > 0 && (
                     <span className="text-navy-400"> (в т.ч. возмещаемые расходы {formatMoney(b.reimb)} ₽)</span>
                   )}
                 </span>
-                <span className="text-xs text-emerald-400">оплачено {formatMoney(b.paid)} ₽</span>
-                <span className="text-sm font-semibold text-red-400 whitespace-nowrap">
-                  долг {formatMoney(b.debt)} ₽
-                </span>
+                <div className="flex items-center justify-between gap-3 md:contents">
+                  <span className="text-xs text-emerald-400">оплачено {formatMoney(b.paid)} ₽</span>
+                  <span className="text-sm font-semibold text-red-400 whitespace-nowrap">
+                    долг {formatMoney(b.debt)} ₽
+                  </span>
+                </div>
               </div>
             ))}
           </div>
@@ -269,7 +289,7 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-medium text-navy-300">Последние записи</h2>
           <Link href="/dashboard/entries"
-            className="text-xs text-gold-400 hover:text-gold-300 flex items-center gap-1">
+            className="tap text-xs text-gold-400 hover:text-gold-300 inline-flex items-center gap-1">
             Все записи <ArrowRight className="w-3 h-3" />
           </Link>
         </div>

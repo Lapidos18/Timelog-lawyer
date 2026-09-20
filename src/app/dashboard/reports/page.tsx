@@ -633,7 +633,7 @@ export default function ReportsPage() {
                 </label>
               </div>
             </div>
-            <div className="px-6 pb-6 flex gap-3">
+            <div className="px-6 pb-[calc(1.5rem_+_env(safe-area-inset-bottom))] flex gap-3">
               <button onClick={saveEdit} disabled={editSaving} className="btn-primary">
                 <Check className="w-4 h-4" /> {editSaving ? 'Сохраняю...' : 'Сохранить'}
               </button>

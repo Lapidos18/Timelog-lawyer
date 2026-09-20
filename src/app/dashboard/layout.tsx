@@ -187,7 +187,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       {/* ── Main content ── */}
-      <main className="flex-1 md:ml-56 min-h-dvh
+      {/* min-w-0 обязателен: без него flex-элемент не может стать уже своего
+          содержимого, и одна широкая строка фильтров растягивала ВСЮ страницу
+          за край телефона — появлялась горизонтальная прокрутка, а шапка и
+          нижнее меню съезжали. С min-w-0 такие блоки переносятся, как задумано */}
+      <main className="flex-1 min-w-0 md:ml-56 min-h-dvh
                        pt-[calc(3.5rem_+_env(safe-area-inset-top))] md:pt-0
                        pb-[calc(4rem_+_env(safe-area-inset-bottom))] md:pb-0">
         {children}

@@ -349,7 +349,7 @@ export default function ReimbursementsPage() {
                   <td className="py-2 text-right font-medium">{fmt(e.amount)} ₽</td>
                   <td className="py-2 text-right">
                     <button aria-label="Удалить расход" onClick={ev => { ev.stopPropagation(); deleteExpense(e.id) }}
-                      className="text-navy-400 hover:text-red-400">
+                      className="tap-icon text-navy-400 hover:text-red-400">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </td>
@@ -431,8 +431,12 @@ export default function ReimbursementsPage() {
           исключается из дохода при расчёте НДФЛ и 1% ОПС */}
       {dateAskFor && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="bg-navy-900 rounded-xl border border-navy-700 w-full max-w-md">
-            <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-navy-800">
+          {/* Высота ограничена и включена прокрутка: окно с двумя пояснениями
+              и полем даты выше видимой части телефона, когда открыта
+              клавиатура или календарь */}
+          <div className="bg-navy-900 rounded-xl border border-navy-700 w-full max-w-md
+                          max-h-[90dvh] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
+            <div className="sticky top-0 z-10 bg-navy-900 flex items-center justify-between px-4 md:px-6 py-4 border-b border-navy-800">
               <h2 className="font-semibold text-navy-200">Когда поступила компенсация?</h2>
               <button onClick={() => setDateAskFor(null)} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
             </div>

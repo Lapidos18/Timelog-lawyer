@@ -402,10 +402,13 @@ export default function MattersPage() {
       </Modal>
 
       {/* Filter tabs */}
-      <div className="flex gap-2 mb-4">
+      {/* flex-wrap обязателен: на узком экране (iPhone SE, 375 px) четыре
+          фильтра в строку не помещаются и вылезали за край.
+          tap — высота кнопки 28 px, для пальца мало */}
+      <div className="flex flex-wrap gap-2 mb-4">
         {(['active', 'suspended', 'closed', 'all'] as const).map(s => (
           <button key={s} onClick={() => setFilterStatus(s)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`tap px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               filterStatus === s
                 ? 'bg-navy-700 text-navy-100'
                 : 'text-navy-300 hover:text-navy-300'

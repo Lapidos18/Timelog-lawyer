@@ -12,9 +12,10 @@
  * Данные никуда не отправляются: только с сервера Supabase на ваш диск.
  */
 
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync, existsSync, statSync } from 'node:fs'
+import { readFileSync, writeFileSync, copyFileSync, mkdirSync, readdirSync, unlinkSync, existsSync, statSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { homedir } from 'node:os'
 import { createClient } from '@supabase/supabase-js'
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -26,6 +27,49 @@ const BACKUP_DIR = process.env.TIMELOG_BACKUP_DIR
 
 // Сколько последних копий хранить; более старые удаляются автоматически
 const KEEP_LAST = Number(process.env.TIMELOG_BACKUP_KEEP || 30)
+
+/**
+ * Вторая папка для копии — облако или внешний диск.
+ *
+ * Копии на том же компьютере спасают от ошибки в данных, но не от пропажи
+ * самого компьютера. Поэтому после сохранения файл копируется ещё раз.
+ *
+ * Папку не нужно настраивать: если стоит «Google Диск для компьютера», он
+ * подключает диск с папкой «Мой диск» (в английской версии — «My Drive»),
+ * и мы её находим сами. Путь можно задать и вручную через
+ * TIMELOG_BACKUP_MIRROR (несколько папок — через точку с запятой),
+ * например внешний диск F:.
+ */
+function findMirrorDirs(env) {
+  const manual = (env.TIMELOG_BACKUP_MIRROR || '').trim()
+  const dirs = manual.split(';').map(s => s.trim()).filter(Boolean)
+
+  const candidates = []
+  // Google Диск монтируется отдельным диском: G:\Мой диск, H:\My Drive и т.п.
+  for (const letter of 'DEFGHIJKLMNOPQRSTUVWXYZ') {
+    candidates.push(`${letter}:\\Мой диск`, `${letter}:\\My Drive`)
+  }
+  // Режим «зеркала» кладёт папку в профиль пользователя
+  candidates.push(join(homedir(), 'Google Drive'), join(homedir(), 'Мой диск'))
+
+  for (const p of candidates) {
+    if (existsSync(p)) dirs.push(join(p, 'Timelog-backups'))
+  }
+
+  // Указанная вручную папка не отменяет найденную автоматически: внешний
+  // диск и Google Диск — это две разные страховки, а не замена друг другу
+  return Array.from(new Set(dirs))
+}
+
+/** Оставить в папке только KEEP_LAST последних копий */
+function rotate(dir) {
+  const old = readdirSync(dir)
+    .filter(f => /^timelog_backup_.*\.json$/.test(f))
+    .sort()
+    .slice(0, -KEEP_LAST)
+  for (const f of old) unlinkSync(join(dir, f))
+  return old
+}
 
 // Тот же список, что в разделе «Резервная копия» приложения
 const TABLES = [
@@ -137,15 +181,32 @@ async function main() {
   const sizeKb = Math.round(statSync(file).size / 1024)
   console.log(`\nСохранено: ${file} (${payload.meta.total_records} записей, ${sizeKb} КБ)`)
 
-  // Ротация: оставляем только KEEP_LAST последних копий
-  const old = readdirSync(BACKUP_DIR)
-    .filter(f => /^timelog_backup_.*\.json$/.test(f))
-    .sort()
-    .slice(0, -KEEP_LAST)
-
-  for (const f of old) {
-    unlinkSync(join(BACKUP_DIR, f))
+  for (const f of rotate(BACKUP_DIR)) {
     console.log(`Удалена старая копия: ${f}`)
+  }
+
+  // Вторая копия — в облако или на внешний диск.
+  // Ошибка здесь НЕ должна валить задание: основная копия уже сохранена,
+  // а Google Диск мог быть просто не запущен.
+  const mirrors = findMirrorDirs(env)
+  if (mirrors.length === 0) {
+    console.log(
+      '\nВторая копия не сделана: папка Google Диска не найдена.\n' +
+      'Если «Google Диск для компьютера» установлен — запустите его;\n' +
+      'либо укажите папку вручную в TIMELOG_BACKUP_MIRROR.'
+    )
+    return
+  }
+
+  for (const dir of mirrors) {
+    try {
+      mkdirSync(dir, { recursive: true })
+      copyFileSync(file, join(dir, `timelog_backup_${stamp}.json`))
+      rotate(dir)
+      console.log(`Вторая копия: ${dir}`)
+    } catch (e) {
+      console.error(`Вторую копию в ${dir} сделать не удалось: ${e?.message ?? e}`)
+    }
   }
 }
 

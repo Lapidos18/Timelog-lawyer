@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { Plus, X, Check, Printer, Trash2, FileCheck, RefreshCw, Lock } from 'lucide-react'
+import { Plus, X, Check, Printer, Trash2, FileCheck, RefreshCw, Lock, Wallet } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import { escapeHtml } from '@/lib/html'
@@ -101,6 +101,8 @@ export default function ActsPage() {
     period_to: format(new Date(), 'yyyy-MM-dd'),
     description: '',
   })
+  /** Остаток неотработанного аванса по каждому делу; отрицательное — долг */
+  const [advanceByMatter, setAdvanceByMatter] = useState<Record<string, number>>({})
   const [previewRows, setPreviewRows] = useState<ServiceRow[]>([])
   const [previewTotal, setPreviewTotal] = useState(0)
   const [loadingPreview, setLoadingPreview] = useState(false)
@@ -119,12 +121,35 @@ export default function ActsPage() {
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
-      const [profileRes, mattersRes] = await Promise.all([
+      const [profileRes, mattersRes, paymentsRes, entriesRes, reimbRes] = await Promise.all([
         user ? supabase.from('profiles').select('*').eq('id', user.id).single() : Promise.resolve({ data: null }),
         supabase.from('matters').select('*, clients(*)').order('title'),
+        // Остаток аванса по делу — та же формула, что в «Делах» и на Обзоре:
+        // оплачено − отработанное время − предъявленные возмещаемые расходы.
+        // Расходы вычитаются потому, что доверитель платит их одной суммой с
+        // вознаграждением; без них остаток аванса был бы завышен (см. п. 11
+        // в CLAUDE.md). Формулу держать одинаковой во всех четырёх местах,
+        // иначе акт будет обещать не то, что показывают «Дела».
+        supabase.from('payments').select('matter_id, amount'),
+        supabase.from('time_entries').select('matter_id, amount, is_billable'),
+        supabase.from('reimbursable_expenses').select('matter_id, amount')
+          .in('status', ['invoiced', 'reimbursed']),
       ])
       if (profileRes.data) setProfile(profileRes.data)
       setMatters((mattersRes.data ?? []) as (Matter & { clients: Client })[])
+
+      const balance: Record<string, number> = {}
+      for (const p of (paymentsRes.data ?? []) as { matter_id: string | null; amount: number }[]) {
+        if (p.matter_id) balance[p.matter_id] = (balance[p.matter_id] ?? 0) + Number(p.amount)
+      }
+      for (const e of (entriesRes.data ?? []) as { matter_id: string | null; amount: number; is_billable: boolean }[]) {
+        if (e.matter_id && e.is_billable) balance[e.matter_id] = (balance[e.matter_id] ?? 0) - Number(e.amount)
+      }
+      for (const r of (reimbRes.data ?? []) as { matter_id: string | null; amount: number }[]) {
+        if (r.matter_id) balance[r.matter_id] = (balance[r.matter_id] ?? 0) - Number(r.amount)
+      }
+      setAdvanceByMatter(balance)
+
       loadActs()
     }
     init()
@@ -450,6 +475,29 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
 
+            {/* Остаток аванса по делу.
+                Акт уходит доверителю, и без этой строки легко выставить
+                документ на сумму, которую он уже оплатил авансом: в форме
+                видно только отработанное время за период. Предупреждение,
+                а не запрет — акт всё равно составляется на объём работы. */}
+            {form.matter_id && (advanceByMatter[form.matter_id] ?? 0) > 0.005 && (
+              <div className="md:col-span-3 flex items-start gap-2.5 px-4 py-3 rounded-lg
+                              bg-amber-900/20 border border-amber-700/40">
+                <Wallet className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                {/* Сумму акта из остатка аванса НЕ вычитать: остаток уже
+                    посчитан с учётом всего отработанного времени, в том числе
+                    того, что войдёт в этот акт. Вычитание давало «к доплате
+                    29 416 ₽» по делу, где доверитель, наоборот, переплатил. */}
+                <p className="text-xs text-amber-200/90 leading-relaxed">
+                  По этому делу доверитель заплатил вперёд: неотработанный аванс{' '}
+                  <span className="num font-semibold">{fmt(advanceByMatter[form.matter_id])} ₽</span>.{' '}
+                  {previewTotal > 0
+                    ? `Работа на ${fmt(previewTotal)} ₽, вошедшая в акт, уже покрыта поступившими деньгами — доплачивать по этому акту нечего.`
+                    : 'Работа, которая войдёт в акт, уже покрыта поступившими деньгами.'}
+                </p>
+              </div>
+            )}
+
             {/* Preview of entries */}
             {form.matter_id && (
               <div className="md:col-span-3">
@@ -463,7 +511,10 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                       <span className="text-sm text-navy-300">{previewRows.length} записей войдут в акт</span>
                       <span className="text-navy-100 font-semibold text-sm">{fmt(previewTotal)} руб.</span>
                     </div>
-                    <table className="w-full text-xs">
+                    {/* Семь колонок в ширину телефона не влезают, поэтому
+                        на узком экране тот же состав идёт карточками —
+                        как в окне просмотра акта */}
+                    <table className="hidden md:table w-full text-xs">
                       <thead>
                         <tr className="border-b border-navy-700/50">
                           {['Дата','Вид работы','Описание','Часов','Ставка','Сумма','Исполнитель'].map(h => (
@@ -485,6 +536,24 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                         ))}
                       </tbody>
                     </table>
+
+                    <div className="md:hidden divide-y divide-navy-800/40">
+                      {previewRows.map(r => (
+                        <div key={r.id} className="px-4 py-2.5">
+                          <div className="flex items-baseline justify-between gap-2 mb-1">
+                            <span className="num text-navy-400 text-xs">{fmtDate(r.work_date)}</span>
+                            <span className="num text-navy-100 text-xs font-medium whitespace-nowrap">
+                              {fmt(r.amount)} ₽
+                            </span>
+                          </div>
+                          <p className="text-navy-300 text-xs mb-1">{r.description}</p>
+                          <p className="text-navy-400 text-xs">
+                            {ACTIVITY_LABELS[r.activity_type]} · <span className="num">{r.hours.toFixed(2)}</span> ч ·{' '}
+                            <span className="num">{fmt(r.hourly_rate)}</span> ₽/ч
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

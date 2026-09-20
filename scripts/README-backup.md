@@ -38,19 +38,33 @@ npm run backup
 
 ## Шаг 3. Поставить на расписание
 
-Планировщик заданий Windows → **Создать задачу**:
+**Уже сделано 20.09.2026.** В Планировщике заданий Windows есть задание
+**«Timelog backup»**: ежедневно в 20:00, запускает `scripts\backup-task.cmd`.
+Отмечено «запускать при первой возможности, если запуск пропущен», поэтому
+копия сделается и в день, когда компьютер включили позже. От батареи тоже
+запускается.
 
-| Поле | Значение |
-|---|---|
-| Триггер | Ежедневно, например в 20:00 |
-| Действие | Запуск программы |
-| Программа | `C:\Program Files\nodejs\node.exe` |
-| Аргументы | `scripts\backup-local.mjs` |
-| Рабочая папка | `C:\Users\User\Documents\Timelog-lawyer` |
+Обёртка `backup-task.cmd` нужна, чтобы задание стартовало из папки проекта
+(иначе не найдётся `.env.local`) и писало журнал. Путь внутри неё не задан
+жёстко — папка вычисляется от самого файла.
 
-Отметьте **«Выполнять вне зависимости от регистрации пользователя»**
-и **«Запускать задачу как можно скорее после пропуска запуска»** — тогда
-копия сделается и в тот день, когда компьютер был включён позже обычного.
+Если задание понадобится пересоздать, в PowerShell:
+
+```powershell
+$action  = New-ScheduledTaskAction -Execute "C:\Users\User\Documents\Timelog-lawyer\scripts\backup-task.cmd"
+$trigger = New-ScheduledTaskTrigger -Daily -At 20:00
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 10)
+Register-ScheduledTask -TaskName "Timelog backup" -Action $action -Trigger $trigger -Settings $settings -Force
+```
+
+## Как проверить, что копии делаются
+
+Открыть папку `C:\Users\User\Documents\Timelog-backups` и посмотреть на даты
+файлов. Рядом лежит `backup-log.txt` — журнал запусков: дата, список таблиц
+и путь сохранённого файла. Журнал в кодировке UTF-8, открывается Блокнотом.
+
+В самом Планировщике у задания «Timelog backup» виден столбец «Результат
+последнего запуска»: `0` — копия сделана.
 
 ---
 

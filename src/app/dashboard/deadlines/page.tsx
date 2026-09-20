@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { CourtEvent, CourtEventKind, EVENT_KIND_LABELS, Matter, Client } from '@/types'
 import { format } from 'date-fns'
-import { CalendarClock, Plus, Check, Trash2, Gavel, AlertTriangle, Calculator } from 'lucide-react'
+import { CalendarClock, Plus, Check, Trash2, Gavel, AlertTriangle, Calculator, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeader from '@/components/PageHeader'
 import Modal from '@/components/Modal'
@@ -57,6 +57,7 @@ export default function DeadlinesPage() {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
 
   const empty = {
     kind: 'deadline' as CourtEventKind,
@@ -156,6 +157,30 @@ export default function DeadlinesPage() {
     load()
   }
 
+  /**
+   * Пробное напоминание: то же самое, что придёт утром по расписанию.
+   * Запрос идёт с ключом текущего входа — иначе адрес был бы открыт всем,
+   * и в чат мог бы писать кто угодно.
+   */
+  async function testNotify() {
+    setTesting(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/notify', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+      })
+      const out = await res.json()
+      if (out.status === 'sent') toast.success('Отправлено в Телеграм — проверьте телефон')
+      else if (out.status === 'nothing') toast('Напоминать не о чем: ничего не горит', { icon: '🙂' })
+      else if (out.status === 'not-configured') toast.error(out.message)
+      else toast.error(out.message ?? 'Не получилось отправить')
+    } catch {
+      toast.error('Не получилось связаться с сервером')
+    }
+    setTesting(false)
+  }
+
   async function toggleDone(e: CourtEvent) {
     const { error } = await supabase.from('court_events')
       .update({ done: !e.done, done_at: e.done ? null : new Date().toISOString() })
@@ -176,9 +201,14 @@ export default function DeadlinesPage() {
     <div className="p-4 md:p-7">
       <PageHeader title="Сроки и заседания" icon={CalendarClock}
         description="Даты заседаний и процессуальных сроков. Ближайшие и просроченные видны на Обзоре.">
-        <button onClick={startNew} className="btn-primary">
-          <Plus className="w-4 h-4" /> Добавить
-        </button>
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={testNotify} disabled={testing} className="btn-secondary">
+            <Send className="w-4 h-4" /> {testing ? 'Отправляю...' : 'Проверить напоминание'}
+          </button>
+          <button onClick={startNew} className="btn-primary">
+            <Plus className="w-4 h-4" /> Добавить
+          </button>
+        </div>
       </PageHeader>
 
       {noTable && (

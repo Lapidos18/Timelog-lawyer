@@ -527,7 +527,7 @@ ${reimbBlock}
       </div>
 
       <ImportStatement open={showImport} onClose={() => setShowImport(false)}
-        clients={clients} onImported={() => { if (generated) generate() }} />
+        clients={clients} matters={matters} onImported={() => { if (generated) generate() }} />
 
       {/* Payment form */}
       <Modal open={showPayForm} onClose={() => { setShowPayForm(false); resetPayForm() }}

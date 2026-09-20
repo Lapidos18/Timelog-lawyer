@@ -1,12 +1,13 @@
 'use client'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { Client } from '@/types'
+import { Client, Matter } from '@/types'
 import { format } from 'date-fns'
-import { Upload, Check } from 'lucide-react'
+import { Upload, Check, Wand2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Modal from '@/components/Modal'
 import { parseStatement, StatementRow } from '@/lib/bank-statement'
+import { suggestForRow, reasonLabel } from '@/lib/statement-match'
 
 /**
  * Загрузка банковской выписки и внесение поступлений.
@@ -25,6 +26,9 @@ type Match = 'new' | 'existing' | 'skip'
 
 type Prepared = StatementRow & {
   clientId: string
+  matterId: string
+  /** Откуда взялась подсказка; пустая строка — не узнали */
+  hint: string
   match: Match
   checked: boolean
 }
@@ -34,11 +38,12 @@ function fmt(n: number) {
 }
 
 export default function ImportStatement({
-  open, onClose, clients, onImported,
+  open, onClose, clients, matters, onImported,
 }: {
   open: boolean
   onClose: () => void
   clients: Client[]
+  matters: Matter[]
   onImported: () => void
 }) {
   const supabase = createClient()
@@ -58,13 +63,17 @@ export default function ImportStatement({
       const seen = new Set((existing ?? []).map(p => `${p.pay_date}|${Number(p.amount).toFixed(2)}`))
 
       setRows(parsed.rows.map(r => {
-        const client = clients.find(c => c.inn && c.inn.trim() === r.counterpartyInn)
+        // Доверитель — по ИНН или названию плательщика, дело — по номеру
+        // соглашения либо дела в назначении платежа (src/lib/statement-match.ts)
+        const s = suggestForRow(r, clients, matters)
         const match: Match = r.skipReason ? 'skip'
           : seen.has(`${r.date}|${r.amount.toFixed(2)}`) ? 'existing'
           : 'new'
         return {
           ...r,
-          clientId: client?.id ?? '',
+          clientId: s.clientId,
+          matterId: s.matterId,
+          hint: reasonLabel(s),
           match,
           // По умолчанию отмечены только новые поступления от доверителей
           checked: match === 'new',
@@ -93,7 +102,7 @@ export default function ImportStatement({
       // в payments и уходит в manual_income
       const { error } = r.clientId
         ? await supabase.from('payments').insert({
-            client_id: r.clientId, matter_id: null, pay_date: r.date,
+            client_id: r.clientId, matter_id: r.matterId || null, pay_date: r.date,
             amount: r.amount, description, doc_no: r.docNo || null, created_by: user!.id,
           })
         : await supabase.from('manual_income').insert({
@@ -122,7 +131,8 @@ export default function ImportStatement({
         <div>
           <p className="text-sm text-navy-300 mb-4">
             Выберите файл выписки в формате Excel — тот, что выгружается из клиент-банка.
-            Приложение возьмёт из него поступления, подставит доверителя по ИНН плательщика
+            Приложение возьмёт из него поступления, само подставит доверителя по ИНН или
+            названию плательщика, а дело — по номеру соглашения в назначении платежа,
             и покажет список до того, как что-либо внести.
           </p>
           <label className="btn-primary cursor-pointer inline-flex">
@@ -179,11 +189,31 @@ export default function ImportStatement({
                       переключить галочку — это его штатное поведение для
                       вложенных элементов управления, гасить клик не нужно */}
                   <select className="select mt-2 text-xs" value={r.clientId}
-                    onChange={e => setRows(rs => rs!.map(x =>
-                      x.index === r.index ? { ...x, clientId: e.target.value } : x))}>
+                    onChange={e => setRows(rs => rs!.map(x => x.index === r.index
+                      // Сменили доверителя — прежнее дело больше не его,
+                      // и подсказка тоже устарела
+                      ? { ...x, clientId: e.target.value, matterId: '', hint: '' }
+                      : x))}>
                     <option value="">— без доверителя (уйдёт в «Доходы» отдельной строкой) —</option>
                     {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
+
+                  {r.clientId && (
+                    <select className="select mt-2 text-xs" value={r.matterId}
+                      onChange={e => setRows(rs => rs!.map(x =>
+                        x.index === r.index ? { ...x, matterId: e.target.value } : x))}>
+                      <option value="">— без дела (долг считается по доверителю целиком) —</option>
+                      {matters.filter(m => m.client_id === r.clientId)
+                        .map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
+                    </select>
+                  )}
+
+                  {r.hint && (
+                    <span className="flex items-start gap-1.5 mt-1.5 text-xs text-navy-400">
+                      <Wand2 className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                      <span>Подставлено: {r.hint}. Проверьте.</span>
+                    </span>
+                  )}
                 </span>
               </label>
             ))}

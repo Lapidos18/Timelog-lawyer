@@ -300,3 +300,34 @@ export interface ReimbursableExpense {
   reimbursed_date: string | null
   matters?: (Matter & { clients?: Client }) | null
 }
+
+// Сроки и заседания (миграция 017).
+// Дата и время разделены намеренно: у процессуального срока времени нет —
+// он истекает в 24:00 последнего дня, — а у заседания оно есть.
+export type CourtEventKind = 'hearing' | 'deadline' | 'other'
+
+export const EVENT_KIND_LABELS: Record<CourtEventKind, string> = {
+  hearing: 'Заседание',
+  deadline: 'Процессуальный срок',
+  other: 'Иное',
+}
+
+export interface CourtEvent {
+  id: string
+  matter_id: string | null
+  kind: CourtEventKind
+  title: string
+  event_date: string
+  event_time: string | null
+  place: string | null
+  note: string | null
+  /** За сколько дней предупреждать на Обзоре */
+  remind_days: number
+  done: boolean
+  done_at: string | null
+  /** Каким шаблоном считался срок и от какой даты — см. src/lib/deadlines.ts */
+  template_id: string | null
+  base_date: string | null
+  created_at: string
+  matters?: (Matter & { clients?: Client }) | null
+}

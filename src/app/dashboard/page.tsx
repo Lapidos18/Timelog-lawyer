@@ -5,10 +5,22 @@ import { ReportRow } from '@/types'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import Link from 'next/link'
-import { Clock, Banknote, Briefcase, TrendingUp, AlertCircle, ArrowRight } from 'lucide-react'
+import { Clock, Banknote, Briefcase, TrendingUp, AlertCircle, ArrowRight, CalendarClock } from 'lucide-react'
 import LoadError from '@/components/LoadError'
 import PageHeader from '@/components/PageHeader'
 import { SkeletonStats, SkeletonRows } from '@/components/Skeleton'
+import { daysUntil, untilLabel, toISO } from '@/lib/deadlines'
+
+/** Событие в блоке «Сроки и заседания» на Обзоре */
+type UpcomingEvent = {
+  id: string
+  kind: 'hearing' | 'deadline' | 'other'
+  title: string
+  event_date: string
+  event_time: string | null
+  remind_days: number
+  matters?: { title: string; clients?: { name: string } | null } | null
+}
 
 function formatMoney(n: number) {
   return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
@@ -28,6 +40,8 @@ export default function DashboardPage() {
   }[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
+  /** Просроченное и то, что наступит в пределах своего срока напоминания */
+  const [upcoming, setUpcoming] = useState<UpcomingEvent[]>([])
 
   const now = new Date()
   const monthStart = format(startOfMonth(now), 'yyyy-MM-dd')
@@ -48,6 +62,7 @@ export default function DashboardPage() {
           allClientsRes,
           allMattersRes,
           allReimbRes,
+          eventsRes,
         ] = await Promise.all([
           supabase
             .from('report_view')
@@ -83,7 +98,23 @@ export default function DashboardPage() {
             .from('reimbursable_expenses')
             .select('matter_id, amount, status')
             .in('status', ['invoiced', 'reimbursed']),
+          // Сроки и заседания: берём только неисполненные и не дальше
+          // полугода — фильтр «за сколько дней предупреждать» у каждого
+          // события свой и применяется уже здесь, в коде.
+          // Пока миграция 017 не выполнена, запрос вернёт ошибку — блок
+          // просто не покажется, страница из-за этого падать не должна.
+          supabase
+            .from('court_events')
+            .select('id, kind, title, event_date, event_time, remind_days, done, matters(title, clients(name))')
+            .eq('done', false)
+            .lte('event_date', toISO(new Date(Date.now() + 180 * 86_400_000)))
+            .order('event_date'),
         ])
+
+        // Показываем только то, что уже пора видеть: просроченное и события
+        // в пределах собственного срока напоминания каждого из них
+        setUpcoming(((eventsRes.data ?? []) as unknown as UpcomingEvent[])
+          .filter(e => daysUntil(e.event_date) <= e.remind_days))
 
         const entries = monthRes.data ?? []
         const totalHours = entries.reduce((s, r) => s + Number(r.hours), 0)
@@ -190,6 +221,54 @@ export default function DashboardPage() {
       {loadError && !loading && (
         <div className="mb-5">
           <LoadError onRetry={() => window.location.reload()} />
+        </div>
+      )}
+
+      {/* Сроки и заседания — самым верхом, до денег.
+          Пропущенный срок обжалования не исправляется никакой аккуратностью
+          в учёте часов, поэтому он должен попадаться на глаза первым.
+          Блока нет, когда ничего не горит: пустая рамка каждый день
+          приучает не смотреть в это место. */}
+      {!loading && upcoming.length > 0 && (
+        <div className="card mb-5 md:mb-6 border-amber-700/30">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="text-sm font-medium text-navy-200 flex items-center gap-2">
+              <CalendarClock className="w-4 h-4 text-amber-400" /> Сроки и заседания
+            </h2>
+            <Link href="/dashboard/deadlines"
+              className="tap text-xs text-gold-400 hover:text-gold-300 inline-flex items-center gap-1">
+              Все <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+
+          <ul className="space-y-2.5">
+            {upcoming.map(e => {
+              const left = daysUntil(e.event_date)
+              return (
+                <li key={e.id} className="flex items-baseline justify-between gap-3 flex-wrap">
+                  <span className="min-w-0">
+                    <span className={`text-sm ${left < 0 ? 'text-red-300' : 'text-navy-100'}`}>
+                      {e.title}
+                    </span>
+                    {e.matters && (
+                      <span className="block text-xs text-navy-400 truncate">
+                        {e.matters.clients?.name} · {e.matters.title}
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-xs whitespace-nowrap">
+                    <span className="num text-navy-300">
+                      {format(new Date(e.event_date + 'T12:00:00'), 'dd.MM.yyyy')}
+                      {e.event_time ? ` · ${e.event_time.slice(0, 5)}` : ''}
+                    </span>
+                    <span className={`ml-2 font-medium ${left < 0 ? 'text-red-400' : 'text-amber-400'}`}>
+                      {untilLabel(e.event_date)}
+                    </span>
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
         </div>
       )}
 

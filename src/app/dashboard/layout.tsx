@@ -7,7 +7,8 @@ import { Profile } from '@/types'
 import {
   LayoutDashboard, Users, Briefcase,
   FileBarChart2, LogOut, Scale, ChevronRight,
-  BookOpen, ClipboardList, Menu, X, FileCheck, HardDrive, Wallet, Receipt
+  BookOpen, ClipboardList, Menu, X, FileCheck, HardDrive, Wallet, Receipt,
+  CalendarClock
 } from 'lucide-react'
 import CommandPalette from '@/components/CommandPalette'
 import ThemeToggle from '@/components/ThemeToggle'
@@ -15,6 +16,7 @@ import ThemeToggle from '@/components/ThemeToggle'
 const NAV = [
   { href: '/dashboard',                icon: LayoutDashboard, label: 'Обзор' },
   { href: '/dashboard/journal',        icon: BookOpen,        label: 'Журнал', group: 'Учёт времени' },
+  { href: '/dashboard/deadlines',      icon: CalendarClock,   label: 'Сроки и заседания' },
   { href: '/dashboard/matters',        icon: Briefcase,       label: 'Дела', group: 'Доверители и дела' },
   { href: '/dashboard/clients',        icon: Users,           label: 'Доверители' },
   { href: '/dashboard/reports',        icon: FileBarChart2,   label: 'Отчёты', group: 'Документы' },

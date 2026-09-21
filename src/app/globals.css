@@ -127,7 +127,8 @@
 
   /* Текст темы «Кабинет»: Golos Text — русский шрифт, спокойнее Inter.
      Цифры остаются табличными через .num, как и везде. */
-  :root[data-theme="light"] body {
+  :root[data-theme="light"] body,
+  :root[data-theme="forest"] body {
     font-family: 'Golos Text', 'Segoe UI', system-ui, sans-serif;
   }
 
@@ -137,7 +138,9 @@
      Суммы и таблицы антиквой НЕ набираются — в столбце цифр она
      читается хуже и не выравнивается. */
   :root[data-theme="light"] h1,
-  :root[data-theme="light"] h2 {
+  :root[data-theme="light"] h2,
+  :root[data-theme="forest"] h1,
+  :root[data-theme="forest"] h2 {
     font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
     color: rgb(var(--heading));
     letter-spacing: 0;
@@ -149,21 +152,25 @@
      Остальные h1 берут размер из вёрстки, а маленькую высоту строчных
      у Cormorant выравнивает font-size-adjust — заголовок выглядит того же
      роста, что рубленый шрифт того же кегля. */
-  :root[data-theme="light"] h1 {
+  :root[data-theme="light"] h1,
+  :root[data-theme="forest"] h1 {
     font-weight: 500;
     font-size-adjust: 0.5;
   }
-  :root[data-theme="light"] .page-title {
+  :root[data-theme="light"] .page-title,
+  :root[data-theme="forest"] .page-title {
     font-size: 2rem;
     line-height: 1.15;
     font-size-adjust: none;
   }
   @media (min-width: 768px) {
-    :root[data-theme="light"] .page-title { font-size: 2.4rem; }
+    :root[data-theme="light"] .page-title,
+    :root[data-theme="forest"] .page-title { font-size: 2.4rem; }
   }
   /* Заголовки карточек и окон: в вёрстке они text-sm, для антиквы это
      мелко — задаём размер явно */
-  :root[data-theme="light"] h2 {
+  :root[data-theme="light"] h2,
+  :root[data-theme="forest"] h2 {
     font-size: 1.3rem;
     line-height: 1.25;
     font-weight: 600;
@@ -350,7 +357,8 @@
 /* «Шапочка» над заголовком раздела: мелкие прописные с разрядкой.
    В тёмной теме её нет — там она была бы лишним шумом над каждым разделом. */
 .page-eyebrow { display: none; }
-:root[data-theme="light"] .page-eyebrow {
+:root[data-theme="light"] .page-eyebrow,
+:root[data-theme="forest"] .page-eyebrow {
   display: block;
   font-size: 0.7rem;
   font-weight: 600;
@@ -362,7 +370,9 @@
 
 /* Кнопки-«таблетки» и подписи полей с разрядкой шире */
 :root[data-theme="light"] .btn-primary,
-:root[data-theme="light"] .btn-secondary {
+:root[data-theme="light"] .btn-secondary,
+:root[data-theme="forest"] .btn-primary,
+:root[data-theme="forest"] .btn-secondary {
   border-radius: 9999px;
   padding-left: 1.15rem;
   padding-right: 1.15rem;
@@ -370,7 +380,8 @@
 :root[data-theme="light"] .btn-primary {
   color: rgb(250 247 240);
 }
-:root[data-theme="light"] .label {
+:root[data-theme="light"] .label,
+:root[data-theme="forest"] .label {
   letter-spacing: 0.08em;
 }
 
@@ -396,4 +407,73 @@
 
 /* Значок у заголовка раздела в «Кабинете» убран: рядом с антиквой он
    смотрится как пиктограмма из другой программы */
-:root[data-theme="light"] .page-icon { display: none; }
+:root[data-theme="light"] .page-icon,
+:root[data-theme="forest"] .page-icon { display: none; }
+
+/* ── ПРОБА: тёмная тема в глубоких зелёных тонах ────────────────────
+   Пара к светлой «Кабинет»: тот же тёмно-зелёный, только ночью. Фон —
+   почти чёрный с зелёным отливом, карточки чуть светлее, текст — тёплая
+   слоновая кость. Акцент — не золото, а приглушённая латунь: она же
+   окрашивает «шапочку», как охра в светлой теме.
+   Смысловые цвета (долг, оплачено, внимание) — от прежней тёмной темы:
+   они подобраны под тёмный фон. */
+:root[data-theme="forest"] {
+  color-scheme: dark;
+
+  --navy-50:  244 248 245;
+  --navy-100: 230 239 234;   /* основной текст — тёплая слоновая кость */
+  --navy-200: 207 224 216;
+  --navy-300: 179 204 194;   /* вторичный текст */
+  --navy-400: 132 166 153;   /* подписи — 5,8:1 на карточке */
+  --navy-500: 84 118 105;
+  --navy-600: 52 86 76;
+  --navy-700: 39 65 58;      /* границы */
+  --navy-800: 28 48 42;      /* поля ввода, наведение */
+  --navy-900: 21 36 31;      /* карточка */
+  --navy-950: 13 24 21;      /* фон страницы */
+
+  --gold-50:  251 245 234;
+  --gold-100: 245 234 211;
+  --gold-200: 237 218 181;
+  --gold-300: 227 200 151;
+  --gold-400: 214 180 122;   /* ссылки */
+  --gold-500: 196 154 90;    /* главная кнопка — латунь */
+  --gold-600: 166 127 69;
+  --gold-700: 134 101 58;
+  --gold-800: 107 81 49;
+  --gold-900: 79 60 38;
+
+  --ok-400:  52 211 153;
+  --ok-800:  6 95 70;
+  --ok-900:  6 78 59;
+
+  --bad-300: 252 165 165;
+  --bad-400: 248 113 113;
+  --bad-500: 239 68 68;
+  --bad-900: 127 29 29;
+  --bad-950: 69 10 10;
+
+  --warn-300: 252 211 77;
+  --warn-400: 251 191 36;
+  --warn-500: 245 158 11;
+  --warn-800: 146 64 14;
+  --warn-900: 120 53 15;
+  --warn-950: 69 26 3;
+
+  --heading: 236 228 210;    /* заголовки — светлая слоновая кость */
+  --ochre:   201 164 106;    /* «шапочка» — латунь */
+}
+
+/* Вход ночью: вместо пастельных размывов на льне — глубокие зелёные
+   и латунные свечения на почти чёрном */
+:root[data-theme="forest"] .login-screen {
+  background-color: rgb(var(--navy-950));
+  background-image:
+    radial-gradient(ellipse 60% 45% at 12% 18%, rgb(46 92 78 / 0.55), transparent 70%),
+    radial-gradient(ellipse 55% 40% at 88% 82%, rgb(150 112 60 / 0.30), transparent 70%),
+    radial-gradient(ellipse 45% 35% at 80% 12%, rgb(40 84 92 / 0.40), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 15% 88%, rgb(58 98 70 / 0.40), transparent 70%);
+}
+:root[data-theme="forest"] .card {
+  border-color: rgb(var(--navy-700));
+}

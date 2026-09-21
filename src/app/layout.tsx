@@ -32,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           // «office» — имя, под которым светлая тема «Кабинет» жила до
           // 21.09.2026 на пробной версии; такой выбор тоже считаем светлым
           `try{var t=localStorage.getItem('timelog-theme');` +
-          `if(t==='light'||t==='office')document.documentElement.dataset.theme='light'}catch(e){}`
+          `if(t==='light'||t==='office')document.documentElement.dataset.theme='light';if(t==='forest')document.documentElement.dataset.theme='forest'}catch(e){}`
         }} />
       </head>
       <body>

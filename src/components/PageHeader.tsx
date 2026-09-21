@@ -21,7 +21,7 @@ export default function PageHeader({
   return (
     <div className="flex items-start justify-between gap-3 flex-wrap mb-5 md:mb-7">
       <div className="min-w-0">
-        {/* «Шапочка» видна только в светлой теме — см. globals.css */}
+        {/* «Шапочка» над названием раздела — см. .page-eyebrow в globals.css */}
         <p className="page-eyebrow">Адвокатский кабинет</p>
         <h1 className="page-title text-xl md:text-2xl font-semibold text-navy-100 flex items-center gap-2">
           {Icon && <Icon className="page-icon w-5 h-5 md:w-6 md:h-6 text-gold-400 flex-shrink-0" />}

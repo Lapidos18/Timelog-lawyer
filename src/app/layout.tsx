@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#0d1a25',
+  themeColor: '#0d1815',
   // Позволяет фону дотянуться до краёв экрана iPhone; отступы под Dynamic Island
   // и «полоску» home indicator берутся из env(safe-area-inset-*) в layout дашборда
   viewportFit: 'cover',
@@ -32,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           // «office» — имя, под которым светлая тема «Кабинет» жила до
           // 21.09.2026 на пробной версии; такой выбор тоже считаем светлым
           `try{var t=localStorage.getItem('timelog-theme');` +
-          `if(t==='light'||t==='office')document.documentElement.dataset.theme='light';if(t==='forest')document.documentElement.dataset.theme='forest'}catch(e){}`
+          `if(t==='light'||t==='office')document.documentElement.dataset.theme='light'}catch(e){}`
         }} />
       </head>
       <body>

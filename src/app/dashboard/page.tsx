@@ -230,7 +230,7 @@ export default function DashboardPage() {
           Блока нет, когда ничего не горит: пустая рамка каждый день
           приучает не смотреть в это место. */}
       {!loading && upcoming.length > 0 && (
-        <div className="card mb-5 md:mb-6 border-amber-700/30">
+        <div className="card mb-5 md:mb-6 border-amber-800/40">
           <div className="flex items-center justify-between gap-3 mb-3">
             <h2 className="text-sm font-medium text-navy-200 flex items-center gap-2">
               <CalendarClock className="w-4 h-4 text-amber-400" /> Сроки и заседания

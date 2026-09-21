@@ -30,7 +30,7 @@ import { DEADLINE_TEMPLATES, computeDeadline, daysUntil, untilLabel, toISO } fro
 type Filter = 'open' | 'past' | 'all'
 
 const KIND_STYLE: Record<CourtEventKind, string> = {
-  hearing:  'bg-sky-500/15 text-sky-300',
+  hearing:  'bg-gold-900/30 text-gold-400',
   deadline: 'bg-amber-500/15 text-amber-300',
   other:    'bg-navy-700 text-navy-300',
 }
@@ -212,7 +212,7 @@ export default function DeadlinesPage() {
       </PageHeader>
 
       {noTable && (
-        <div className="card mb-5 border-amber-700/40">
+        <div className="card mb-5 border-amber-800/50">
           <p className="text-sm text-amber-300 mb-1">Раздел не готов к работе</p>
           <p className="text-xs text-navy-300">
             В базе ещё нет таблицы для сроков. Выполните миграцию
@@ -276,7 +276,7 @@ export default function DeadlinesPage() {
                       aria-label={e.done ? 'Снять отметку' : 'Отметить исполненным'}
                       className={`tap-icon flex-shrink-0 mt-0.5 rounded-md border ${
                         e.done
-                          ? 'bg-emerald-500/20 border-emerald-600/40 text-emerald-300'
+                          ? 'bg-emerald-900/40 border-emerald-800/50 text-emerald-400'
                           : 'border-navy-700 text-navy-500 hover:text-navy-200'
                       }`}>
                       <Check className="w-3.5 h-3.5" />

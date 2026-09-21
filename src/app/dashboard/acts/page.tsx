@@ -482,13 +482,13 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                 а не запрет — акт всё равно составляется на объём работы. */}
             {form.matter_id && (advanceByMatter[form.matter_id] ?? 0) > 0.005 && (
               <div className="md:col-span-3 flex items-start gap-2.5 px-4 py-3 rounded-lg
-                              bg-amber-900/20 border border-amber-700/40">
+                              bg-amber-900/20 border border-amber-800/50">
                 <Wallet className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
                 {/* Сумму акта из остатка аванса НЕ вычитать: остаток уже
                     посчитан с учётом всего отработанного времени, в том числе
                     того, что войдёт в этот акт. Вычитание давало «к доплате
                     29 416 ₽» по делу, где доверитель, наоборот, переплатил. */}
-                <p className="text-xs text-amber-200/90 leading-relaxed">
+                <p className="text-xs text-amber-300 leading-relaxed">
                   По этому делу доверитель заплатил вперёд: неотработанный аванс{' '}
                   <span className="num font-semibold">{fmt(advanceByMatter[form.matter_id])} ₽</span>.{' '}
                   {previewTotal > 0

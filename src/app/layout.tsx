@@ -29,8 +29,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             теме страница на мгновение вспыхивает тёмным фоном. Скрипт
             намеренно синхронный и крошечный. */}
         <script dangerouslySetInnerHTML={{ __html:
-          `try{if(localStorage.getItem('timelog-theme')==='light')` +
-          `document.documentElement.dataset.theme='light'}catch(e){}`
+          // «office» — имя, под которым светлая тема «Кабинет» жила до
+          // 21.09.2026 на пробной версии; такой выбор тоже считаем светлым
+          `try{var t=localStorage.getItem('timelog-theme');` +
+          `if(t==='light'||t==='office')document.documentElement.dataset.theme='light'}catch(e){}`
         }} />
       </head>
       <body>

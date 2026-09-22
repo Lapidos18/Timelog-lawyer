@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BookOpen, Table2 } from 'lucide-react'
 import TimelineView from './TimelineView'
 import TableView from './TableView'
@@ -9,6 +9,14 @@ type View = 'timeline' | 'table'
 
 export default function JournalPage() {
   const [view, setView] = useState<View>('timeline')
+
+  // Ссылка «Все записи» с Обзора и старый адрес /dashboard/entries ведут
+  // на таблицу, а не на шкалу сегодняшнего дня — там обычно пусто.
+  // Читаем из адреса после загрузки: useSearchParams потребовал бы обёртки
+  // Suspense для всей страницы.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('view') === 'table') setView('table')
+  }, [])
 
   return (
     <div className="p-4 md:p-7">

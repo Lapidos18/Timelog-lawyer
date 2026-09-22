@@ -494,7 +494,7 @@ export default function FinancePage() {
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex items-center gap-1.5 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors ${
+            className={`tap flex items-center gap-1.5 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors ${
               tab === t.id ? 'bg-gold-500 text-navy-950' : 'bg-navy-800 text-navy-400 hover:text-navy-200'
             }`}
           >

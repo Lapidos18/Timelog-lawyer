@@ -367,7 +367,7 @@ export default function DashboardPage() {
       <div className="card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-medium text-navy-300">Последние записи</h2>
-          <Link href="/dashboard/entries"
+          <Link href="/dashboard/journal?view=table"
             className="tap text-xs text-gold-400 hover:text-gold-300 inline-flex items-center gap-1">
             Все записи <ArrowRight className="w-3 h-3" />
           </Link>
@@ -377,7 +377,7 @@ export default function DashboardPage() {
         ) : recentEntries.length === 0 ? (
           <p className="text-navy-300 text-sm text-center py-8">
             Нет записей.{' '}
-            <Link href="/dashboard/entries" className="text-gold-400 hover:underline">
+            <Link href="/dashboard/journal?view=table" className="text-gold-400 hover:underline">
               Добавить →
             </Link>
           </p>

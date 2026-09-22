@@ -160,9 +160,9 @@ export default function ActsPage() {
     if (!form.matter_id || !form.period_from || !form.period_to) {
       setPreviewRows([]); setPreviewTotal(0); return
     }
-    setLoadingPreview(true)
     const m = matters.find(x => x.id === form.matter_id)
     if (!m) return
+    setLoadingPreview(true)
     supabase.from('report_view').select('*')
       .eq('matter_id', form.matter_id)
       .gte('work_date', form.period_from)

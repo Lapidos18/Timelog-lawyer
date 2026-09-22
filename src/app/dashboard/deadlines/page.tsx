@@ -37,6 +37,12 @@ const KIND_STYLE: Record<CourtEventKind, string> = {
 
 const fmtDate = (s: string) => format(new Date(s + 'T12:00:00'), 'dd.MM.yyyy')
 
+/** Узкий экран или сенсорный ввод — там карточка открывается одним касанием */
+function isTouchLayout(): boolean {
+  return typeof window !== 'undefined'
+    && window.matchMedia('(max-width: 767px), (pointer: coarse)').matches
+}
+
 /** Цвет строки: просрочено — красный, в пределах напоминания — янтарный */
 function urgency(e: CourtEvent): 'over' | 'soon' | 'later' {
   if (e.done) return 'later'
@@ -258,7 +264,9 @@ export default function DeadlinesPage() {
       ) : (
         <>
           <p className="text-xs text-navy-400 mb-2">
-            Двойной клик по строке — редактировать. Галочка слева — отметить исполненным.
+            <span className="hidden md:inline">Двойной клик по строке — редактировать.</span>
+            <span className="md:hidden">Нажмите на событие — редактировать.</span>
+            {' '}Галочка слева — отметить исполненным.
           </p>
           <div className="card p-0 overflow-hidden">
             <ul className="divide-y divide-navy-800/60">
@@ -267,12 +275,15 @@ export default function DeadlinesPage() {
                 return (
                   <li key={e.id}
                     onDoubleClick={() => startEdit(e)}
+                    // На телефоне — одно касание, как во всех остальных разделах:
+                    // двойное касание iPhone обрабатывает ненадёжно
+                    onClick={() => { if (isTouchLayout()) startEdit(e) }}
                     title="Двойной клик — редактировать"
                     className={`flex items-start gap-3 px-4 md:px-5 py-3 cursor-pointer
                                 hover:bg-navy-800/40 ${
                       u === 'over' ? 'needs-attention' : ''
                     }`}>
-                    <button onClick={() => toggleDone(e)}
+                    <button onClick={ev => { ev.stopPropagation(); toggleDone(e) }}
                       aria-label={e.done ? 'Снять отметку' : 'Отметить исполненным'}
                       className={`tap-icon flex-shrink-0 mt-0.5 rounded-md border ${
                         e.done
@@ -304,7 +315,7 @@ export default function DeadlinesPage() {
                           {EVENT_KIND_LABELS[e.kind]}
                         </span>
                         {e.matters && (
-                          <span className="text-xs text-navy-300 truncate max-w-[60%]">
+                          <span className="text-xs text-navy-300 min-w-0 break-words">
                             {e.matters.clients?.name} · {e.matters.title}
                           </span>
                         )}
@@ -317,7 +328,7 @@ export default function DeadlinesPage() {
                       )}
                     </div>
 
-                    <button onClick={() => remove(e)} aria-label="Удалить"
+                    <button onClick={ev => { ev.stopPropagation(); remove(e) }} aria-label="Удалить"
                       className="tap-icon text-navy-400 hover:text-red-400 flex-shrink-0">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 export default function EntriesRedirect() {
   const router = useRouter()
   useEffect(() => {
-    router.replace('/dashboard/journal')
+    router.replace('/dashboard/journal?view=table')
   }, [router])
   return null
 }

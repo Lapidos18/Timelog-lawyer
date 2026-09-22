@@ -37,6 +37,8 @@ export default function BackupPage() {
       'manual_income',
       'reimbursable_expenses',
       'audit_log',
+      // Сроки и заседания (миграция 017) — их потеря дороже всего
+      'court_events',
     ]
 
     // tax_settings не имеет столбца created_at (первичный ключ — year, дата
@@ -99,6 +101,7 @@ export default function BackupPage() {
     manual_income:         'Ручные доходы',
     reimbursable_expenses: 'Возмещаемые расходы',
     audit_log:             'История изменений',
+    court_events:          'Сроки и заседания',
   }
 
   return (

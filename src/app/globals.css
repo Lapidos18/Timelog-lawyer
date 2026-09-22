@@ -429,3 +429,15 @@
 :root:not([data-theme="light"]) .card {
   border-color: rgb(var(--navy-700));
 }
+
+/* Виды работ на шкале Журнала (TimelineView). В тёмной теме — прежние
+   цвета Tailwind, в светлой — пастельный фон с тёмным текстом того же
+   оттенка: 6–8:1 вместо прежних 2:1. */
+.tl-blue   { background-color: rgb(30 58 138 / 0.6);  border-color: rgb(59 130 246 / 0.5);  color: rgb(147 197 253); }
+.tl-purple { background-color: rgb(88 28 135 / 0.6);  border-color: rgb(168 85 247 / 0.5);  color: rgb(216 180 254); }
+.tl-teal   { background-color: rgb(19 78 74 / 0.6);   border-color: rgb(20 184 166 / 0.5);  color: rgb(94 234 212); }
+.tl-green  { background-color: rgb(20 83 45 / 0.6);   border-color: rgb(34 197 94 / 0.5);   color: rgb(134 239 172); }
+:root[data-theme="light"] .tl-blue   { background-color: rgb(219 234 254); border-color: rgb(147 197 253); color: rgb(30 64 175); }
+:root[data-theme="light"] .tl-purple { background-color: rgb(243 232 255); border-color: rgb(216 180 254); color: rgb(107 33 168); }
+:root[data-theme="light"] .tl-teal   { background-color: rgb(204 251 241); border-color: rgb(94 234 212);  color: rgb(17 94 89); }
+:root[data-theme="light"] .tl-green  { background-color: rgb(220 252 231); border-color: rgb(134 239 172); color: rgb(22 101 52); }

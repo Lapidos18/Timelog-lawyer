@@ -30,13 +30,18 @@ interface DayEntry {
 }
 
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 8) // 8:00 - 20:00
+// Цвета видов работ на шкале. Заседание, документы и «прочее» берут
+// переопределённые темой шкалы red/amber/navy. Остальные четыре — свои
+// классы tl-* в globals.css с отдельными значениями для каждой темы:
+// стандартные blue/purple/teal/green Tailwind тема не перекрашивает, и
+// в светлой теме бледный текст на них давал контраст 2:1 — не прочесть.
 const COLORS: Record<ActivityType, string> = {
-  consultation:   'bg-blue-900/60 border-blue-500/50 text-blue-300',
+  consultation:   'tl-blue',
   court_hearing:  'bg-red-900/60 border-red-500/50 text-red-300',
   document_prep:  'bg-amber-900/60 border-amber-500/50 text-amber-300',
-  correspondence: 'bg-purple-900/60 border-purple-500/50 text-purple-300',
-  research:       'bg-teal-900/60 border-teal-500/50 text-teal-300',
-  travel:         'bg-green-900/60 border-green-500/50 text-green-300',
+  correspondence: 'tl-purple',
+  research:       'tl-teal',
+  travel:         'tl-green',
   other:          'bg-navy-800/60 border-navy-600/50 text-navy-300',
 }
 

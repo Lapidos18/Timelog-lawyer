@@ -292,7 +292,9 @@ export default function ReimbursementsPage() {
           <span className="md:hidden">Нажмите на расход — редактировать</span>
         </p>
       )}
-      <div className="card hidden md:block">
+      {/* Уже 1280 px (телефон боком, планшет) таблица прокручивается внутри
+          карточки, а не тянет за собой всю страницу */}
+      <div className="card hidden md:block overflow-x-auto xl:overflow-x-visible">
         {loading ? (
           <SkeletonRows rows={6} />
         ) : filtered.length === 0 ? (
@@ -305,11 +307,11 @@ export default function ReimbursementsPage() {
           <table className="w-full text-sm table-sticky">
             <thead>
               <tr className="text-left text-navy-300 border-b border-navy-800">
-                <th className="pb-2 font-medium">Дата</th>
-                <th className="pb-2 font-medium">Дело</th>
-                <th className="pb-2 font-medium">Описание</th>
-                <th className="pb-2 font-medium">№ документа</th>
-                <th className="pb-2 font-medium">Статус</th>
+                <th className="pb-2 pr-4 font-medium">Дата</th>
+                <th className="pb-2 pr-4 font-medium">Дело</th>
+                <th className="pb-2 pr-4 font-medium">Описание</th>
+                <th className="pb-2 pr-4 font-medium">№ документа</th>
+                <th className="pb-2 pr-4 font-medium">Статус</th>
                 <th className="pb-2 font-medium text-right">Сумма</th>
                 <th className="pb-2"></th>
               </tr>
@@ -322,13 +324,19 @@ export default function ReimbursementsPage() {
                   className={`border-b border-navy-800/40 table-row-hover cursor-pointer ${
                     needsAttention(e) ? 'needs-attention' : ''
                   }`}>
-                  <td className="py-2">{format(new Date(e.expense_date), 'dd.MM.yyyy')}</td>
-                  <td className="py-2 text-navy-400 max-w-[180px] truncate">
-                    {e.matters?.clients?.name} / {e.matters?.title}
+                  <td className="py-2 pr-4 whitespace-nowrap">{format(new Date(e.expense_date), 'dd.MM.yyyy')}</td>
+                  <td className="py-2 pr-4 text-navy-400">
+                    <p className="max-w-[164px] truncate">{e.matters?.clients?.name} / {e.matters?.title}</p>
                   </td>
-                  <td className="py-2 text-navy-300 max-w-[220px] truncate">{e.description}</td>
-                  <td className="py-2 text-navy-300">{e.doc_no || '—'}</td>
-                  <td className="py-2">
+                  {/* Описание забирает оставшуюся ширину и обрезается многоточием
+                      (w-full + max-w-0), а не держит жёсткие 220 px. Нижний
+                      предел — на ячейке, не на блоке внутри (иначе текст
+                      наезжает на соседнюю колонку) */}
+                  <td className="py-2 pr-4 text-navy-300 w-full max-w-0 min-w-[156px]">
+                    <p className="truncate">{e.description}</p>
+                  </td>
+                  <td className="py-2 pr-4 text-navy-300">{e.doc_no || '—'}</td>
+                  <td className="py-2 pr-4">
                     <select
                       value={e.status}
                       onClick={ev => ev.stopPropagation()}
@@ -346,7 +354,7 @@ export default function ReimbursementsPage() {
                       </div>
                     )}
                   </td>
-                  <td className="py-2 text-right font-medium">{fmt(e.amount)} ₽</td>
+                  <td className="py-2 text-right font-medium whitespace-nowrap">{fmt(e.amount)} ₽</td>
                   <td className="py-2 text-right">
                     <button aria-label="Удалить расход" onClick={ev => { ev.stopPropagation(); deleteExpense(e.id) }}
                       className="tap-icon text-navy-400 hover:text-red-400">

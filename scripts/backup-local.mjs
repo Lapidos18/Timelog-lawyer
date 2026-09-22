@@ -84,10 +84,15 @@ const TABLES = [
   'tax_payments',
   'manual_income',
   'reimbursable_expenses',
+  // Добавлены 21.09.2026: без них копия не сохраняла даты заседаний и
+  // процессуальных сроков (миграция 017) и историю изменений (013)
+  'court_events',
+  'audit_log',
 ]
 
-// У tax_settings нет столбца created_at — первичный ключ там год
-const ORDER_COLUMN = { tax_settings: 'year' }
+// У tax_settings нет столбца created_at — первичный ключ там год;
+// у audit_log время записи называется changed_at
+const ORDER_COLUMN = { tax_settings: 'year', audit_log: 'changed_at' }
 
 /** Разбор .env.local без внешних зависимостей */
 function loadEnvLocal() {

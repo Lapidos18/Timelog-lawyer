@@ -530,7 +530,9 @@ export default function TableView() {
       {loadError && !loading && <LoadError onRetry={() => loadEntries()} />}
 
       {/* Table (desktop) */}
-      <div className={`card hidden ${loadError ? '' : 'md:block'}`}>
+      {/* Уже 1280 px (телефон боком, планшет) таблица прокручивается внутри
+          карточки, а не тянет за собой всю страницу */}
+      <div className={`card hidden overflow-x-auto xl:overflow-x-visible ${loadError ? '' : 'md:block'}`}>
         {loading ? (
           <SkeletonRows rows={7} />
         ) : entries.length === 0 ? (
@@ -573,13 +575,18 @@ export default function TableView() {
                   <td className="py-3 pr-4">
                     <span className="badge-gold text-xs">{ACTIVITY_LABELS[e.activity_type]}</span>
                   </td>
-                  <td className="py-3 pr-4 text-navy-300 text-xs max-w-[200px] truncate">
-                    {e.description}
+                  {/* Описание забирает оставшуюся ширину и обрезается многоточием
+                      (w-full + max-w-0). Раньше колонка была жёстко 200 px, и
+                      таблица на ноутбуке 1280 px вылезала за край карточки.
+                      Нижний предел ставить на ЯЧЕЙКУ: min-width у блока внутри
+                      не расширяет колонку, и текст наезжает на соседнюю */}
+                  <td className="py-3 pr-4 text-navy-300 text-xs w-full max-w-0 min-w-[156px]">
+                    <p className="truncate">{e.description}</p>
                   </td>
                   <td className="py-3 pr-4 text-navy-300 num text-xs whitespace-nowrap">
                     {minutesToDisplay(e.duration_min)}
                   </td>
-                  <td className="py-3 pr-4 text-navy-400 num text-xs">
+                  <td className="py-3 pr-4 text-navy-400 num text-xs whitespace-nowrap">
                     {formatMoney(e.hourly_rate)} ₽
                   </td>
                   <td className="py-3 pr-4 num text-xs whitespace-nowrap">
@@ -587,8 +594,8 @@ export default function TableView() {
                       ? <span className="text-navy-100">{formatMoney(e.amount)} ₽</span>
                       : <span className="text-navy-400">—</span>}
                   </td>
-                  <td className="py-3 pr-4 text-navy-300 text-xs truncate max-w-[100px]">
-                    {e.profiles?.full_name}
+                  <td className="py-3 pr-4 text-navy-300 text-xs">
+                    <p className="max-w-[84px] truncate">{e.profiles?.full_name}</p>
                   </td>
                   <td className="py-3">
                     <div className="flex gap-1">

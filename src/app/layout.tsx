@@ -1,6 +1,32 @@
 import type { Metadata, Viewport } from 'next'
+import { Golos_Text, Cormorant_Garamond } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
+
+// Шрифты раздаются с нашего же сайта. Раньше они подтягивались с серверов
+// Google через @import в globals.css: пока чужой сервер не ответит, страница
+// не показывалась вовсе (@import блокирует отрисовку), а при сбое связи с ним
+// оставалась пустой на секунды. next/font скачивает файлы при сборке и кладёт
+// рядом со страницей.
+// Оба шрифта «переменные» — один файл на все начертания. latin-ext нужен ради
+// знака ₽ (U+20BD): без него рубль рисовался бы системным шрифтом.
+// Inter больше не подключается: весь текст задан Golos Text, Inter нигде не
+// показывался (в tailwind.config.js он остался только запасным именем).
+// preload: false — иначе браузер скачает все начертания сразу, включая
+// latin-ext, которая нужна лишь на страницах с суммами; при обычной загрузке
+// он берёт только те файлы, символы которых есть на странице.
+const golos = Golos_Text({
+  subsets: ['latin', 'latin-ext', 'cyrillic'],
+  display: 'swap',
+  variable: '--font-golos',
+  preload: false,
+})
+const cormorant = Cormorant_Garamond({
+  subsets: ['latin', 'latin-ext', 'cyrillic'],
+  display: 'swap',
+  variable: '--font-cormorant',
+  preload: false,
+})
 
 export const metadata: Metadata = {
   title: 'Тайм-трекер | АК Бухмин А.А.',
@@ -23,7 +49,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ru" suppressHydrationWarning>
+    <html lang="ru" suppressHydrationWarning className={`${golos.variable} ${cormorant.variable}`}>
       <head>
         {/* Тема выставляется ДО первой отрисовки: иначе при выбранной светлой
             теме страница на мгновение вспыхивает тёмным фоном. Скрипт

@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600&family=Golos+Text:wght@400;500;600;700&display=swap');
+/* Шрифты (Golos Text, Cormorant Garamond) подключает src/app/layout.tsx через
+   next/font и раздаёт с нашего сайта; здесь остаются только имена переменных.
+   Прежний @import с fonts.googleapis.com блокировал показ страницы. */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -150,7 +152,7 @@
   /* Текст в обеих темах: Golos Text — русский шрифт, спокойнее Inter.
      Цифры остаются табличными через .num, как и везде. */
   :root body {
-    font-family: 'Golos Text', 'Segoe UI', system-ui, sans-serif;
+    font-family: var(--font-golos), 'Golos Text', 'Segoe UI', system-ui, sans-serif;
   }
 
   /* Заголовки — тонкая антиква. У Cormorant маленькая высота строчных,
@@ -160,7 +162,7 @@
      читается хуже и не выравнивается. */
   :root h1,
   :root h2 {
-    font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    font-family: var(--font-cormorant), 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
     color: rgb(var(--heading));
     letter-spacing: 0;
     text-wrap: balance;

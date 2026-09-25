@@ -11,6 +11,7 @@ import Modal from '@/components/Modal'
 import LoadError from '@/components/LoadError'
 import { useLockedEntries, lockedMessage } from '@/lib/locked-entries'
 import { SkeletonRows } from '@/components/Skeleton'
+import { useMounted } from '@/lib/use-mounted'
 
 interface DayEntry {
   id: string
@@ -58,6 +59,9 @@ function timeToDecimal(t: string | null): number {
 
 export default function TimelineView() {
   const supabase = createClient()
+  // Число в заголовке зависит от «сегодня», а страница собирается заранее —
+  // до загрузки в браузере его не показываем (см. src/lib/use-mounted.ts)
+  const mounted = useMounted()
   const [date, setDate] = useState(new Date())
   const [entries, setEntries] = useState<DayEntry[]>([])
   const [matters, setMatters] = useState<(Matter & { clients: Client })[]>([])
@@ -330,7 +334,7 @@ export default function TimelineView() {
             <ChevronLeft className="w-4 h-4" />
           </button>
           <div className="min-w-0">
-            <h1 className="text-lg md:text-xl font-semibold text-navy-100 capitalize">{dateLabel}</h1>
+            <h1 className="text-lg md:text-xl font-semibold text-navy-100 capitalize">{mounted ? dateLabel : ' '}</h1>
             <p className="text-xs text-navy-300">
               {entries.length} записей · {totalHours.toFixed(1)} ч · {formatMoney(totalAmount)} ₽
             </p>

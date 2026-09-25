@@ -13,6 +13,7 @@ import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import PageHeader from '@/components/PageHeader'
 import EmptyState from '@/components/EmptyState'
 import { useLockedEntries, lockedMessage } from '@/lib/locked-entries'
+import { useMounted } from '@/lib/use-mounted'
 
 type GroupBy = 'none' | 'client' | 'matter'
 
@@ -87,6 +88,10 @@ export default function ReportsPage() {
   // Записи из подписанных и оплаченных актов — править нельзя
   const { locked } = useLockedEntries()
 
+  // Границы периода зависят от «сегодня», а страница собирается заранее:
+  // в полях и в подсветке готового периода их показываем только после
+  // загрузки в браузере (см. src/lib/use-mounted.ts)
+  const mounted = useMounted()
   const now = new Date()
   const [filters, setFilters] = useState<ReportFilters>({
     date_from: format(startOfMonth(now), 'yyyy-MM-dd'),
@@ -298,7 +303,7 @@ export default function ReportsPage() {
         <div className="flex flex-wrap gap-2 mb-4">
           {PERIOD_PRESETS.map(p => {
             const { from, to } = p.range()
-            const active = filters.date_from === from && filters.date_to === to
+            const active = mounted && filters.date_from === from && filters.date_to === to
             return (
               <button key={p.label} type="button"
                 onClick={() => setFilters(f => ({ ...f, date_from: from, date_to: to }))}
@@ -316,12 +321,12 @@ export default function ReportsPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4 mb-4">
           <div>
             <label className="label">Дата с</label>
-            <input type="date" className="input" value={filters.date_from ?? ''}
+            <input type="date" className="input" value={mounted ? (filters.date_from ?? '') : ''}
               onChange={e => setFilters(f => ({ ...f, date_from: e.target.value }))} />
           </div>
           <div>
             <label className="label">Дата по</label>
-            <input type="date" className="input" value={filters.date_to ?? ''}
+            <input type="date" className="input" value={mounted ? (filters.date_to ?? '') : ''}
               onChange={e => setFilters(f => ({ ...f, date_to: e.target.value }))} />
           </div>
           <div>

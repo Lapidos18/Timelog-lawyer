@@ -13,6 +13,7 @@ import ChangeHistory from '@/components/ChangeHistory'
 import Modal from '@/components/Modal'
 import ImportStatement from './ImportStatement'
 import { printDocument, CABINET_LINE } from '@/lib/print'
+import { useMounted } from '@/lib/use-mounted'
 
 interface Payment {
   id: string
@@ -46,6 +47,9 @@ function fmtDate(s: string) {
 
 export default function ReconciliationPage() {
   const supabase = createClient()
+  // Даты периода зависят от «сегодня», а страница собирается заранее: в полях
+  // их показываем только после загрузки в браузере (см. src/lib/use-mounted.ts)
+  const mounted = useMounted()
   const [clients, setClients] = useState<Client[]>([])
   const [matters, setMatters] = useState<(Matter & { clients: Client })[]>([])
   const [selectedClient, setSelectedClient] = useState('')
@@ -497,12 +501,12 @@ ${reimbBlock}
           </div>
           <div>
             <label className="label">Период с</label>
-            <input type="date" className="input" value={dateFrom}
+            <input type="date" className="input" value={mounted ? dateFrom : ''}
               onChange={e => { setDateFrom(e.target.value); setGenerated(false) }} />
           </div>
           <div>
             <label className="label">Период по</label>
-            <input type="date" className="input" value={dateTo}
+            <input type="date" className="input" value={mounted ? dateTo : ''}
               onChange={e => { setDateTo(e.target.value); setGenerated(false) }} />
           </div>
         </div>

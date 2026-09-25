@@ -10,6 +10,7 @@ import LoadError from '@/components/LoadError'
 import PageHeader from '@/components/PageHeader'
 import { SkeletonStats, SkeletonRows } from '@/components/Skeleton'
 import { daysUntil, untilLabel, toISO } from '@/lib/deadlines'
+import { useMounted } from '@/lib/use-mounted'
 
 /** Событие в блоке «Сроки и заседания» на Обзоре */
 type UpcomingEvent = {
@@ -43,6 +44,9 @@ export default function DashboardPage() {
   /** Просроченное и то, что наступит в пределах своего срока напоминания */
   const [upcoming, setUpcoming] = useState<UpcomingEvent[]>([])
 
+  // Название месяца зависит от «сегодня», а страница собирается заранее:
+  // до загрузки в браузере его не показываем (см. src/lib/use-mounted.ts)
+  const mounted = useMounted()
   const now = new Date()
   const monthStart = format(startOfMonth(now), 'yyyy-MM-dd')
   const monthEnd   = format(endOfMonth(now),   'yyyy-MM-dd')
@@ -216,7 +220,7 @@ export default function DashboardPage() {
   return (
     <div className="p-4 md:p-7">
       <PageHeader title="Обзор"
-        description={<span className="capitalize">{monthLabel}</span>} />
+        description={<span className="capitalize">{mounted ? monthLabel : ' '}</span>} />
 
       {loadError && !loading && (
         <div className="mb-5">

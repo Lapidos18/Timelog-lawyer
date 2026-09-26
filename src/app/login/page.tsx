@@ -3,12 +3,14 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { Scale } from 'lucide-react'
+import { Scale, Eye, EyeOff } from 'lucide-react'
 import Link from 'next/link'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  // «Глазок»: показать пароль, чтобы проверить опечатку. По умолчанию скрыт
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
@@ -61,16 +63,39 @@ export default function LoginPage() {
             </div>
             <div>
               <label className="label">Пароль</label>
-              <input
-                type="password"
-                name="password"
-                autoComplete="current-password"
-                className="input"
-                placeholder="••••••••"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-              />
+              <div className="relative">
+                {/* Когда пароль открыт, поле становится текстовым: без этих
+                    трёх атрибутов телефон исправлял бы его и писал с заглавной */}
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  autoComplete="current-password"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className="input pr-12"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                />
+                {/* Кнопка внутри поля, шириной 44 px под палец. mousedown
+                    гасим, чтобы нажатие не уводило фокус из поля и на телефоне
+                    не пряталась клавиатура */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  onMouseDown={e => e.preventDefault()}
+                  aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                  aria-pressed={showPassword}
+                  title={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                  className="absolute inset-y-0 right-0 w-11 flex items-center justify-center
+                             text-navy-400 hover:text-navy-100 rounded-r-lg
+                             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-500/50"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
             <button
               type="submit"

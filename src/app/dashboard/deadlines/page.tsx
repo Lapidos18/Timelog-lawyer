@@ -12,6 +12,7 @@ import { SkeletonRows } from '@/components/Skeleton'
 import ChangeHistory from '@/components/ChangeHistory'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import { DEADLINE_TEMPLATES, computeDeadline, daysUntil, untilLabel, toISO } from '@/lib/deadlines'
+import { isTouchLayout } from '@/lib/touch-layout'
 
 /**
  * Сроки и заседания.
@@ -36,12 +37,6 @@ const KIND_STYLE: Record<CourtEventKind, string> = {
 }
 
 const fmtDate = (s: string) => format(new Date(s + 'T12:00:00'), 'dd.MM.yyyy')
-
-/** Узкий экран или сенсорный ввод — там карточка открывается одним касанием */
-function isTouchLayout(): boolean {
-  return typeof window !== 'undefined'
-    && window.matchMedia('(max-width: 767px), (pointer: coarse)').matches
-}
 
 /** Цвет строки: просрочено — красный, в пределах напоминания — янтарный */
 function urgency(e: CourtEvent): 'over' | 'soon' | 'later' {

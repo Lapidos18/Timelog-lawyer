@@ -55,9 +55,15 @@ export const CABINET_LINE =
   'Адвокатский кабинет Бухмина Антона Андреевича, рег. № 54/1831 в реестре адвокатов ' +
   'Новосибирской области, ИНН 540233730471'
 
-export function printDocument(title: string, bodyHtml: string): boolean {
+/**
+ * @param extraCss  Дополнительные правила ПОСЛЕ общих (они их перебивают).
+ *                  Нужны документам с особой страницей: акт сверки взаимных
+ *                  расчётов печатается альбомной (@page { size: A4 landscape }).
+ *                  Остальные документы параметр не передают и не меняются.
+ */
+export function printDocument(title: string, bodyHtml: string, extraCss = ''): boolean {
   const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">
-<title>${title}</title><style>${PRINT_CSS}</style></head><body>${bodyHtml}</body></html>`
+<title>${title}</title><style>${PRINT_CSS}${extraCss}</style></head><body>${bodyHtml}</body></html>`
 
   const w = window.open('', '_blank', 'width=900,height=700')
   if (!w) return false

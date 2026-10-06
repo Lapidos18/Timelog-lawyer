@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase'
 import { Client, Matter, ACTIVITY_LABELS, ReimbursableExpense } from '@/types'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { FileDown, FileSpreadsheet, Plus, Trash2, X, Check, ClipboardList, Upload } from 'lucide-react'
+import Link from 'next/link'
+import { FileDown, FileSpreadsheet, Plus, Trash2, X, Check, ClipboardList, Upload, ArrowLeftRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import { escapeHtml } from '@/lib/html'
@@ -484,6 +485,12 @@ ${reimbBlock}
             <button onClick={exportPDF} className="btn-secondary">
               <FileDown className="w-4 h-4" /> PDF
             </button>
+            {/* Двусторонняя форма «как в 1С»: те же доверитель и период, но уже
+                в виде двух таблиц (дебет/кредит) с возможностью дозаполнить */}
+            <Link className="btn-secondary"
+              href={`/dashboard/settlements?client=${selectedClient}&from=${dateFrom}&to=${dateTo}`}>
+              <ArrowLeftRight className="w-4 h-4" /> Акт взаимных расчётов
+            </Link>
           </>
         )}
       </PageHeader>

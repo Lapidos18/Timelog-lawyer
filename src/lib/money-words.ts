@@ -69,6 +69,33 @@ export function numberToWordsRu(num: number): string {
   return out.filter(Boolean).join(' ')
 }
 
+/** Склонение слова «рубль» по целому числу рублей: 1 рубль, 2 рубля, 5 рублей */
+export function rubleWord(n: number): string {
+  const last2 = n % 100
+  const last1 = n % 10
+  if (last2 >= 11 && last2 <= 14) return 'рублей'
+  if (last1 === 1) return 'рубль'
+  if (last1 >= 2 && last1 <= 4) return 'рубля'
+  return 'рублей'
+}
+
+/**
+ * «5 000,00 руб. (пять тысяч рублей 00 копеек)» — формулировка вывода в акте
+ * сверки взаимных расчётов. Сумма — в КОПЕЙКАХ целым числом, как её хранит акт.
+ *
+ * Отдельная от fmtMoneyWords форма сознательно: там «целые рубли цифрами,
+ * копейки отдельно» (текст акта об оказании услуг), здесь — сумма целиком
+ * цифрами с копейками и прописью в скобках, как в форме, которую используют
+ * контрагенты между собой.
+ */
+export function fmtMoneyFull(kopecks: number): string {
+  const k = Math.round(Math.abs(kopecks))
+  const rubles = Math.floor(k / 100)
+  const kop = k % 100
+  const digits = new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(k / 100)
+  return `${digits} руб. (${numberToWordsRu(rubles)} ${rubleWord(rubles)} ${String(kop).padStart(2, '0')} ${kopeckWord(kop)})`
+}
+
 /** «15 000 (пятнадцать тысяч) руб. 50 копеек» */
 export function fmtMoneyWords(n: number): string {
   const rubles = Math.floor(n)

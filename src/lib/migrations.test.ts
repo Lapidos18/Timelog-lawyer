@@ -40,11 +40,11 @@ function finalViewState(files: { name: string; sql: string }[]) {
     const events: { at: number; run: () => void }[] = []
 
     const create = /create\s+(?:or\s+replace\s+)?(?:temp(?:orary)?\s+)?view\s+(?:public\.)?"?(\w+)"?\s*(?:\([^)]*\)\s*)?(?:with\s*\(([^)]*)\)\s*)?as\b/g
-    for (const m of sql.matchAll(create)) {
+    for (const m of Array.from(sql.matchAll(create))) {
       events.push({ at: m.index!, run: () => state.set(m[1], { secured: isInvoker(m[2] ?? ''), lastTouchedBy: f.name }) })
     }
     const alter = /alter\s+view\s+(?:if\s+exists\s+)?(?:public\.)?"?(\w+)"?\s+set\s*\(([^)]*)\)/g
-    for (const m of sql.matchAll(alter)) {
+    for (const m of Array.from(sql.matchAll(alter))) {
       events.push({ at: m.index!, run: () => {
         const cur = state.get(m[1])
         if (cur && isInvoker(m[2])) state.set(m[1], { secured: true, lastTouchedBy: f.name })
@@ -53,7 +53,7 @@ function finalViewState(files: { name: string; sql: string }[]) {
       } })
     }
     const drop = /drop\s+view\s+(?:if\s+exists\s+)?(?:public\.)?"?(\w+)"?/g
-    for (const m of sql.matchAll(drop)) events.push({ at: m.index!, run: () => state.delete(m[1]) })
+    for (const m of Array.from(sql.matchAll(drop))) events.push({ at: m.index!, run: () => state.delete(m[1]) })
 
     events.sort((a, b) => a.at - b.at).forEach(e => e.run())
   }
@@ -68,14 +68,14 @@ describe('миграции: представления закрыты от по�
   it('каждое представление в итоге работает с правами читающего (security_invoker)', () => {
     const state = finalViewState(load())
     expect(state.size).toBeGreaterThan(0) // разбор не промахнулся мимо всех
-    const open = [...state].filter(([, v]) => !v.secured).map(([n, v]) => `${n} (последний раз тронуто в ${v.lastTouchedBy})`)
+    const open = Array.from(state).filter(([, v]) => !v.secured).map(([n, v]) => `${n} (последний раз тронуто в ${v.lastTouchedBy})`)
     expect(open, `Открыты без входа: ${open.join('; ')}. Добавьте ` +
       '`alter view <имя> set (security_invoker = true);` или `with (security_invoker = true)` ' +
       'в create view — иначе журнал, платежи и расходы читаются по открытому ключу.').toEqual([])
   })
 
   it('знает все три прежних представления', () => {
-    const names = [...finalViewState(load()).keys()].sort()
+    const names = Array.from(finalViewState(load()).keys()).sort()
     expect(names).toEqual(['finance_expense_view', 'finance_income_view', 'report_view'])
   })
 

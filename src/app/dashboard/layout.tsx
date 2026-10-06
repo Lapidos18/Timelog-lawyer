@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, Briefcase,
   FileBarChart2, LogOut, Scale, ChevronRight,
   BookOpen, ClipboardList, Menu, X, FileCheck, HardDrive, Wallet, Receipt,
-  CalendarClock
+  CalendarClock, ArrowLeftRight
 } from 'lucide-react'
 import CommandPalette from '@/components/CommandPalette'
 import ThemeToggle from '@/components/ThemeToggle'
@@ -21,6 +21,7 @@ const NAV = [
   { href: '/dashboard/clients',        icon: Users,           label: 'Доверители' },
   { href: '/dashboard/reports',        icon: FileBarChart2,   label: 'Отчёты', group: 'Документы' },
   { href: '/dashboard/acts',           icon: FileCheck,       label: 'Акты' },
+  { href: '/dashboard/settlements',    icon: ArrowLeftRight,  label: 'Акты взаимных расчётов' },
   { href: '/dashboard/reimbursements', icon: Receipt,         label: 'Возмещаемые расходы' },
   { href: '/dashboard/reconciliation', icon: ClipboardList,   label: 'Платежи / Акт сверки', group: 'Финансы' },
   { href: '/dashboard/finance',         icon: Wallet,          label: 'Доходы и налоги' },

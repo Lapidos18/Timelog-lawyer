@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   toKop, parseMoney, formatMoney, monthLabel, lastDayOfMonth, fmtDate,
-  buildRowsUs, openingFrom, mirrorRows, mirrorBalance, effectiveThem,
+  buildRowsUs, paymentDoc, openingFrom, mirrorRows, mirrorBalance, effectiveThem,
   tableTotals, conclusion, discrepancy, newSettlementDoc, normalizeDoc,
   fileBaseName, SettlementRow,
 } from './settlement-act'
@@ -208,6 +208,24 @@ describe('сборка таблицы кабинета из данных при�
     expect(rows.map(r => r.date)).toEqual(['2026-09-05', '2026-09-10', '2026-09-10'])
     expect(rows[1].debit).toBeGreaterThan(0)   // начисление
     expect(rows[2].credit).toBeGreaterThan(0)  // оплата
+  })
+})
+
+describe('название документа оплаты', () => {
+  it('голый номер — с «№» и датой оплаты', () => {
+    expect(paymentDoc('591', '2026-09-24')).toBe('Оплата №591 от 24.09.2026')
+    expect(paymentDoc('1498/2', '2026-07-08')).toBe('Оплата №1498/2 от 08.07.2026')
+  })
+  it('номер с буквами — как написан, дата дописывается', () => {
+    expect(paymentDoc('п/п 12', '2026-09-24')).toBe('Оплата п/п 12 от 24.09.2026')
+  })
+  it('дата уже внутри номера — второй раз не повторяется', () => {
+    expect(paymentDoc('ПП 31 от 27.04.2026', '2026-04-27')).toBe('Оплата ПП 31 от 27.04.2026')
+    expect(paymentDoc('ПП 35 от 25.08.26', '2026-08-25')).toBe('Оплата ПП 35 от 25.08.26')
+  })
+  it('нет номера — только дата', () => {
+    expect(paymentDoc(null, '2026-09-03')).toBe('Оплата от 03.09.2026')
+    expect(paymentDoc('  ', '2026-09-03')).toBe('Оплата от 03.09.2026')
   })
 })
 

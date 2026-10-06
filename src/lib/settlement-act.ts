@@ -152,6 +152,24 @@ export interface ExpenseInput { expense_date: string; description: string; doc_n
 export interface PaymentInput { pay_date: string; doc_no: string | null; amount: number | string }
 
 /**
+ * Название документа оплаты: «Оплата №591 от 24.09.2026».
+ *
+ * Номер платёжки пользователь вносит как придётся: «591», а иногда целиком
+ * «ПП 31 от 27.04.2026». Поэтому «№» ставится только перед голым номером, а
+ * дата дописывается, только если в номере её ещё нет — иначе выходило
+ * «Оплата №ПП 31 от 27.04.2026 от 27.04.2026».
+ */
+export function paymentDoc(docNo: string | null, date: string): string {
+  const no = (docNo ?? '').trim()
+  if (!no) return `Оплата от ${fmtDate(date)}`
+  // Граница слова \b в JavaScript у кириллицы не работает, поэтому «от» ищем
+  // после пробела или знака, а не через \b
+  const hasDate = /(?:^|[\s,;(])от\s+\d{1,2}\.\d{1,2}\.\d{2,4}/i.test(no)
+  const label = /^[\d/\-\s]+$/.test(no) ? `№${no}` : no
+  return hasDate ? `Оплата ${label}` : `Оплата ${label} от ${fmtDate(date)}`
+}
+
+/**
  * Строки таблицы КАБИНЕТА за период.
  *
  * Услуги сводятся по делу и месяцу — одной строкой «Услуги по делу «…» за
@@ -211,7 +229,7 @@ export function buildRowsUs(input: {
     rows.push({
       id: `pay-${k}`,
       date: p.pay_date,
-      doc: `Оплата${p.doc_no ? ` №${p.doc_no}` : ''} от ${fmtDate(p.pay_date)}`,
+      doc: paymentDoc(p.doc_no, p.pay_date),
       debit: 0,
       credit: kop,
     })

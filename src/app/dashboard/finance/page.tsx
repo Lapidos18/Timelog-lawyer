@@ -515,7 +515,7 @@ export default function FinancePage() {
             <p className="text-xs text-navy-400 mt-2">
               Здесь собраны все поступления за год — и оплаты от доверителей, и доходы вне актов.
               Это раздел для просмотра и расчёта налогов; вносятся поступления в одном месте —
-              «Платежи / Акт сверки».
+              «Платежи и акты сверки».
             </p>
           </div>
 
@@ -524,9 +524,10 @@ export default function FinancePage() {
               💡 <span className="hidden md:inline">Двойной клик по ручной записи — редактировать</span>
               <span className="md:hidden">Нажмите на ручную запись — редактировать</span>
             </p>
-            {/* Ввод поступлений живёт только в «Платежи / Акт сверки» — иначе
-                получаются два места для одного действия и непонятно, чем они различаются */}
-            <Link href="/dashboard/reconciliation"
+            {/* Ввод поступлений живёт только в «Платежи и акты сверки» — иначе
+                получаются два места для одного действия и непонятно, чем они различаются.
+                ?new=1 открывает там форму поступления сразу */}
+            <Link href="/dashboard/reconciliation?new=1"
               className="tap inline-flex items-center gap-1.5 bg-gold-500 text-navy-950 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gold-400">
               <Plus className="w-4 h-4" /> Внести поступление
             </Link>

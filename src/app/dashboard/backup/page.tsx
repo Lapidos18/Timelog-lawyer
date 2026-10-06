@@ -104,7 +104,7 @@ export default function BackupPage() {
     reimbursable_expenses: 'Возмещаемые расходы',
     audit_log:             'История изменений',
     court_events:          'Сроки и заседания',
-    settlement_acts:       'Акты взаимных расчётов',
+    settlement_acts:       'Акты сверки (форма 1С)',
   }
 
   return (

@@ -30,9 +30,9 @@ const SECTIONS: Item[] = [
   { id: 's-cli',    label: 'Доверители',            group: 'Разделы', href: '/dashboard/clients' },
   { id: 's-rep',    label: 'Отчёты',                group: 'Разделы', href: '/dashboard/reports' },
   { id: 's-acts',   label: 'Акты',                  group: 'Разделы', href: '/dashboard/acts' },
-  { id: 's-settle', label: 'Акты взаимных расчётов', group: 'Разделы', href: '/dashboard/settlements' },
   { id: 's-reimb',  label: 'Возмещаемые расходы',   group: 'Разделы', href: '/dashboard/reimbursements' },
-  { id: 's-recon',  label: 'Платежи / Акт сверки',  group: 'Разделы', href: '/dashboard/reconciliation' },
+  { id: 's-recon',  label: 'Платежи и акты сверки', group: 'Разделы', href: '/dashboard/reconciliation' },
+  { id: 's-settle', label: 'Акты сверки (форма 1С)', group: 'Разделы', href: '/dashboard/reconciliation?view=acts' },
   { id: 's-fin',    label: 'Доходы и налоги',       group: 'Разделы', href: '/dashboard/finance' },
   { id: 's-back',   label: 'Резервная копия',       group: 'Разделы', href: '/dashboard/backup' },
 ]
@@ -97,7 +97,7 @@ export default function CommandPalette() {
         label: x.name,
         hint: 'акт сверки',
         group: 'Доверители',
-        href: '/dashboard/reconciliation',
+        href: '/dashboard/reconciliation?view=acts',
       }))
       const matterItems: Item[] = (m.data ?? []).map((x: any) => ({
         id: 'm-' + x.id,

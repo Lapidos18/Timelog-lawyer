@@ -464,7 +464,7 @@ export default function ReimbursementsPage() {
               </p>
               <p className="text-xs text-navy-400 leading-relaxed">
                 Если компенсация пришла в составе платежа от доверителя, надёжнее внести её
-                через «Платежи / Акт сверки» — там расход привязывается к конкретному платежу.
+                через «Платежи и акты сверки» — там расход привязывается к конкретному платежу.
               </p>
             </div>
             <div className="px-4 md:px-6 pb-6 flex flex-wrap gap-3">

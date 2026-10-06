@@ -39,6 +39,8 @@ export default function BackupPage() {
       'audit_log',
       // Сроки и заседания (миграция 017) — их потеря дороже всего
       'court_events',
+      // Акты взаимных расчётов (миграция 019)
+      'settlement_acts',
     ]
 
     // tax_settings не имеет столбца created_at (первичный ключ — year, дата
@@ -102,6 +104,7 @@ export default function BackupPage() {
     reimbursable_expenses: 'Возмещаемые расходы',
     audit_log:             'История изменений',
     court_events:          'Сроки и заседания',
+    settlement_acts:       'Акты взаимных расчётов',
   }
 
   return (

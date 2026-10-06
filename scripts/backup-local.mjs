@@ -88,11 +88,39 @@ const TABLES = [
   // процессуальных сроков (миграция 017) и историю изменений (013)
   'court_events',
   'audit_log',
+  // Добавлена 06.10.2026 (миграция 019, акты взаимных расчётов) — только ПОСЛЕ
+  // того, как пользователь выполнил миграцию: выгрузка несуществующей таблицы
+  // роняет всё задание
+  'settlement_acts',
 ]
 
 // У tax_settings нет столбца created_at — первичный ключ там год;
 // у audit_log время записи называется changed_at
 const ORDER_COLUMN = { tax_settings: 'year', audit_log: 'changed_at' }
+
+/**
+ * Выгрузка одной таблицы с повторами при обрыве СВЯЗИ.
+ *
+ * 06.10.2026 с компьютера пользователя соединение с Supabase (США, через VPN)
+ * дважды за несколько минут не устанавливалось 10 секунд подряд, а со второй
+ * попытки проходило. Без повтора такой обрыв ронял всё ночное задание, и копия
+ * за сутки не появлялась. Повторяем только сетевые сбои: ошибка прав или
+ * отсутствующая таблица от повтора не исправится, их показываем сразу.
+ */
+const NETWORK_ERROR = /fetch failed|timeout|timed out|ECONN|ENOTFOUND|EAI_AGAIN|UND_ERR|socket|network/i
+const ATTEMPTS = 4
+async function fetchTable(supabase, table) {
+  let last
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    last = await supabase.from(table).select('*').order(ORDER_COLUMN[table] ?? 'created_at')
+    if (!last.error || !NETWORK_ERROR.test(String(last.error.message))) return last
+    if (attempt < ATTEMPTS) {
+      console.log(`  … ${table}: обрыв связи (${last.error.message}), попытка ${attempt + 1} из ${ATTEMPTS}`)
+      await new Promise(r => setTimeout(r, 3000 * attempt))
+    }
+  }
+  return last
+}
 
 /** Разбор .env.local без внешних зависимостей */
 function loadEnvLocal() {
@@ -140,10 +168,7 @@ async function main() {
   let hadError = false
 
   for (const table of TABLES) {
-    const { data: rows, error } = await supabase
-      .from(table)
-      .select('*')
-      .order(ORDER_COLUMN[table] ?? 'created_at')
+    const { data: rows, error } = await fetchTable(supabase, table)
 
     if (error) {
       hadError = true

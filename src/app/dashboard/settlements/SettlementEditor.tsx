@@ -1,11 +1,11 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { ArrowLeft, ArrowLeftRight, ArrowUpDown, FileDown, FileText, Lock, Plus, RefreshCw, Save, Trash2, Unlock } from 'lucide-react'
+import { ArrowLeft, ArrowLeftRight, FileDown, FileText, Lock, Plus, RefreshCw, Save, Trash2, Unlock } from 'lucide-react'
 import PageHeader from '@/components/PageHeader'
 import {
   SettlementDoc, SettlementRow, SettlementStatus, Balance, Kop, Orientation,
   parseMoney, formatMoney, fmtDate, effectiveThem, tableTotals, conclusion, discrepancy,
-  mirrorBalance, mirrorRows,
+  mirrorBalance, mirrorRows, sortRows,
 } from '@/lib/settlement-act'
 
 /** Сетка строки: на телефоне — карточка в два столбца, от md — одна строка */
@@ -86,6 +86,18 @@ function SideTable({
   const c = conclusion(t.net, owner, other)
   const patch = (id: string, p: Partial<SettlementRow>) => onRows(rows.map(r => (r.id === id ? { ...r, ...p } : r)))
 
+  // Строки идут по дате. Переставляем, когда пользователь ВЫШЕЛ из поля даты, а не на каждый
+  // символ: в поле даты год набирается по цифрам («0002» … «2026»), и строка прыгала бы под рукой.
+  function settleOrder(e: React.FocusEvent<HTMLInputElement>) {
+    const sorted = sortRows(rows)
+    if (sorted.every((r, i) => r === rows[i])) return
+    const next = e.relatedTarget as HTMLElement | null
+    onRows(sorted)
+    // React переносит строку в разметке целиком, и фокус с поля, куда шёл пользователь,
+    // слетает: возвращаем его туда
+    if (next) setTimeout(() => { if (next.isConnected && document.activeElement !== next) next.focus() }, 0)
+  }
+
   return (
     <section className="card mb-5">
       <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
@@ -115,7 +127,7 @@ function SideTable({
         <div key={r.id} className={`${ROW_GRID} py-2 border-t border-navy-800`}>
           <input type="date" aria-label="Дата" disabled={disabled}
             className="input order-1 md:order-none disabled:opacity-60 disabled:cursor-not-allowed"
-            value={r.date} onChange={e => patch(r.id, { date: e.target.value })} />
+            value={r.date} onChange={e => patch(r.id, { date: e.target.value })} onBlur={settleOrder} />
           {/* На телефоне корзина встаёт в первую строку рядом с датой, на широком — в конец */}
           {!disabled ? (
             <button type="button" aria-label="Удалить строку" title="Удалить строку"
@@ -137,14 +149,11 @@ function SideTable({
       {!disabled && (
         <div className="flex gap-2 flex-wrap py-3 border-t border-navy-800">
           <button type="button" className="btn-secondary"
-            onClick={() => onRows([...rows, { id: crypto.randomUUID(), date: defaultDate, doc: '', debit: 0, credit: 0 }])}>
+            onClick={() => onRows(sortRows([...rows, { id: crypto.randomUUID(), date: defaultDate, doc: '', debit: 0, credit: 0 }]))}>
             <Plus className="w-4 h-4" /> Добавить строку
           </button>
           {rows.length > 1 && (
-            <button type="button" className="btn-ghost text-xs"
-              onClick={() => onRows([...rows].sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999')))}>
-              <ArrowUpDown className="w-4 h-4" /> Упорядочить по дате
-            </button>
+            <span className="text-xs text-navy-400 self-center">Строки сами встают по дате, когда вы выходите из поля даты.</span>
           )}
         </div>
       )}

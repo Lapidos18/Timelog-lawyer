@@ -123,3 +123,16 @@ describe('печатная форма акта сверки', () => {
     expect(norm(html)).toContain('задолженность отсутствует')
   })
 })
+
+describe('порядок строк в документе', () => {
+  it('в печати строки по дате, даже если в акте они лежат вразнобой', () => {
+    const d = sample()
+    d.rowsUs = [d.rowsUs[5], d.rowsUs[0], d.rowsUs[3], d.rowsUs[1], d.rowsUs[4], d.rowsUs[2]]
+    const html = norm(settlementBodyHtml(d))
+    const at = (s: string) => html.indexOf(s)
+    const order = ['Оплата п/п №1', 'Поставка №1', 'Оплата п/п №2', 'Поставка №2', 'Оплата №3', 'Поставка №3'].map(at)
+    expect(order.every(i => i >= 0)).toBe(true)
+    expect([...order].sort((a, b) => a - b)).toEqual(order)
+    expect(d.rowsUs[0].id).toBe('f') // сам акт при печати не меняется
+  })
+})

@@ -3,7 +3,7 @@ import {
   toKop, parseMoney, formatMoney, monthLabel, lastDayOfMonth, fmtDate,
   buildRowsUs, paymentDoc, openingFrom, mirrorRows, mirrorBalance, effectiveThem,
   tableTotals, conclusion, discrepancy, newSettlementDoc, normalizeDoc,
-  fileBaseName, SettlementRow,
+  fileBaseName, sortRows, sortedDoc, SettlementRow,
 } from './settlement-act'
 import { fmtMoneyFull, rubleWord } from './money-words'
 
@@ -360,5 +360,59 @@ describe('имя файла', () => {
     })
     expect(fileBaseName(d)).toBe('Акт сверки ООО -Система- 01.01.2026-30.09.2026')
     expect(fileBaseName(d)).not.toMatch(/[\\/:*?"<>|]/)
+  })
+})
+
+describe('строки по дате', () => {
+  it('ручные строки, добавленные в конец, встают по дате', () => {
+    // как в жизни: оплаты из платежей, потом вручную добавленные «Акты выполненных работ»
+    const rows = [
+      row('2026-07-24', 'Оплата ПП 6', 0, 22400000),
+      row('2026-08-25', 'Оплата ПП 35', 0, 22400000),
+      row('2026-09-24', 'Оплата ПП 21', 0, 22400000),
+      row('2026-07-31', 'Акт от 31.07', 22400000, 0),
+      row('2026-08-31', 'Акт от 31.08', 22400000, 0),
+      row('2026-09-30', 'Акт от 30.09', 22400000, 0),
+    ]
+    expect(sortRows(rows).map(r => r.doc)).toEqual([
+      'Оплата ПП 6', 'Акт от 31.07', 'Оплата ПП 35', 'Акт от 31.08', 'Оплата ПП 21', 'Акт от 30.09',
+    ])
+  })
+
+  it('строка без даты — в конце, одна дата — прежний порядок, исходный массив цел', () => {
+    const rows = [row('', 'без даты', 1, 0), row('2026-05-02', 'второй', 0, 1, 'b'), row('2026-05-01', 'первый', 0, 1, 'a'), row('2026-05-02', 'второй-bis', 0, 1, 'c')]
+    const before = rows.map(r => r.doc)
+    expect(sortRows(rows).map(r => r.doc)).toEqual(['первый', 'второй', 'второй-bis', 'без даты'])
+    expect(rows.map(r => r.doc)).toEqual(before)
+  })
+
+  it('уже упорядоченное остаётся теми же объектами (редактор не перерисовывает зря)', () => {
+    const rows = [row('2026-01-01', 'а', 1, 0), row('2026-01-02', 'б', 1, 0)]
+    const sorted = sortRows(rows)
+    expect(sorted.every((r, i) => r === rows[i])).toBe(true)
+  })
+
+  it('акт, сохранённый с неупорядоченными строками, при открытии упорядочен', () => {
+    const d = newSettlementDoc({
+      periodFrom: '2026-07-01', periodTo: '2026-09-30', clientName: 'К', cabinetLine: 'С',
+      openingUs: { debit: 0, credit: 0 },
+      rowsUs: [row('2026-09-30', 'поздняя', 1, 0, 'a'), row('2026-07-31', 'ранняя', 1, 0, 'b')],
+    })
+    d.rowsThem = [row('2026-09-30', 'их поздняя', 0, 1, 'c'), row('2026-07-31', 'их ранняя', 0, 1, 'd')]
+    const back = normalizeDoc(JSON.parse(JSON.stringify(d)), { from: '2026-07-01', to: '2026-09-30' })
+    expect(back.rowsUs.map(r => r.doc)).toEqual(['ранняя', 'поздняя'])
+    expect(back.rowsThem.map(r => r.doc)).toEqual(['их ранняя', 'их поздняя'])
+  })
+
+  it('в режиме «зеркало» строки сторон остаются напротив друг друга', () => {
+    const d = newSettlementDoc({
+      periodFrom: '2026-07-01', periodTo: '2026-09-30', clientName: 'К', cabinetLine: 'С',
+      openingUs: { debit: 0, credit: 0 },
+      rowsUs: [row('2026-09-30', 'поздняя', 5, 0, 'a'), row('2026-07-31', 'ранняя', 0, 3, 'b'), row('2026-07-31', 'ранняя-2', 4, 0, 'c')],
+    })
+    const s = sortedDoc(d)
+    const them = effectiveThem(s)
+    expect(s.rowsUs.map(r => r.doc)).toEqual(them.rows.map(r => r.doc))
+    expect(them.rows[0].debit).toBe(3) // у доверителя дебет и кредит наоборот
   })
 })

@@ -257,6 +257,27 @@ export const mirrorBalance = (b: Balance): Balance => ({ debit: b.credit, credit
 export const mirrorRows = (rows: SettlementRow[]): SettlementRow[] =>
   rows.map(r => ({ ...r, id: `${r.id}~m`, debit: r.credit, credit: r.debit }))
 
+/**
+ * Строки по дате, от ранних к поздним. Строка без даты — в конец: только что
+ * добавленную строку не уносит наверх, пока дату не ввели. Сортировка
+ * устойчивая: строки одного дня остаются в том порядке, в каком стояли.
+ * Одна и та же дата-только сортировка годится обеим таблицам: в режиме
+ * «зеркало» правая строится из левой с тем же порядком, и строки по-прежнему
+ * стоят напротив друг друга.
+ */
+export function sortRows(rows: SettlementRow[]): SettlementRow[] {
+  const key = (r: SettlementRow) => r.date || '9999-99-99'
+  return rows
+    .map((r, i) => ({ r, i }))
+    .sort((a, b) => key(a.r).localeCompare(key(b.r)) || a.i - b.i)
+    .map(x => x.r)
+}
+
+/** Акт с упорядоченными по дате строками обеих таблиц — для печати и Word */
+export function sortedDoc(doc: SettlementDoc): SettlementDoc {
+  return { ...doc, rowsUs: sortRows(doc.rowsUs), rowsThem: sortRows(doc.rowsThem) }
+}
+
 /** Правая таблица с учётом переключателя «зеркало» */
 export function effectiveThem(doc: SettlementDoc): { opening: Balance; rows: SettlementRow[] } {
   return doc.mirror
@@ -382,10 +403,11 @@ export function normalizeDoc(raw: unknown, fallbackPeriod: { from: string; to: s
     us: cleanParty(o.us, empty),
     them: cleanParty(o.them, empty),
     openingUs: cleanBalance(o.openingUs),
-    rowsUs: cleanRows(o.rowsUs),
+    // Акты, сохранённые до автосортировки, при открытии тоже встают по дате
+    rowsUs: sortRows(cleanRows(o.rowsUs)),
     mirror: o.mirror !== false,
     openingThem: cleanBalance(o.openingThem),
-    rowsThem: cleanRows(o.rowsThem),
+    rowsThem: sortRows(cleanRows(o.rowsThem)),
   }
 }
 

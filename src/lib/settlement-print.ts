@@ -13,7 +13,7 @@ import { escapeHtml } from './html'
 import { printDocument } from './print'
 import {
   SettlementDoc, SettlementRow, Balance, Orientation, effectiveThem, tableTotals, conclusion,
-  formatMoney, fmtDate, fileBaseName,
+  formatMoney, fmtDate, fileBaseName, sortedDoc,
 } from './settlement-act'
 
 /**
@@ -74,7 +74,9 @@ function sumCells(label: string, d: number, c: number): string {
   return `<td colspan="2" class="l">${label}</td><td class="r">${formatMoney(d)}</td><td class="r">${formatMoney(c)}</td>`
 }
 
-export function settlementBodyHtml(doc: SettlementDoc): string {
+export function settlementBodyHtml(input: SettlementDoc): string {
+  // В документе строки всегда по дате, даже если в редакторе дату не «зафиксировали» выходом из поля
+  const doc = sortedDoc(input)
   const them = effectiveThem(doc)
   const tUs = tableTotals(doc.openingUs, doc.rowsUs)
   const tThem = tableTotals(them.opening, them.rows)
@@ -141,7 +143,8 @@ export function printSettlement(doc: SettlementDoc): boolean {
 // ── Word ────────────────────────────────────────────────────────────────
 
 /** Собирает файл Word. Отдельно от скачивания, чтобы собранное можно было проверить без браузера */
-export async function buildSettlementWord(doc: SettlementDoc): Promise<Blob> {
+export async function buildSettlementWord(input: SettlementDoc): Promise<Blob> {
+  const doc = sortedDoc(input)
   const {
     Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun,
     WidthType, AlignmentType, BorderStyle, PageOrientation, TableLayoutType, VerticalAlign,

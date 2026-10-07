@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { settlementBodyHtml, settlementCss } from './settlement-print'
-import { newSettlementDoc, SettlementDoc, SettlementRow } from './settlement-act'
+import { newSettlementDoc, SettlementDoc, SettlementRow, normalizeDoc } from './settlement-act'
 
-const norm = (s: string) => s.replace(/[\s  ]+/g, ' ')
+const norm = (s: string) => s.replace(/[\s  ]+/g, ' ').replace(/&quot;/g, '"')
 const row = (date: string, doc: string, debit: number, credit: number, id: string): SettlementRow => ({ id, date, doc, debit, credit })
 
 const sample = (): SettlementDoc => {
@@ -59,11 +59,11 @@ describe('печатная форма акта сверки', () => {
     expect(html).toContain('<h2>Акт сверки</h2>')
     expect(html).toContain('взаимных расчетов за период: 01.09.2023 — 01.12.2023')
     expect(html).toContain('между ИП Сидоров Александр Иванович и ООО «Мокко»')
-    expect(html).toContain('составили настоящий акт сверки о том, что состояние взаимных расчетов по данным учета следующее:')
+    expect(html).toContain('составили настоящий акт сверки в том, что состояние взаимных расчетов по данным учета следующее:')
     expect(html.match(/Сальдо начальное/g)).toHaveLength(2)
     expect(html.match(/Обороты за период/g)).toHaveLength(2)
     expect(html.match(/Сальдо конечное/g)).toHaveLength(2)
-    expect(html).toContain('Российский рубль')
+    expect(html).toContain('руб.')
     expect(html.match(/\(подпись\)/g)).toHaveLength(2)
     expect(html.match(/м\.п\./g)).toHaveLength(2)
   })
@@ -134,5 +134,63 @@ describe('порядок строк в документе', () => {
     expect(order.every(i => i >= 0)).toBe(true)
     expect([...order].sort((a, b) => a - b)).toEqual(order)
     expect(d.rowsUs[0].id).toBe('f') // сам акт при печати не меняется
+  })
+})
+
+describe('форма из 1С бухгалтера (образец пользователя от 08.10.2026)', () => {
+  const alfa = (): SettlementDoc => {
+    const d = newSettlementDoc({
+      periodFrom: '2026-07-01', periodTo: '2026-09-30', clientName: 'ООО УК "Альфа менеджмент"', clientInn: '5406828355',
+      cabinetLine: 'Адвокатский кабинет Бухмина Антона Андреевича, рег. № 54/1831 в реестре адвокатов Новосибирской области, ИНН 540233730471',
+      contract: 'по договору об оказании юридической помощи №АМ-10-2026-10698 от 01.04.2026',
+      openingUs: { debit: 0, credit: 0 },
+      rowsUs: [
+        row('2026-07-24', 'Оплата ПП 6 от 24.07.2026', 0, 22400000, 'a'),
+        row('2026-07-31', 'Акт выполненных работ от 31.07.2026', 22400000, 0, 'b'),
+      ],
+    })
+    d.mirror = false; d.rowsThem = []; d.openingThem = { debit: 0, credit: 0 }
+    return d
+  }
+
+  it('заголовок: стороны с ИНН и основание «по договору …», период с «г.»', () => {
+    const html = norm(settlementBodyHtml(alfa()))
+    expect(html).toContain('взаимных расчетов за период: 01.07.2026 — 30.09.2026 г.')
+    expect(html).toContain('между Адвокатский кабинет Бухмина Антона Андреевича (ИНН 540233730471) и ООО УК "Альфа менеджмент" (ИНН 5406828355) по договору об оказании юридической помощи №АМ-10-2026-10698 от 01.04.2026')
+    expect(html).not.toContain('рег. № 54/1831 (ИНН') // регистрационный номер в заголовок не попадает
+  })
+
+  it('без основания заголовок тот же, но без хвоста', () => {
+    const d = alfa(); d.contract = ''
+    const html = norm(settlementBodyHtml(d))
+    expect(html).toContain('и ООО УК "Альфа менеджмент" (ИНН 5406828355)</div>')
+  })
+
+  it('правая сторона пуста: итоги и вывод справа не печатаются, левая — как обычно', () => {
+    const html = settlementBodyHtml(alfa())
+    const mainTable = html.split('</table>')[0]
+    const sums = mainTable.match(/<tr class="b">[\s\S]*?<\/tr>/g) ?? []
+    expect(sums).toHaveLength(3) // начальное, обороты, конечное
+    for (const tr of sums) {
+      const [left, right] = tr.split('<td class="gap"></td>')
+      expect(right).toContain('<td class="r"></td><td class="r"></td>') // справа пусто
+      expect(left).toMatch(/\d,\d\d/)                                 // слева суммы есть
+    }
+    // вывод только один — слева («задолженность отсутствует»), справа пустая ячейка
+    expect(html.match(/задолженность отсутствует/g)).toHaveLength(1)
+    expect(html).toMatch(/<td class="who"><\/td><\/tr>/)
+  })
+
+  it('если справа внесены данные доверителя, всё печатается как обычно', () => {
+    const d = alfa(); d.rowsThem = [row('2026-07-24', 'Оплата', 22400000, 0, 'x')]
+    const html = settlementBodyHtml(d)
+    expect(html.match(/<tr class="b">/g)).toHaveLength(3)
+    expect(html).not.toContain('<td class="r"></td><td class="r"></td></tr>')
+  })
+
+  it('акт, сохранённый до появления основания, читается без него', () => {
+    const d = alfa()
+    const raw = JSON.parse(JSON.stringify(d)); delete raw.contract
+    expect(normalizeDoc(raw, { from: '2026-07-01', to: '2026-09-30' }).contract).toBe('')
   })
 })

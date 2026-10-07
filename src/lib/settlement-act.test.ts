@@ -3,7 +3,7 @@ import {
   toKop, parseMoney, formatMoney, monthLabel, lastDayOfMonth, fmtDate,
   buildRowsUs, paymentDoc, openingFrom, mirrorRows, mirrorBalance, effectiveThem,
   tableTotals, conclusion, discrepancy, newSettlementDoc, normalizeDoc,
-  fileBaseName, sortRows, sortedDoc, SettlementRow,
+  fileBaseName, sortRows, sortedDoc, themUnfilled, partyTitle, SettlementRow,
 } from './settlement-act'
 import { fmtMoneyFull, rubleWord } from './money-words'
 
@@ -300,9 +300,11 @@ describe('зеркало в документе', () => {
   it('новый акт: реквизиты по умолчанию', () => {
     const d = base()
     expect(d.version).toBe(1)
-    expect(d.currency).toBe('Российский рубль')
+    expect(d.currency).toBe('руб.') // как печатает 1С бухгалтера (образец 08.10.2026)
+    expect(d.contract).toBe('')
     expect(d.mirror).toBe(true)
-    expect(d.them.intro).toBe('ООО "Система", ИНН 5406000000')
+    expect(d.them.intro).toBe('ООО "Система"') // ИНН — отдельно, он стоит в заголовке, а не во вводном абзаце
+    expect(d.them.inn).toBe('5406000000')
     expect(d.us.intro).toBe('Адвокатский кабинет …')
     // Название кабинета не склоняется и стоит после «в пользу» — поэтому сокращение
     expect(d.us.name).toBe('АК Бухмина А.А.')
@@ -414,5 +416,59 @@ describe('строки по дате', () => {
     const them = effectiveThem(s)
     expect(s.rowsUs.map(r => r.doc)).toEqual(them.rows.map(r => r.doc))
     expect(them.rows[0].debit).toBe(3) // у доверителя дебет и кредит наоборот
+  })
+})
+
+describe('образец из 1С бухгалтера: заголовок и пустая сторона', () => {
+  const party = (name: string, intro: string) => ({ name, intro, signer: '' })
+
+  it('сторона в заголовке: название и ИНН, без регистрационного номера', () => {
+    expect(partyTitle(party('АК Бухмина А.А.',
+      'Адвокатский кабинет Бухмина Антона Андреевича, рег. № 54/1831 в реестре адвокатов Новосибирской области, ИНН 540233730471')))
+      .toBe('Адвокатский кабинет Бухмина Антона Андреевича (ИНН 540233730471)')
+    expect(partyTitle(party('Х', 'ООО "Система", ИНН 5406000000'))).toBe('ООО "Система" (ИНН 5406000000)')
+  })
+
+  it('без ИНН — просто наименование; запятая внутри названия не режет его', () => {
+    expect(partyTitle(party('ИП', 'ИП Сидоров Александр Иванович'))).toBe('ИП Сидоров Александр Иванович')
+    expect(partyTitle(party('Х', 'ООО "Рога, копыта и К", ИНН 5406000000'))).toBe('ООО "Рога, копыта и К" (ИНН 5406000000)')
+    expect(partyTitle(party('Коротко', ''))).toBe('Коротко') // нет реквизитов — берём название
+  })
+
+  it('правая таблица «не заполнена» только когда она не зеркало, пуста и с нулевым сальдо', () => {
+    const d = newSettlementDoc({
+      periodFrom: '2026-07-01', periodTo: '2026-09-30', clientName: 'К', cabinetLine: 'С',
+      openingUs: { debit: 0, credit: 0 }, rowsUs: [row('2026-07-31', 'Акт', 100, 0, 'a')],
+    })
+    expect(themUnfilled(d)).toBe(false)                       // зеркало — заполнена из левой
+    d.mirror = false
+    expect(themUnfilled(d)).toBe(true)
+    d.openingThem = { debit: 0, credit: 5 }
+    expect(themUnfilled(d)).toBe(false)                       // есть начальное сальдо
+    d.openingThem = { debit: 0, credit: 0 }; d.rowsThem = [row('2026-07-31', 'Их', 0, 100, 'b')]
+    expect(themUnfilled(d)).toBe(false)                       // есть строка
+  })
+
+  it('новый акт: во вводном абзаце только наименование, ИНН — отдельным полем и в заголовке', () => {
+    const d = newSettlementDoc({
+      periodFrom: '2026-07-01', periodTo: '2026-09-30', clientName: 'ООО УК "Альфа менеджмент"', clientInn: '5406828355',
+      cabinetLine: 'Адвокатский кабинет Бухмина Антона Андреевича, рег. № 54/1831 в реестре адвокатов Новосибирской области, ИНН 540233730471',
+      openingUs: { debit: 0, credit: 0 }, rowsUs: [],
+    })
+    expect(d.us.intro).toBe('Адвокатский кабинет Бухмина Антона Андреевича')
+    expect(d.us.inn).toBe('540233730471')
+    expect(d.them.intro).toBe('ООО УК "Альфа менеджмент"')
+    expect(partyTitle(d.us)).toBe('Адвокатский кабинет Бухмина Антона Андреевича (ИНН 540233730471)')
+    expect(partyTitle(d.them)).toBe('ООО УК "Альфа менеджмент" (ИНН 5406828355)')
+    // ИНН, поправленный в поле, важнее того, что когда-то был в реквизитах
+    expect(partyTitle({ ...d.them, inn: '5406000000' })).toBe('ООО УК "Альфа менеджмент" (ИНН 5406000000)')
+  })
+
+  it('основание из прошлого акта переходит в новый', () => {
+    const d = newSettlementDoc({
+      periodFrom: '2026-10-01', periodTo: '2026-12-31', clientName: 'К', cabinetLine: 'С',
+      contract: 'по договору №1 от 01.04.2026', openingUs: { debit: 0, credit: 0 }, rowsUs: [],
+    })
+    expect(d.contract).toBe('по договору №1 от 01.04.2026')
   })
 })

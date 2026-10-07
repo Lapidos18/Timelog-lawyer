@@ -13,7 +13,7 @@ import { escapeHtml } from './html'
 import { printDocument } from './print'
 import {
   SettlementDoc, SettlementRow, Balance, Orientation, effectiveThem, tableTotals, conclusion,
-  formatMoney, fmtDate, fileBaseName, sortedDoc,
+  formatMoney, fmtDate, fileBaseName, sortedDoc, themUnfilled, partyTitle,
 } from './settlement-act'
 
 /**
@@ -70,8 +70,9 @@ function sideCells(r: SettlementRow | undefined): string {
     `<td class="r">${money(r.debit, true)}</td><td class="r">${money(r.credit, true)}</td>`
 }
 
-function sumCells(label: string, d: number, c: number): string {
-  return `<td colspan="2" class="l">${label}</td><td class="r">${formatMoney(d)}</td><td class="r">${formatMoney(c)}</td>`
+function sumCells(label: string, d: number, c: number, blank = false): string {
+  return `<td colspan="2" class="l">${label}</td>` +
+    (blank ? '<td class="r"></td><td class="r"></td>' : `<td class="r">${formatMoney(d)}</td><td class="r">${formatMoney(c)}</td>`)
 }
 
 export function settlementBodyHtml(input: SettlementDoc): string {
@@ -81,7 +82,8 @@ export function settlementBodyHtml(input: SettlementDoc): string {
   const tUs = tableTotals(doc.openingUs, doc.rowsUs)
   const tThem = tableTotals(them.opening, them.rows)
   const cUs = conclusion(tUs.net, doc.us.name, doc.them.name)
-  const cThem = conclusion(tThem.net, doc.them.name, doc.us.name)
+  const blankThem = themUnfilled(doc)
+  const cThem = blankThem ? { text: '' } : conclusion(tThem.net, doc.them.name, doc.us.name)
   const e = escapeHtml
   const to = fmtDate(doc.periodTo)
   const L = LAYOUT[doc.orientation]
@@ -98,8 +100,8 @@ export function settlementBodyHtml(input: SettlementDoc): string {
 
   return `
 <h2>Акт сверки</h2>
-<div class="sub">взаимных расчетов за период: ${e(fmtDate(doc.periodFrom))} — ${e(to)}<br>между ${e(doc.us.name)} и ${e(doc.them.name)}</div>
-<p class="intro">Мы, нижеподписавшиеся, ${e(doc.us.intro)}, с одной стороны, и ${e(doc.them.intro)}, с другой стороны, составили настоящий акт сверки о том, что состояние взаимных расчетов по данным учета следующее:</p>
+<div class="sub">взаимных расчетов за период: ${e(fmtDate(doc.periodFrom))} — ${e(to)} г.<br>между ${e(partyTitle(doc.us))} и ${e(partyTitle(doc.them))}${doc.contract?.trim() ? ' ' + e(doc.contract.trim()) : ''}</div>
+<p class="intro">Мы, нижеподписавшиеся, ${e(doc.us.intro)}, с одной стороны, и ${e(doc.them.intro)}, с другой стороны, составили настоящий акт сверки в том, что состояние взаимных расчетов по данным учета следующее:</p>
 <table class="sa">
   <colgroup>${cols}<col style="width:1%">${cols}</colgroup>
   <thead>
@@ -111,10 +113,10 @@ export function settlementBodyHtml(input: SettlementDoc): string {
     <tr><th>Дата</th><th>Документ</th><th>Дебет</th><th>Кредит</th><th class="gap"></th><th>Дата</th><th>Документ</th><th>Дебет</th><th>Кредит</th></tr>
   </thead>
   <tbody>
-    <tr class="b">${sumCells('Сальдо начальное', oUd, oUc)}<td class="gap"></td>${sumCells('Сальдо начальное', oTd, oTc)}</tr>
+    <tr class="b">${sumCells('Сальдо начальное', oUd, oUc)}<td class="gap"></td>${sumCells('Сальдо начальное', oTd, oTc, blankThem)}</tr>
     ${body}
-    <tr class="b">${sumCells('Обороты за период', tUs.turnDebit, tUs.turnCredit)}<td class="gap"></td>${sumCells('Обороты за период', tThem.turnDebit, tThem.turnCredit)}</tr>
-    <tr class="b">${sumCells('Сальдо конечное', tUs.closingDebit, tUs.closingCredit)}<td class="gap"></td>${sumCells('Сальдо конечное', tThem.closingDebit, tThem.closingCredit)}</tr>
+    <tr class="b">${sumCells('Обороты за период', tUs.turnDebit, tUs.turnCredit)}<td class="gap"></td>${sumCells('Обороты за период', tThem.turnDebit, tThem.turnCredit, blankThem)}</tr>
+    <tr class="b">${sumCells('Сальдо конечное', tUs.closingDebit, tUs.closingCredit)}<td class="gap"></td>${sumCells('Сальдо конечное', tThem.closingDebit, tThem.closingCredit, blankThem)}</tr>
   </tbody>
 </table>
 <table class="sa-end">
@@ -156,7 +158,8 @@ export async function buildSettlementWord(input: SettlementDoc): Promise<Blob> {
   const tUs = tableTotals(doc.openingUs, doc.rowsUs)
   const tThem = tableTotals(them.opening, them.rows)
   const cUs = conclusion(tUs.net, doc.us.name, doc.them.name)
-  const cThem = conclusion(tThem.net, doc.them.name, doc.us.name)
+  const blankThem = themUnfilled(doc)
+  const cThem = blankThem ? { text: '' } : conclusion(tThem.net, doc.them.name, doc.us.name)
   const to = fmtDate(doc.periodTo)
 
   // Ширина между полями (поля по 567): альбомный 16838 − 1134 = 15704, книжный 11906 − 1134 = 10772.
@@ -200,11 +203,11 @@ export async function buildSettlementWord(input: SettlementDoc): Promise<Blob> {
     ]
   }
   // Строка итогов: подпись на два столбца и два числа
-  function sums(label: string, d: number, c: number): InstanceType<typeof TableCell>[] {
+  function sums(label: string, d: number, c: number, blank = false): InstanceType<typeof TableCell>[] {
     return [
       cell(label, SIDE[0] + SIDE[1], { span: 2, bold: true }),
-      cell(formatMoney(d), SIDE[2], { align: AlignmentType.RIGHT, bold: true }),
-      cell(formatMoney(c), SIDE[3], { align: AlignmentType.RIGHT, bold: true }),
+      cell(blank ? '' : formatMoney(d), SIDE[2], { align: AlignmentType.RIGHT, bold: true }),
+      cell(blank ? '' : formatMoney(c), SIDE[3], { align: AlignmentType.RIGHT, bold: true }),
     ]
   }
 
@@ -218,13 +221,13 @@ export async function buildSettlementWord(input: SettlementDoc): Promise<Blob> {
   const rows: InstanceType<typeof TableRow>[] = [
     new TableRow({ tableHeader: true, children: [...head(doc.us.name), gap(), ...head(doc.them.name)] }),
     new TableRow({ tableHeader: true, children: [...colHead(), gap(), ...colHead()] }),
-    new TableRow({ children: [...sums('Сальдо начальное', doc.openingUs.debit, doc.openingUs.credit), gap(), ...sums('Сальдо начальное', them.opening.debit, them.opening.credit)] }),
+    new TableRow({ children: [...sums('Сальдо начальное', doc.openingUs.debit, doc.openingUs.credit), gap(), ...sums('Сальдо начальное', them.opening.debit, them.opening.credit, blankThem)] }),
   ]
   for (let i = 0; i < n; i++) {
     rows.push(new TableRow({ cantSplit: true, children: [...side(doc.rowsUs[i]), gap(), ...side(them.rows[i])] }))
   }
-  rows.push(new TableRow({ children: [...sums('Обороты за период', tUs.turnDebit, tUs.turnCredit), gap(), ...sums('Обороты за период', tThem.turnDebit, tThem.turnCredit)] }))
-  rows.push(new TableRow({ children: [...sums('Сальдо конечное', tUs.closingDebit, tUs.closingCredit), gap(), ...sums('Сальдо конечное', tThem.closingDebit, tThem.closingCredit)] }))
+  rows.push(new TableRow({ children: [...sums('Обороты за период', tUs.turnDebit, tUs.turnCredit), gap(), ...sums('Обороты за период', tThem.turnDebit, tThem.turnCredit, blankThem)] }))
+  rows.push(new TableRow({ children: [...sums('Сальдо конечное', tUs.closingDebit, tUs.closingCredit), gap(), ...sums('Сальдо конечное', tThem.closingDebit, tThem.closingCredit, blankThem)] }))
 
   const tableAll = new Table({ width: { size: TOTAL, type: WidthType.DXA }, columnWidths: COLS, layout: TableLayoutType.FIXED, rows })
 
@@ -269,9 +272,9 @@ export async function buildSettlementWord(input: SettlementDoc): Promise<Blob> {
       properties: { page: { size: { orientation: land ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT }, margin: { top: 567, bottom: 567, left: 567, right: 567 } } },
       children: [
         p('Акт сверки', { bold: true, size: 32, align: AlignmentType.CENTER, after: 80 }),
-        p(`взаимных расчетов за период: ${fmtDate(doc.periodFrom)} — ${to}`, { align: AlignmentType.CENTER }),
-        p(`между ${doc.us.name} и ${doc.them.name}`, { align: AlignmentType.CENTER, after: 200 }),
-        p(`Мы, нижеподписавшиеся, ${doc.us.intro}, с одной стороны, и ${doc.them.intro}, с другой стороны, составили настоящий акт сверки о том, что состояние взаимных расчетов по данным учета следующее:`, { align: AlignmentType.JUSTIFIED, after: 200 }),
+        p(`взаимных расчетов за период: ${fmtDate(doc.periodFrom)} — ${to} г.`, { align: AlignmentType.CENTER }),
+        p(`между ${partyTitle(doc.us)} и ${partyTitle(doc.them)}${doc.contract?.trim() ? ' ' + doc.contract.trim() : ''}`, { align: AlignmentType.CENTER, after: 200 }),
+        p(`Мы, нижеподписавшиеся, ${doc.us.intro}, с одной стороны, и ${doc.them.intro}, с другой стороны, составили настоящий акт сверки в том, что состояние взаимных расчетов по данным учета следующее:`, { align: AlignmentType.JUSTIFIED, after: 200 }),
         tableAll,
         p('', { after: 160 }),
         endTable,

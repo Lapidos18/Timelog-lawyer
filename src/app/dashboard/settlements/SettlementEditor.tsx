@@ -5,7 +5,7 @@ import PageHeader from '@/components/PageHeader'
 import {
   SettlementDoc, SettlementRow, SettlementStatus, Balance, Kop, Orientation,
   parseMoney, formatMoney, fmtDate, effectiveThem, tableTotals, conclusion, discrepancy,
-  mirrorBalance, mirrorRows, sortRows,
+  mirrorBalance, mirrorRows, sortRows, themUnfilled,
 } from '@/lib/settlement-act'
 
 /** Сетка строки: на телефоне — карточка в два столбца, от md — одна строка */
@@ -67,7 +67,7 @@ function SumRow({ label, debit, credit, strong }: { label: string; debit: Kop; c
 }
 
 function SideTable({
-  title, owner, other, currency, opening, rows, disabled, note, defaultDate, onOpening, onRows,
+  title, owner, other, currency, opening, rows, disabled, note, unfilled, defaultDate, onOpening, onRows,
 }: {
   title: string
   owner: string
@@ -78,6 +78,8 @@ function SideTable({
   /** Правка закрыта: акт подписан или таблица — зеркало */
   disabled: boolean
   note?: string
+  /** Таблица намеренно пуста: на печати без итогов и вывода, её заполнит доверитель */
+  unfilled?: boolean
   defaultDate: string
   onOpening: (b: Balance) => void
   onRows: (r: SettlementRow[]) => void
@@ -162,7 +164,9 @@ function SideTable({
       <SumRow label="Сальдо конечное" debit={t.closingDebit} credit={t.closingCredit} strong />
       <p className="text-sm mt-3 text-navy-200">
         <span className="text-navy-400">Вывод: </span>
-        <strong className={c.favor === 'none' ? '' : 'text-gold-400'}>{c.text}</strong>
+        {unfilled
+          ? <strong className="text-navy-300">не заполнено — на печати останется пустым</strong>
+          : <strong className={c.favor === 'none' ? '' : 'text-gold-400'}>{c.text}</strong>}
       </p>
     </section>
   )
@@ -208,6 +212,13 @@ export default function SettlementEditor(p: EditorProps) {
     }
   }
 
+  // Правая сторона остаётся чистой: акт уходит доверителю, свои данные он впишет сам
+  const clearThem = () => {
+    if ((!doc.mirror && doc.rowsThem.length > 0) && !confirm('Внесённые в таблицу доверителя строки пропадут. Продолжить?')) return
+    set({ mirror: false, openingThem: { debit: 0, credit: 0 }, rowsThem: [] })
+  }
+  const emptyThem = themUnfilled(doc)
+
   const field = (label: string, value: string, onChange: (v: string) => void, opts?: { rows?: number }) => (
     <div>
       <label className="label">{label}</label>
@@ -218,7 +229,7 @@ export default function SettlementEditor(p: EditorProps) {
   )
 
   const cUs = conclusion(usT.net, doc.us.name, doc.them.name)
-  const cThem = conclusion(themT.net, doc.them.name, doc.us.name)
+  const cThem = emptyThem ? { text: 'не заполнено' } : conclusion(themT.net, doc.them.name, doc.us.name)
   const disc = discrepancy(usT.net, themT.net)
 
   return (
@@ -289,6 +300,12 @@ export default function SettlementEditor(p: EditorProps) {
             </select>
           </div>
         </div>
+        <div className="mb-4">
+          <label className="label">Основание (договор) — одной строкой в заголовке акта</label>
+          <input type="text" className="input disabled:opacity-60" value={doc.contract ?? ''} disabled={locked}
+            placeholder="по договору об оказании юридической помощи №… от …"
+            onChange={e => set({ contract: e.target.value })} />
+        </div>
         <p className="text-xs text-navy-400 mb-4">
           После смены периода нажмите «Пересобрать из данных»: строки и начальное сальдо подставятся за новый период.
           Книжный лист — две узкие таблицы рядом, как печатает 1С; альбомный — таблицы пошире.
@@ -297,13 +314,15 @@ export default function SettlementEditor(p: EditorProps) {
           <div className="space-y-3">
             <h3 className="text-sm font-medium text-navy-200">Кабинет (слева)</h3>
             {field('Название', doc.us.name, v => setUs({ name: v }))}
-            {field('Реквизиты во вводном абзаце', doc.us.intro, v => setUs({ intro: v }), { rows: 3 })}
+            {field('Как назван во вводном абзаце', doc.us.intro, v => setUs({ intro: v }), { rows: 2 })}
+            {field('ИНН (в заголовке акта)', doc.us.inn ?? '', v => setUs({ inn: v }))}
             {field('Подпись под таблицей', doc.us.signer, v => setUs({ signer: v }))}
           </div>
           <div className="space-y-3">
             <h3 className="text-sm font-medium text-navy-200">Доверитель (справа)</h3>
             {field('Название', doc.them.name, v => setThem({ name: v }))}
-            {field('Реквизиты во вводном абзаце', doc.them.intro, v => setThem({ intro: v }), { rows: 3 })}
+            {field('Как назван во вводном абзаце', doc.them.intro, v => setThem({ intro: v }), { rows: 2 })}
+            {field('ИНН (в заголовке акта)', doc.them.inn ?? '', v => setThem({ inn: v }))}
             {field('Подпись под таблицей — должность и ФИО подписанта', doc.them.signer, v => setThem({ signer: v }))}
           </div>
         </div>
@@ -326,10 +345,20 @@ export default function SettlementEditor(p: EditorProps) {
         </span>
       </label>
 
+      {!locked && !themUnfilled(doc) && (
+        <p className="mb-3">
+          <button type="button" className="btn-ghost text-xs" onClick={clearThem}>
+            Оставить таблицу доверителя пустой — он заполнит её сам
+          </button>
+        </p>
+      )}
+
       <SideTable
         title={`По данным ${doc.them.name}`} owner={doc.them.name} other={doc.us.name} currency={doc.currency}
         opening={them.opening} rows={them.rows} disabled={locked || doc.mirror} defaultDate={doc.periodTo}
-        note={doc.mirror ? 'Таблица зеркальная и считается из левой. Чтобы править её отдельно, снимите галочку выше.' : undefined}
+        unfilled={emptyThem}
+        note={doc.mirror ? 'Таблица зеркальная и считается из левой. Чтобы править её отдельно, снимите галочку выше.'
+          : emptyThem ? 'Таблица доверителя пуста: так акт уходит к нему на заполнение. На печати итоги и вывод справа не выводятся.' : undefined}
         onOpening={b => set({ openingThem: b })} onRows={r => set({ rowsThem: r })}
       />
 
@@ -339,6 +368,8 @@ export default function SettlementEditor(p: EditorProps) {
         <p className="text-sm text-navy-200 mb-3">По данным {doc.them.name}: <strong className="text-navy-100">{cThem.text}</strong></p>
         {doc.mirror
           ? <p className="text-xs text-navy-400">Таблица доверителя зеркальна, поэтому расхождений нет.</p>
+          : emptyThem
+          ? <p className="text-xs text-navy-400">Таблица доверителя пока пуста — сравнивать не с чем. Когда пришлёт свои данные, внесите их выше.</p>
           : disc === 0
             ? <p className="text-sm text-emerald-400">Стороны согласны: сальдо совпадают.</p>
             : <p className="text-sm text-amber-400">Расхождение сторон: {formatMoney(disc)} ₽. Найдите строку, по которой данные не совпали.</p>}

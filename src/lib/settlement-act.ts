@@ -44,6 +44,8 @@ export interface SettlementParty {
   intro: string
   /** Подпись под таблицей: должность и ФИО; пусто — линия для рукописи */
   signer: string
+  /** ИНН для заголовка акта; пусто — берётся из реквизитов, если он там указан (старые акты) */
+  inn?: string
 }
 
 /** Содержимое акта, как оно лежит в базе (колонка doc, jsonb) */
@@ -52,6 +54,11 @@ export interface SettlementDoc {
   periodFrom: string
   periodTo: string
   currency: string
+  /**
+   * Основание одной строкой, как оно стоит в заголовке акта:
+   * «по договору об оказании юридической помощи №… от …». Необязательно.
+   */
+  contract?: string
   /** Ориентация листа; у актов без этого поля (старых) — книжная */
   orientation: Orientation
   /** Кабинет — левая таблица */
@@ -320,6 +327,37 @@ export function conclusion(net: Kop, owner: string, other: string): Conclusion {
 }
 
 /**
+ * Правая таблица не заполнена: не зеркало, строк нет, сальдо нулевое. Так бывает,
+ * когда акт отправляют доверителю, а свою сторону он впишет сам (как в образце из 1С):
+ * на печати у такой таблицы итоги и вывод не выводятся — «задолженность отсутствует»
+ * от имени доверителя, который ничего не сверял, было бы неправдой.
+ */
+export function themUnfilled(doc: SettlementDoc): boolean {
+  return !doc.mirror && doc.rowsThem.length === 0 &&
+    doc.openingThem.debit === 0 && doc.openingThem.credit === 0
+}
+
+/**
+ * Сторона в заголовке акта: название и ИНН в скобках, без прочих реквизитов
+ * (регистрационного номера и т.п.). Берётся из «реквизитов во вводном абзаце»,
+ * потому что там полное наименование; нет ИНН — просто наименование.
+ */
+export function partyTitle(p: SettlementParty): string {
+  const { name, inn: fromIntro } = splitRequisites(p.intro || p.name)
+  const inn = (p.inn ?? '').trim() || fromIntro
+  return inn ? `${name} (ИНН ${inn})` : name
+}
+
+/** «Наименование, рег. № …, ИНН …» → наименование и ИНН отдельно (запятая в названии не мешает) */
+export function splitRequisites(line: string): { name: string; inn: string } {
+  const full = line.trim()
+  return {
+    name: full.split(/,\s*(?:рег\.|ИНН)/)[0].trim(),
+    inn: /ИНН\s*(\d{10,12})/.exec(full)?.[1] ?? '',
+  }
+}
+
+/**
  * Расхождение сторон. У согласованных таблиц сальдо зеркальны (net кабинета
  * = −net доверителя), поэтому их сумма — 0. Не ноль — стороны считают по-разному.
  */
@@ -336,26 +374,33 @@ export function newSettlementDoc(p: {
   clientInn?: string | null
   /** Реквизиты кабинета одной строкой (CABINET_LINE) */
   cabinetLine: string
+  /** Основание из прошлого акта этого доверителя: договор у него обычно один на все акты */
+  contract?: string
   rowsUs: SettlementRow[]
   openingUs: Balance
 }): SettlementDoc {
+  const cabinet = splitRequisites(p.cabinetLine)
   return {
     version: 1,
     periodFrom: p.periodFrom,
     periodTo: p.periodTo,
-    currency: 'Российский рубль',
+    currency: 'руб.',
+    contract: p.contract ?? '',
     orientation: 'portrait',
     us: {
       // Сокращение, а не «Адвокатский кабинет …»: название не склоняется, а в
       // выводе оно стоит после «в пользу» — «в пользу АК Бухмина А.А.» читается,
       // «в пользу Адвокатский кабинет …» нет. Полное наименование — в реквизитах (intro)
       name: 'АК Бухмина А.А.',
-      intro: p.cabinetLine,
+      // Во вводном абзаце — только наименование, ИНН стоит в заголовке (форма 1С бухгалтера)
+      intro: cabinet.name,
       signer: 'Адвокат Бухмин А.А.',
+      inn: cabinet.inn,
     },
     them: {
       name: p.clientName,
-      intro: `${p.clientName}${p.clientInn ? `, ИНН ${p.clientInn}` : ''}`,
+      intro: p.clientName,
+      inn: p.clientInn ?? '',
       // Должность и ФИО подписанта в базе не хранятся — их допишет пользователь
       signer: p.clientName,
     },
@@ -383,7 +428,7 @@ const cleanBalance = (v: unknown): Balance => {
 }
 const cleanParty = (v: unknown, fallback: SettlementParty): SettlementParty => {
   const o = (v ?? {}) as Record<string, unknown>
-  return { name: str(o.name, fallback.name), intro: str(o.intro, fallback.intro), signer: str(o.signer, fallback.signer) }
+  return { name: str(o.name, fallback.name), intro: str(o.intro, fallback.intro), signer: str(o.signer, fallback.signer), inn: str(o.inn) }
 }
 
 /**
@@ -398,7 +443,8 @@ export function normalizeDoc(raw: unknown, fallbackPeriod: { from: string; to: s
     version: 1,
     periodFrom: str(o.periodFrom, fallbackPeriod.from),
     periodTo: str(o.periodTo, fallbackPeriod.to),
-    currency: str(o.currency, 'Российский рубль'),
+    currency: str(o.currency, 'руб.'),
+    contract: str(o.contract),
     orientation: o.orientation === 'landscape' ? 'landscape' : 'portrait',
     us: cleanParty(o.us, empty),
     them: cleanParty(o.them, empty),

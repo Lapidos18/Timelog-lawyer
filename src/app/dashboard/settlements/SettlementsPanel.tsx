@@ -158,9 +158,14 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
     setCreating(true)
     try {
       const src = await loadSource(client.id, from, to)
+      // Договор с доверителем один на все акты: подставляем из его последнего акта, где он указан
+      const contract = acts
+        .filter(a => a.client_id === client.id)
+        .map(a => normalizeDoc(a.doc, { from: a.period_from, to: a.period_to }).contract ?? '')
+        .find(c => c.trim() !== '')
       const doc = newSettlementDoc({
         periodFrom: from, periodTo: to, clientName: client.name, clientInn: client.inn,
-        cabinetLine: CABINET_LINE, ...src,
+        cabinetLine: CABINET_LINE, contract, ...src,
       })
       setEditing({ id: null, clientId: client.id, status: 'draft', doc })
       setSnapshot('') // новый акт ещё не сохранён — считается изменённым

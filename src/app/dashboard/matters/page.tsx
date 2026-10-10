@@ -14,6 +14,11 @@ import { SkeletonRows } from '@/components/Skeleton'
 
 interface MatterWithClient extends Matter { clients: Client }
 
+/** Реквизиты для актов и отчётов (миграция 020). Необязательные: пусто — документ обходится без них */
+const ACT_FIELDS = ['agreement_date', 'task_no', 'task_date', 'act_subject', 'expenses_clause'] as const
+type ActField = typeof ACT_FIELDS[number]
+const EMPTY_ACT: Record<ActField, string> = { agreement_date: '', task_no: '', task_date: '', act_subject: '', expenses_clause: '' }
+
 /**
  * У дела не задана ни почасовая ставка, ни фиксированная сумма.
  *
@@ -45,6 +50,7 @@ export default function MattersPage() {
     matter_type: 'litigation' as MatterType, status: 'active' as MatterStatus,
     court: '', case_no: '', hourly_rate: '', fixed_fee: '',
     started_at: '', closed_at: '', notes: '', drive_folder_url: '',
+    ...EMPTY_ACT,
   })
 
   const loadMatters = useCallback(async () => {
@@ -100,7 +106,7 @@ export default function MattersPage() {
   function resetForm() {
     setForm({ client_id: '', title: '', agreement_no: '', matter_type: 'litigation',
       status: 'active', court: '', case_no: '', hourly_rate: '', fixed_fee: '',
-      started_at: '', closed_at: '', notes: '', drive_folder_url: '' })
+      started_at: '', closed_at: '', notes: '', drive_folder_url: '', ...EMPTY_ACT })
     setEditId(null); setShowForm(false)
   }
 
@@ -112,6 +118,8 @@ export default function MattersPage() {
       fixed_fee: m.fixed_fee ? String(m.fixed_fee) : '', started_at: m.started_at ?? '',
       closed_at: m.closed_at ?? '', notes: m.notes ?? '',
       drive_folder_url: m.drive_folder_url ?? '',
+      agreement_date: m.agreement_date ?? '', task_no: m.task_no ?? '', task_date: m.task_date ?? '',
+      act_subject: m.act_subject ?? '', expenses_clause: m.expenses_clause ?? '',
     })
     setEditId(m.id); setShowForm(true)
   }
@@ -126,6 +134,13 @@ export default function MattersPage() {
     }
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
+    // Реквизиты для актов (миграция 020) — только если ввели или изменили, по той же причине, что и ссылка на папку
+    const originalMatter = editId ? matters.find(x => x.id === editId) : undefined
+    const actExtra: Partial<Record<ActField, string | null>> = {}
+    for (const k of ACT_FIELDS) {
+      const before = (originalMatter?.[k] ?? '').trim()
+      if (form[k].trim() !== before) actExtra[k] = form[k].trim() || null
+    }
     const payload = {
       client_id: form.client_id, title: form.title,
       agreement_no: form.agreement_no || null, matter_type: form.matter_type,
@@ -138,11 +153,16 @@ export default function MattersPage() {
       // 014 не выполнена, колонки в базе нет, и лишнее поле в запросе
       // уронило бы сохранение ЛЮБОГО дела — даже без ссылки.
       ...(driveLinkChanged ? { drive_folder_url: form.drive_folder_url.trim() || null } : {}),
+      ...actExtra,
     }
     const { error } = editId
       ? await supabase.from('matters').update(payload).eq('id', editId)
       : await supabase.from('matters').insert({ ...payload, created_by: user!.id })
-    if (error) { toast.error('Ошибка: ' + error.message) }
+    if (error) {
+      toast.error(Object.keys(actExtra).length > 0 && /column|schema/i.test(error.message)
+        ? 'Реквизиты для актов пока негде хранить: выполните миграцию 020 в Supabase'
+        : 'Ошибка: ' + error.message)
+    }
     else { toast.success(editId ? 'Дело обновлено' : 'Дело добавлено'); resetForm(); loadMatters() }
     setSubmitting(false)
   }
@@ -386,6 +406,38 @@ export default function MattersPage() {
               {driveUrlHint(form.drive_folder_url)
                 ? <p className="text-xs text-amber-400 mt-1">{driveUrlHint(form.drive_folder_url)}</p>
                 : <p className="text-xs text-navy-400 mt-1">Откройте папку дела на Диске и скопируйте адрес из строки браузера</p>}
+            </div>
+            {/* Для актов об оказании услуг и отчётов: дело = задание к соглашению. Всё необязательно */}
+            <div className="md:col-span-3 border-t border-navy-800 pt-3">
+              <p className="text-sm font-medium text-navy-200">Для актов и отчётов (необязательно)</p>
+              <p className="text-xs text-navy-400 mt-0.5">Подставляется в шапку акта и в строку «Соглашение» отчёта.</p>
+            </div>
+            <div>
+              <label className="label">Дата соглашения</label>
+              <input type="date" className="input" value={form.agreement_date}
+                onChange={e => setForm(f => ({ ...f, agreement_date: e.target.value }))} />
+            </div>
+            <div>
+              <label className="label">Задание №</label>
+              <input className="input" value={form.task_no} placeholder="3"
+                onChange={e => setForm(f => ({ ...f, task_no: e.target.value }))} />
+            </div>
+            <div>
+              <label className="label">Дата задания</label>
+              <input type="date" className="input" value={form.task_date}
+                onChange={e => setForm(f => ({ ...f, task_date: e.target.value }))} />
+              <p className="text-xs text-navy-400 mt-1">Пусто — берётся дата начала дела</p>
+            </div>
+            <div className="md:col-span-3">
+              <label className="label">Что сделано — после слов «юридическую помощь в виде»</label>
+              <textarea className="input resize-none" rows={2} value={form.act_subject}
+                placeholder="представления интересов доверителя при взыскании задолженности по договору поставки №… от …"
+                onChange={e => setForm(f => ({ ...f, act_subject: e.target.value }))} />
+            </div>
+            <div>
+              <label className="label">Пункт задания о возмещении расходов</label>
+              <input className="input" value={form.expenses_clause} placeholder="п. 2.4."
+                onChange={e => setForm(f => ({ ...f, expenses_clause: e.target.value }))} />
             </div>
             <div className="md:col-span-3">
               <label className="label">Примечания</label>

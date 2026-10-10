@@ -52,6 +52,12 @@ export interface Client {
   email: string | null
   address: string | null
   notes: string | null
+  // Миграция 020 — реквизиты для актов. Могут отсутствовать совсем, пока миграция не выполнена
+  full_name?: string | null
+  ogrn?: string | null
+  representative?: string | null
+  signer_position?: string | null
+  signer_short?: string | null
   is_active: boolean
   created_by: string | null
   created_at: string
@@ -74,6 +80,12 @@ export interface Matter {
   notes: string | null
   // Миграция 014. Может отсутствовать совсем, пока миграция не выполнена
   drive_folder_url?: string | null
+  // Миграция 020 — реквизиты для актов и отчётов (так же необязательны)
+  agreement_date?: string | null
+  task_no?: string | null
+  task_date?: string | null
+  act_subject?: string | null
+  expenses_clause?: string | null
   created_by: string | null
   created_at: string
   updated_at: string

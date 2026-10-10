@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { escapeHtml } from '@/lib/html'
 import { CABINET_LINE } from '@/lib/print'
+import { agreementLine, specialistLines } from '@/lib/act-doc'
 import toast from 'react-hot-toast'
 
 function formatDate(d: string) {
@@ -63,7 +64,10 @@ export function exportToPDF(
   subtitle?: string,
   meta?: {
     agreementNo?: string
-    agreementDate?: string
+    /** Дата соглашения, ГГГГ-ММ-ДД (миграция 020) */
+    agreementDate?: string | null
+    /** Номер задания к соглашению (миграция 020) */
+    taskNo?: string | null
     clientName?: string
     matterTitle?: string
     dateFrom?: string
@@ -75,13 +79,9 @@ export function exportToPDF(
   const totalAmount  = billableRows.reduce((s, r) => s + Number(r.amount), 0)
 
   // Group by executor for "Детализация по специалистам"
-  const byExecutor: Record<string, { rate: number; hours: number; amount: number }> = {}
-  for (const r of billableRows) {
-    const key = r.performed_by
-    if (!byExecutor[key]) byExecutor[key] = { rate: Number(r.hourly_rate), hours: 0, amount: 0 }
-    byExecutor[key].hours  += Number(r.hours)
-    byExecutor[key].amount += Number(r.amount)
-  }
+  // Строка = исполнитель + ставка (см. specialistLines): при записях по разным ставкам
+  // «ставка × часы» в каждой строке дают её сумму, а не сумму чужих записей
+  const specialists = specialistLines(billableRows)
 
   // Детализация по услугам
   const servicesRows = billableRows.map((r, i) => `
@@ -93,21 +93,20 @@ export function exportToPDF(
     </tr>`).join('')
 
   // Детализация по специалистам
-  const executorRows = Object.entries(byExecutor).map(([name, d]) => `
+  const executorRows = specialists.lines.map(l => `
     <tr>
-      <td>${escapeHtml(displayPerformer(name))}</td>
-      <td class="num">${formatMoney(d.rate)}</td>
-      <td class="num">${formatHours(d.hours)}</td>
-      <td class="num">${formatMoney(d.amount)}</td>
+      <td>${escapeHtml(displayPerformer(l.label))}</td>
+      <td class="num">${formatMoney(l.rateKop / 100)}</td>
+      <td class="num">${formatHours(l.hours100 / 100)}</td>
+      <td class="num">${formatMoney(l.amountKop / 100)}</td>
     </tr>`).join('')
 
   const periodStr = meta?.dateFrom && meta?.dateTo
     ? `с ${formatDate(meta.dateFrom)} по ${formatDate(meta.dateTo)}`
     : escapeHtml(subtitle ?? '')
 
-  const agreementStr = meta?.agreementNo
-    ? `${escapeHtml(meta.agreementNo)}${meta.agreementDate ? ` от ${escapeHtml(meta.agreementDate)} г.` : ''}`
-    : '—'
+  // «19/06-26 от 19.06.2026, задание № 3» — как в образце отчёта адвоката
+  const agreementStr = escapeHtml(agreementLine(meta?.agreementNo, meta?.agreementDate, meta?.taskNo) || '—')
 
   // Номер берём как есть после «№»: он может содержать номер соглашения
   // со слэшем («19/06-26-3108»), а прежнее «оставить только цифры» его калечило
@@ -291,7 +290,8 @@ export async function exportToWord(
   title: string,
   meta?: {
     agreementNo?: string
-    agreementDate?: string
+    agreementDate?: string | null
+    taskNo?: string | null
     clientName?: string
     matterTitle?: string
     dateFrom?: string
@@ -307,20 +307,14 @@ export async function exportToWord(
   const totalHours  = billableRows.reduce((s, r) => s + Number(r.hours), 0)
   const totalAmount = billableRows.reduce((s, r) => s + Number(r.amount), 0)
 
-  const byExecutor: Record<string, { rate: number; hours: number; amount: number }> = {}
-  for (const r of billableRows) {
-    const key = r.performed_by
-    if (!byExecutor[key]) byExecutor[key] = { rate: Number(r.hourly_rate), hours: 0, amount: 0 }
-    byExecutor[key].hours  += Number(r.hours)
-    byExecutor[key].amount += Number(r.amount)
-  }
+  // Строка = исполнитель + ставка (см. specialistLines): при записях по разным ставкам
+  // «ставка × часы» в каждой строке дают её сумму, а не сумму чужих записей
+  const specialists = specialistLines(billableRows)
 
   const periodStr = meta?.dateFrom && meta?.dateTo
     ? `с ${formatDate(meta.dateFrom)} по ${formatDate(meta.dateTo)}`
     : ''
-  const agreementStr = meta?.agreementNo
-    ? `${meta.agreementNo}${meta.agreementDate ? ` от ${meta.agreementDate} г.` : ''}`
-    : '—'
+  const agreementStr = agreementLine(meta?.agreementNo, meta?.agreementDate, meta?.taskNo) || '—'
   // Дата берётся по МЕСТНОМУ времени: toISOString() отдаёт UTC, и в часовых поясах
   // восточнее Гринвича до утра документ получал вчерашнюю дату
   const reportDate = meta?.dateTo ? formatDate(meta.dateTo) : format(new Date(), 'dd.MM.yyyy', { locale: ru })
@@ -393,12 +387,12 @@ export async function exportToWord(
       headerCell('Сумма', 1500),
     ],
   })
-  const execRows = Object.entries(byExecutor).map(([name, d]) => new TableRow({
+  const execRows = specialists.lines.map(l => new TableRow({
     children: [
-      cell(displayPerformer(name), 3500),
-      cell(formatMoney(d.rate), 1500, AlignmentType.RIGHT),
-      cell(formatHours(d.hours), 1100, AlignmentType.RIGHT),
-      cell(formatMoney(d.amount), 1500, AlignmentType.RIGHT),
+      cell(displayPerformer(l.label), 3500),
+      cell(formatMoney(l.rateKop / 100), 1500, AlignmentType.RIGHT),
+      cell(formatHours(l.hours100 / 100), 1100, AlignmentType.RIGHT),
+      cell(formatMoney(l.amountKop / 100), 1500, AlignmentType.RIGHT),
     ],
   }))
   const execTotalRow = new TableRow({

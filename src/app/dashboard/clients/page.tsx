@@ -12,6 +12,11 @@ import EmptyState from '@/components/EmptyState'
 import { checkInn } from '@/lib/inn'
 import { SkeletonRows } from '@/components/Skeleton'
 
+/** Реквизиты для актов (миграция 020). Необязательные: пусто — акт соберёт текст из названия */
+const ACT_FIELDS = ['full_name', 'ogrn', 'representative', 'signer_position', 'signer_short'] as const
+type ActField = typeof ACT_FIELDS[number]
+const EMPTY_ACT: Record<ActField, string> = { full_name: '', ogrn: '', representative: '', signer_position: '', signer_short: '' }
+
 const TYPE_LABELS: Record<ClientType, string> = {
   individual: 'Физическое лицо',
   legal_entity: 'Организация',
@@ -29,6 +34,7 @@ export default function ClientsPage() {
   const [form, setForm] = useState({
     name: '', type: 'individual' as ClientType,
     inn: '', phone: '', email: '', address: '', notes: '', is_active: true,
+    ...EMPTY_ACT,
   })
 
   const loadClients = useCallback(async () => {
@@ -41,25 +47,44 @@ export default function ClientsPage() {
   useEffect(() => { loadClients() }, [])
 
   function resetForm() {
-    setForm({ name: '', type: 'individual', inn: '', phone: '', email: '', address: '', notes: '', is_active: true })
+    setForm({ name: '', type: 'individual', inn: '', phone: '', email: '', address: '', notes: '', is_active: true, ...EMPTY_ACT })
     setEditId(null); setShowForm(false)
   }
 
   function startEdit(c: Client) {
     setForm({ name: c.name, type: c.type, inn: c.inn ?? '', phone: c.phone ?? '',
-      email: c.email ?? '', address: c.address ?? '', notes: c.notes ?? '', is_active: c.is_active })
+      email: c.email ?? '', address: c.address ?? '', notes: c.notes ?? '', is_active: c.is_active,
+      full_name: c.full_name ?? '', ogrn: c.ogrn ?? '', representative: c.representative ?? '',
+      signer_position: c.signer_position ?? '', signer_short: c.signer_short ?? '' })
     setEditId(c.id); setShowForm(true)
   }
 
   async function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault(); setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
-    const payload = { ...form, inn: form.inn || null, phone: form.phone || null,
-      email: form.email || null, address: form.address || null, notes: form.notes || null }
+    // Реквизиты для актов отправляем, только если их ввели или изменили. Пока миграция 020
+    // не выполнена, колонок в базе нет, и лишнее поле в запросе уронило бы сохранение
+    // ЛЮБОГО доверителя — даже без этих реквизитов.
+    const original = editId ? clients.find(x => x.id === editId) : undefined
+    const actExtra: Partial<Record<ActField, string | null>> = {}
+    for (const k of ACT_FIELDS) {
+      const before = (original?.[k] ?? '').trim()
+      if (form[k].trim() !== before) actExtra[k] = form[k].trim() || null
+    }
+    const payload = {
+      name: form.name, type: form.type, is_active: form.is_active,
+      inn: form.inn || null, phone: form.phone || null,
+      email: form.email || null, address: form.address || null, notes: form.notes || null,
+      ...actExtra,
+    }
     const { error } = editId
       ? await supabase.from('clients').update(payload).eq('id', editId)
       : await supabase.from('clients').insert({ ...payload, created_by: user!.id })
-    if (error) { toast.error('Ошибка: ' + error.message) }
+    if (error) {
+      toast.error(Object.keys(actExtra).length > 0 && /column|schema/i.test(error.message)
+        ? 'Реквизиты для актов пока негде хранить: выполните миграцию 020 в Supabase'
+        : 'Ошибка: ' + error.message)
+    }
     else { toast.success(editId ? 'Доверитель обновлён' : 'Доверитель добавлен'); resetForm(); loadClients() }
     setSubmitting(false)
   }
@@ -126,6 +151,44 @@ export default function ClientsPage() {
               <label className="label">Примечания</label>
               <textarea className="input resize-none" rows={2} value={form.notes}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+            </div>
+            {/* Для актов и подписей. Всё необязательно: чего нет — акт возьмёт из названия */}
+            <div className="md:col-span-2 border-t border-navy-800 pt-3">
+              <p className="text-sm font-medium text-navy-200">Для актов (необязательно)</p>
+              <p className="text-xs text-navy-400 mt-0.5">Попадает в шапку и подписи акта об оказании услуг.</p>
+            </div>
+            <div className="md:col-span-2">
+              <label className="label">Полное наименование</label>
+              <input className="input" value={form.full_name}
+                onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}
+                placeholder={form.type === 'legal_entity' ? 'Общество с ограниченной ответственностью «СИСТЕМА»' : 'Рудаков Евгений Владимирович'} />
+              <p className="text-xs text-navy-400 mt-1">Пусто — соберётся из названия выше (ООО → Общество с ограниченной ответственностью)</p>
+            </div>
+            {form.type === 'legal_entity' && (
+              <>
+                <div>
+                  <label className="label">ОГРН</label>
+                  <input className="input" value={form.ogrn} inputMode="numeric"
+                    onChange={e => setForm(f => ({ ...f, ogrn: e.target.value }))} placeholder="1175476084178" />
+                </div>
+                <div>
+                  <label className="label">Должность подписанта</label>
+                  <input className="input" value={form.signer_position}
+                    onChange={e => setForm(f => ({ ...f, signer_position: e.target.value }))} placeholder="Генеральный директор" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="label">Кто подписывает — после слов «в лице»</label>
+                  <input className="input" value={form.representative}
+                    onChange={e => setForm(f => ({ ...f, representative: e.target.value }))}
+                    placeholder="генерального директора Зарипова Раиса Юрьевича" />
+                  <p className="text-xs text-navy-400 mt-1">В родительном падеже, как в тексте акта</p>
+                </div>
+              </>
+            )}
+            <div>
+              <label className="label">Подпись (инициалы и фамилия)</label>
+              <input className="input" value={form.signer_short}
+                onChange={e => setForm(f => ({ ...f, signer_short: e.target.value }))} placeholder="Р.Ю. Зарипов" />
             </div>
             {editId && (
               <div className="md:col-span-2">

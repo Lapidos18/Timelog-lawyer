@@ -4,13 +4,13 @@ import { createClient } from '@/lib/supabase'
 import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { Plus, X, Check, Printer, Trash2, FileCheck, RefreshCw, Lock, Wallet } from 'lucide-react'
+import { Plus, X, Check, Printer, Trash2, FileCheck, RefreshCw, Lock, Wallet, FileText } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
-import { escapeHtml } from '@/lib/html'
-import { printDocument, CABINET_LINE } from '@/lib/print'
+import { CABINET } from '@/lib/print'
+import { buildActDoc } from '@/lib/act-doc'
+import { printActDoc, exportActWord } from '@/lib/act-print'
 import LoadError from '@/components/LoadError'
-import { fmtMoneyWords } from '@/lib/money-words'
 import { nextActNo as computeNextActNo, toActRows, actRowsTotal } from '@/lib/acts'
 import { SkeletonRows, SkeletonCards } from '@/components/Skeleton'
 import PageHeader from '@/components/PageHeader'
@@ -29,6 +29,8 @@ interface Act {
   description: string | null
   status: 'draft' | 'signed' | 'paid'
   created_at: string
+  // Миграция 020: возмещаемые расходы на момент составления. undefined — миграция не выполнена
+  expenses_amount?: number | null
   // Миграция 015: копия строк на момент создания. null — старый акт,
   // undefined — миграция ещё не выполнена
   rows?: ServiceRow[] | null
@@ -100,7 +102,10 @@ export default function ActsPage() {
     period_from: format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'),
     period_to: format(new Date(), 'yyyy-MM-dd'),
     description: '',
+    expenses_amount: '',
   })
+  /** Невозмещённые расходы по делу за период — подсказка к полю «Возмещаемые расходы» */
+  const [expensesHint, setExpensesHint] = useState<{ sum: number; count: number } | null>(null)
   /** Остаток неотработанного аванса по каждому делу; отрицательное — долг */
   const [advanceByMatter, setAdvanceByMatter] = useState<Record<string, number>>({})
   const [previewRows, setPreviewRows] = useState<ServiceRow[]>([])
@@ -182,6 +187,25 @@ export default function ActsPage() {
       })
   }, [form.matter_id, form.period_from, form.period_to])
 
+  // Возмещаемые расходы по делу за период: «Доверитель возмещает Адвокату расходы в размере …».
+  // Берутся ещё не возмещённые (ожидают включения в счёт и выставленные); уже возмещённые
+  // в акт не идут — доверитель их оплатил. Статусы расходов программа здесь не меняет.
+  useEffect(() => {
+    if (!form.matter_id || !form.period_from || !form.period_to) { setExpensesHint(null); return }
+    let cancelled = false
+    supabase.from('reimbursable_expenses').select('amount')
+      .eq('matter_id', form.matter_id).in('status', ['pending', 'invoiced'])
+      .gte('expense_date', form.period_from).lte('expense_date', form.period_to)
+      .then(({ data }) => {
+        if (cancelled) return
+        const list = (data ?? []) as { amount: number | string }[]
+        const sum = list.reduce((t, r) => t + Math.round(Number(r.amount) * 100), 0) / 100
+        setExpensesHint({ sum, count: list.length })
+        setForm(f => ({ ...f, expenses_amount: sum > 0 ? String(sum) : '' }))
+      })
+    return () => { cancelled = true }
+  }, [form.matter_id, form.period_from, form.period_to])
+
   /**
    * Следующий номер акта: сквозная нумерация в пределах года — АКТ-2026-001.
    *
@@ -203,7 +227,8 @@ export default function ActsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     const m = matters.find(x => x.id === form.matter_id)!
     const actNo = form.act_no || nextActNo
-    const base = {
+    const expenses = Math.round((parseFloat(form.expenses_amount.replace(',', '.')) || 0) * 100) / 100
+    const base: Record<string, unknown> = {
       act_no: actNo,
       matter_id: form.matter_id,
       client_id: m.client_id,
@@ -212,10 +237,19 @@ export default function ActsPage() {
       amount: previewTotal,
       description: form.description || null,
       created_by: user!.id,
+      // Сумму расходов кладём в запрос, только если она есть: пока миграция 020 не
+      // выполнена, колонки нет, и лишнее поле уронило бы создание ЛЮБОГО акта
+      ...(expenses > 0 ? { expenses_amount: expenses } : {}),
     }
     // Копия строк — чтобы акт печатался таким, каким был создан, а не
     // тем, что лежит в журнале сегодня (миграция 015).
     let { error } = await supabase.from('acts').insert({ ...base, rows: previewRows })
+    if (error && /expenses_amount/.test(error.message) && /column|schema/i.test(error.message)) {
+      const withoutExpenses: Record<string, unknown> = { ...base }
+      delete withoutExpenses.expenses_amount
+      ;({ error } = await supabase.from('acts').insert({ ...withoutExpenses, rows: previewRows }))
+      if (!error) toast('Акт создан без суммы расходов — выполните миграцию 020', { icon: '⚠️' })
+    }
     // Сайт выкатывается раньше, чем выполнена миграция. Пока колонки rows
     // нет, создаём акт без копии — это старое поведение, лучше, чем отказ.
     if (error && /rows/.test(error.message) && /column|schema/i.test(error.message)) {
@@ -362,63 +396,26 @@ export default function ActsPage() {
     toast.success('Удалено'); loadActs()
   }
 
+  /** Состав документа из акта: тот же идёт и в печать, и в Word, они не могут разойтись */
+  function actDocFor(act: Act, rows: ServiceRow[]) {
+    return buildActDoc({
+      cabinet: CABINET, client: act.matters.clients, matter: act.matters,
+      periodFrom: act.period_from, periodTo: act.period_to,
+      rows, expensesAmount: act.expenses_amount, note: act.description,
+    })
+  }
+
   function printAct(act: Act, rows: ServiceRow[]) {
-    const rowsHtml = rows.map((r, i) => `
-      <tr>
-        <td>${i+1}</td>
-        <td>${fmtDate(r.work_date)}</td>
-        <td>${escapeHtml(ACTIVITY_LABELS[r.activity_type])}</td>
-        <td>${escapeHtml(r.description)}</td>
-        <td style="text-align:right">${r.hours.toFixed(2)}</td>
-        <td style="text-align:right">${fmt(r.hourly_rate)}</td>
-        <td style="text-align:right">${fmt(r.amount)}</td>
-        <td>${escapeHtml(displayPerformer(r.performed_by))}</td>
-      </tr>`).join('')
-
-    const total = actRowsTotal(rows)
-
-    const body = `
-<h2>Акт об оказании юридической помощи</h2>
-<div class="sub">${escapeHtml(act.act_no)} от ${fmtDate(act.created_at.split('T')[0])}</div>
-<div class="meta">
-  <b>Адвокат:</b> ${CABINET_LINE}<br>
-  <b>Доверитель:</b> ${escapeHtml(act.matters.clients.name)}${act.matters.clients.inn ? `, ИНН ${escapeHtml(act.matters.clients.inn)}` : ''}<br>
-  <b>Дело:</b> ${escapeHtml(act.matters.title)}${act.matters.agreement_no ? ` по соглашению № ${escapeHtml(act.matters.agreement_no)}` : ''}<br>
-  <b>Период:</b> ${fmtDate(act.period_from)} — ${fmtDate(act.period_to)}
-</div>
-<p>Адвокатский кабинет Бухмина А.А. оказал, а Доверитель принял следующую юридическую помощь:</p>
-<table>
-  <thead><tr>
-    <th>№</th><th>Дата</th><th>Вид работы</th><th>Описание</th>
-    <th>Часов</th><th>Ставка, руб./ч.</th><th>Сумма, руб.</th><th>Исполнитель</th>
-  </tr></thead>
-  <tbody>${rowsHtml}</tbody>
-  <tfoot><tr>
-    <td colspan="6" class="r">Итого:</td>
-    <td class="r">${fmt(total)}</td><td></td>
-  </tr></tfoot>
-</table>
-<div class="total">Итого к оплате: ${fmt(total)} руб. (НДС не облагается)</div>
-<div class="total-words">Сумма прописью: ${fmtMoneyWords(total)}</div>
-${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
-<p>Доверитель не имеет претензий к объёму, качеству и срокам оказанной юридической помощи.</p>
-<div class="signs">
-  <div class="sign">
-    <b>Адвокат:</b><br><br><br>
-    _________________ /А.А. Бухмин/
-  </div>
-  <div class="sign">
-    <b>Доверитель:</b><br><br><br>
-    _________________ /${escapeHtml(act.matters.clients.name)}/
-  </div>
-</div>
-<div class="footer">${CABINET_LINE}</div>`
-
-    if (!printDocument(escapeHtml(act.act_no), body)) {
+    if (!printActDoc(actDocFor(act, rows))) {
       toast.error('Браузер заблокировал всплывающее окно. Разрешите всплывающие окна для этого сайта и попробуйте снова.')
       return
     }
     toast.success('Открыт диалог печати')
+  }
+
+  async function wordAct(act: Act, rows: ServiceRow[]) {
+    try { await exportActWord(actDocFor(act, rows)) }
+    catch (e) { console.error(e); toast.error('Не удалось сформировать файл Word') }
   }
 
 
@@ -466,6 +463,16 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="md:col-span-3">
+              <label className="label">Возмещаемые расходы, ₽ (необязательно)</label>
+              <input type="number" inputMode="decimal" step="0.01" className="input" value={form.expenses_amount}
+                onChange={e => setForm(f => ({ ...f, expenses_amount: e.target.value }))} />
+              <p className="text-xs text-navy-400 mt-1">
+                {expensesHint && expensesHint.count > 0
+                  ? `Из раздела «Возмещаемые расходы»: ${expensesHint.count} шт. на ${fmt(expensesHint.sum)} ₽ за период, ещё не возмещённые. Попадут в акт отдельным абзацем; сумму можно изменить или стереть.`
+                  : 'За период нет невозмещённых расходов по делу. Если они были, впишите сумму — в акте появится абзац о возмещении.'}
+              </p>
             </div>
             <div className="md:col-span-3">
               <label className="label">Примечание к акту (необязательно)</label>
@@ -686,9 +693,12 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
       {previewAct && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
           <div className="bg-navy-900 rounded-xl border border-navy-700 w-full max-w-3xl max-h-[90dvh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between gap-2 px-4 md:px-6 py-4 border-b border-navy-800">
-              <h2 className="font-semibold text-navy-200 truncate">{previewAct.act.act_no}</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 md:px-6 py-4 border-b border-navy-800">
+              <h2 className="font-semibold text-navy-200 truncate min-w-0">{previewAct.act.act_no}</h2>
               <div className="flex gap-2 flex-shrink-0">
+                <button aria-label="Скачать акт в Word" onClick={() => wordAct(previewAct.act, previewAct.rows)} className="btn-secondary">
+                  <FileText className="w-4 h-4" /> Word
+                </button>
                 <button aria-label="Просмотр и печать акта" onClick={() => printAct(previewAct.act, previewAct.rows)} className="btn-primary">
                   <Printer className="w-4 h-4" /> <span className="hidden sm:inline">Печать / </span>PDF
                 </button>
@@ -702,6 +712,26 @@ ${act.description ? `<p>${escapeHtml(act.description)}</p>` : ''}
                 <b className="text-navy-300">Период:</b> {fmtDate(previewAct.act.period_from)} — {fmtDate(previewAct.act.period_to)}
               </p>
 
+              <p className="text-xs text-navy-400 mb-3">
+                В документе — итог по специалистам, сумма прописью и абзац о расходах; построчная детализация по датам — в отчёте.
+              </p>
+              {/* Чего не хватает карточкам, чтобы акт вышел полным: сами слова подставляются из них */}
+              {(() => {
+                const m = previewAct.act.matters
+                const c = m.clients
+                const missing = [
+                  !m.task_no && 'номер задания',
+                  !m.act_subject && 'что сделано',
+                  !m.agreement_date && 'дата соглашения',
+                  c.type === 'legal_entity' && !c.ogrn && 'ОГРН доверителя',
+                  c.type === 'legal_entity' && !c.representative && 'кто подписывает за доверителя',
+                ].filter(Boolean)
+                return missing.length > 0 ? (
+                  <p className="text-xs text-amber-400 mb-3">
+                    В акте пока нет: {missing.join(', ')}. Впишите их в карточках дела и доверителя — документ подставит сам.
+                  </p>
+                ) : null
+              })()}
               {/* Откуда взят состав акта — от этого зависит, что можно сделать */}
               {!Array.isArray(previewAct.act.rows) ? (
                 <p className="text-xs text-amber-400 mb-3">

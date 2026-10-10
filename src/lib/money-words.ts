@@ -96,6 +96,20 @@ export function fmtMoneyFull(kopecks: number): string {
   return `${digits} руб. (${numberToWordsRu(rubles)} ${rubleWord(rubles)} ${String(kop).padStart(2, '0')} ${kopeckWord(kop)})`
 }
 
+/**
+ * «25 588 (Двадцать пять тысяч пятьсот восемьдесят восемь) рублей 75 коп.» —
+ * сумма в тексте акта об оказании услуг так, как её пишет сам адвокат в своём
+ * образце: слово в скобках с заглавной, «рублей» склоняется, копейки сокращённо.
+ * Отдельная от fmtMoneyWords форма сознательно: та остаётся как есть.
+ */
+export function fmtMoneyAct(n: number): string {
+  const total = Math.round(n * 100)
+  const rubles = Math.floor(total / 100)
+  const kop = total % 100
+  const words = numberToWordsRu(rubles)
+  return `${fmtWhole(rubles)} (${words.charAt(0).toUpperCase()}${words.slice(1)}) ${rubleWord(rubles)} ${String(kop).padStart(2, '0')} коп.`
+}
+
 /** «15 000 (пятнадцать тысяч) руб. 50 копеек» */
 export function fmtMoneyWords(n: number): string {
   const rubles = Math.floor(n)

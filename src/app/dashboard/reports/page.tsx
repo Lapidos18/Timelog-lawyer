@@ -231,6 +231,8 @@ export default function ReportsPage() {
 
       exportToPDF(rows, title, undefined, {
         agreementNo: matter?.agreement_no ?? undefined,
+        agreementDate: matter?.agreement_date,
+        taskNo: matter?.task_no,
         clientName: client?.name,
         matterTitle: matter?.title,
         dateFrom: filters.date_from,
@@ -252,6 +254,8 @@ export default function ReportsPage() {
 
       await exportToWord(rows, title, {
         agreementNo: matter?.agreement_no ?? undefined,
+        agreementDate: matter?.agreement_date,
+        taskNo: matter?.task_no,
         clientName: client?.name,
         matterTitle: matter?.title,
         dateFrom: filters.date_from,

@@ -41,6 +41,8 @@ export default function BackupPage() {
       'court_events',
       // Акты взаимных расчётов (миграция 019)
       'settlement_acts',
+      // Начисления по актам (миграция 022)
+      'matter_accruals',
     ]
 
     // tax_settings не имеет столбца created_at (первичный ключ — year, дата
@@ -105,6 +107,7 @@ export default function BackupPage() {
     audit_log:             'История изменений',
     court_events:          'Сроки и заседания',
     settlement_acts:       'Акты сверки (форма 1С)',
+    matter_accruals:       'Начисления по актам',
   }
 
   return (

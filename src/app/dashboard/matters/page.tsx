@@ -11,12 +11,18 @@ import Modal from '@/components/Modal'
 import EmptyState from '@/components/EmptyState'
 import { isDriveUrl, driveUrlHint } from '@/lib/drive-link'
 import { SkeletonRows } from '@/components/Skeleton'
+import { isSubscription, matterFeeAccrued } from '@/lib/balance'
+import { toISO } from '@/lib/deadlines'
 
 interface MatterWithClient extends Matter { clients: Client }
 
 /** Реквизиты для актов и отчётов (миграция 020). Необязательные: пусто — документ обходится без них */
 const ACT_FIELDS = ['agreement_date', 'task_no', 'task_date', 'act_subject', 'expenses_clause'] as const
 type ActField = typeof ACT_FIELDS[number]
+/** Абонентская плата (миграция 021): сумма в месяц и месяцы начала и окончания */
+const FEE_FIELDS = ['monthly_fee', 'fee_from', 'fee_to'] as const
+type FeeField = typeof FEE_FIELDS[number]
+const EMPTY_FEE: Record<FeeField, string> = { monthly_fee: '', fee_from: '', fee_to: '' }
 const EMPTY_ACT: Record<ActField, string> = { agreement_date: '', task_no: '', task_date: '', act_subject: '', expenses_clause: '' }
 
 /**
@@ -28,7 +34,7 @@ const EMPTY_ACT: Record<ActField, string> = { agreement_date: '', task_no: '', t
  * такие дела отмечаем в списке.
  */
 function noRate(m: MatterWithClient) {
-  return !m.hourly_rate && !m.fixed_fee
+  return !m.hourly_rate && !m.fixed_fee && !isSubscription(m)
 }
 
 export default function MattersPage() {
@@ -50,7 +56,7 @@ export default function MattersPage() {
     matter_type: 'litigation' as MatterType, status: 'active' as MatterStatus,
     court: '', case_no: '', hourly_rate: '', fixed_fee: '',
     started_at: '', closed_at: '', notes: '', drive_folder_url: '',
-    ...EMPTY_ACT,
+    ...EMPTY_ACT, ...EMPTY_FEE,
   })
 
   const loadMatters = useCallback(async () => {
@@ -85,6 +91,12 @@ export default function MattersPage() {
         worked[e.matter_id] = (worked[e.matter_id] ?? 0) + Number(e.amount)
       }
     }
+    // Абонентское дело: «отработано» — это накопленная абонплата на последние дни месяцев;
+    // часы по нему денег не создают (общая функция, см. src/lib/balance.ts)
+    const today = toISO(new Date())
+    for (const m of (mattersRes.data ?? [])) {
+      if (isSubscription(m)) worked[m.id] = matterFeeAccrued(m, 0, today)
+    }
     const reimbursed: Record<string, number> = {}
     for (const r of (reimbRes.data ?? [])) {
       if (r.matter_id) reimbursed[r.matter_id] = (reimbursed[r.matter_id] ?? 0) + Number(r.amount)
@@ -106,7 +118,7 @@ export default function MattersPage() {
   function resetForm() {
     setForm({ client_id: '', title: '', agreement_no: '', matter_type: 'litigation',
       status: 'active', court: '', case_no: '', hourly_rate: '', fixed_fee: '',
-      started_at: '', closed_at: '', notes: '', drive_folder_url: '', ...EMPTY_ACT })
+      started_at: '', closed_at: '', notes: '', drive_folder_url: '', ...EMPTY_ACT, ...EMPTY_FEE })
     setEditId(null); setShowForm(false)
   }
 
@@ -120,6 +132,8 @@ export default function MattersPage() {
       drive_folder_url: m.drive_folder_url ?? '',
       agreement_date: m.agreement_date ?? '', task_no: m.task_no ?? '', task_date: m.task_date ?? '',
       act_subject: m.act_subject ?? '', expenses_clause: m.expenses_clause ?? '',
+      monthly_fee: m.monthly_fee ? String(Number(m.monthly_fee)) : '',
+      fee_from: m.fee_from ?? '', fee_to: m.fee_to ?? '',
     })
     setEditId(m.id); setShowForm(true)
   }
@@ -141,6 +155,25 @@ export default function MattersPage() {
       const before = (originalMatter?.[k] ?? '').trim()
       if (form[k].trim() !== before) actExtra[k] = form[k].trim() || null
     }
+    // Абонплата: сумма без месяца начала бессмысленна — считать не с чего
+    const feeAmount = parseFloat(form.monthly_fee.replace(',', '.'))
+    if (feeAmount > 0 && !form.fee_from) {
+      toast.error('Укажите, с какого месяца начисляется абонентская плата')
+      setSubmitting(false)
+      return
+    }
+    // Условия абонплаты (миграция 021) — только если ввели или изменили, по той же причине
+    const feeExtra: Record<string, string | number | null> = {}
+    for (const k of FEE_FIELDS) {
+      const was = originalMatter?.[k]
+      if (k === 'monthly_fee') {
+        const before = Number(was ?? 0) || 0
+        const now = Number.isFinite(feeAmount) ? feeAmount : 0
+        if (now !== before) feeExtra[k] = now > 0 ? now : null
+      } else if (form[k].trim() !== String(was ?? '').trim()) {
+        feeExtra[k] = form[k].trim() || null
+      }
+    }
     const payload = {
       client_id: form.client_id, title: form.title,
       agreement_no: form.agreement_no || null, matter_type: form.matter_type,
@@ -154,14 +187,17 @@ export default function MattersPage() {
       // уронило бы сохранение ЛЮБОГО дела — даже без ссылки.
       ...(driveLinkChanged ? { drive_folder_url: form.drive_folder_url.trim() || null } : {}),
       ...actExtra,
+      ...feeExtra,
     }
     const { error } = editId
       ? await supabase.from('matters').update(payload).eq('id', editId)
       : await supabase.from('matters').insert({ ...payload, created_by: user!.id })
     if (error) {
-      toast.error(Object.keys(actExtra).length > 0 && /column|schema/i.test(error.message)
-        ? 'Реквизиты для актов пока негде хранить: выполните миграцию 020 в Supabase'
-        : 'Ошибка: ' + error.message)
+      toast.error(Object.keys(feeExtra).length > 0 && /column|schema/i.test(error.message)
+        ? 'Абонентскую плату пока негде хранить: выполните миграцию 021 в Supabase'
+        : Object.keys(actExtra).length > 0 && /column|schema/i.test(error.message)
+          ? 'Реквизиты для актов пока негде хранить: выполните миграцию 020 в Supabase'
+          : 'Ошибка: ' + error.message)
     }
     else { toast.success(editId ? 'Дело обновлено' : 'Дело добавлено'); resetForm(); loadMatters() }
     setSubmitting(false)
@@ -283,7 +319,7 @@ export default function MattersPage() {
             </span>
             <span className="text-navy-400">·</span>
             <span className="text-navy-400">
-              Отработано <span className="num text-navy-200">{fmtMoney(worked)} ₽</span>
+              {isSubscription(m) ? 'Начислено по абонплате' : 'Отработано'} <span className="num text-navy-200">{fmtMoney(worked)} ₽</span>
             </span>
             <span className="text-navy-400">·</span>
             {reimb > 0 && (
@@ -439,6 +475,31 @@ export default function MattersPage() {
               <input className="input" value={form.expenses_clause} placeholder="п. 2.4."
                 onChange={e => setForm(f => ({ ...f, expenses_clause: e.target.value }))} />
             </div>
+            {/* Клиент платит одну сумму в месяц независимо от объёма работы */}
+            <div className="md:col-span-3 border-t border-navy-800 pt-3">
+              <p className="text-sm font-medium text-navy-200">Абонентская плата (необязательно)</p>
+              <p className="text-xs text-navy-400 mt-0.5">
+                Сумма в месяц начисляется сама на последний день каждого месяца. Часы по такому делу записывайте
+                как неоплачиваемые: деньги по ним не считаются.
+              </p>
+            </div>
+            <div>
+              <label className="label">Сумма в месяц, ₽</label>
+              <input type="number" inputMode="decimal" className="input" value={form.monthly_fee} placeholder="224000"
+                onChange={e => setForm(f => ({ ...f, monthly_fee: e.target.value }))} />
+            </div>
+            <div>
+              <label className="label">Начисляется с</label>
+              <input type="date" className="input" value={form.fee_from}
+                onChange={e => setForm(f => ({ ...f, fee_from: e.target.value }))} />
+              <p className="text-xs text-navy-400 mt-1">Считается месяц этой даты, целиком</p>
+            </div>
+            <div>
+              <label className="label">По (необязательно)</label>
+              <input type="date" className="input" value={form.fee_to}
+                onChange={e => setForm(f => ({ ...f, fee_to: e.target.value }))} />
+              <p className="text-xs text-navy-400 mt-1">Последний начисляемый месяц</p>
+            </div>
             <div className="md:col-span-3">
               <label className="label">Примечания</label>
               <textarea className="input resize-none" rows={2} value={form.notes}
@@ -523,6 +584,7 @@ export default function MattersPage() {
                       {m.case_no && ` · Дело ${m.case_no}`}
                       {m.court && ` · ${m.court}`}
                       {m.hourly_rate && ` · ${m.hourly_rate} ₽/ч`}
+                      {isSubscription(m) && ` · абонплата ${fmtMoney(Number(m.monthly_fee))} ₽/мес`}
                     </p>
                     {renderMoneyLine(m)}
                   </div>
@@ -567,6 +629,7 @@ export default function MattersPage() {
                       {MATTER_TYPE_LABELS[m.matter_type]}
                       {m.agreement_no && <> · Соглашение <span className="num">{m.agreement_no}</span></>}
                       {m.hourly_rate && <> · <span className="num">{m.hourly_rate}</span> ₽/ч</>}
+                      {isSubscription(m) && <> · абонплата <span className="num">{fmtMoney(Number(m.monthly_fee))}</span> ₽/мес</>}
                     </p>
                     {m.case_no && <p className="text-navy-400 text-xs mt-0.5">Дело <span className="num">{m.case_no}</span></p>}
                     {m.court && <p className="text-navy-400 text-xs mt-0.5">{m.court}</p>}
@@ -575,7 +638,7 @@ export default function MattersPage() {
                       <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                         <dt className="text-navy-400">Оплачено</dt>
                         <dd className="num text-navy-200 text-right">{fmtMoney(paid)} ₽</dd>
-                        <dt className="text-navy-400">Отработано</dt>
+                        <dt className="text-navy-400">{isSubscription(m) ? 'Начислено по абонплате' : 'Отработано'}</dt>
                         <dd className="num text-navy-200 text-right">{fmtMoney(worked)} ₽</dd>
                         {reimb > 0 && <>
                           <dt className="text-navy-400">Возмещаемые расходы</dt>

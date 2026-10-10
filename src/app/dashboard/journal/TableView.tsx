@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
+import { isSubscription } from '@/lib/balance'
 import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format } from 'date-fns'
 import { Plus, Pencil, Trash2, X, Check, ChevronDown, Filter, BookOpen, CopyPlus, Lock } from 'lucide-react'
@@ -160,7 +161,9 @@ export default function TableView() {
   function selectMatter(matterId: string) {
     const m = matters.find(x => x.id === matterId)
     const rate = m?.hourly_rate ?? profile?.hourly_rate
-    setForm(f => ({ ...f, matter_id: matterId, hourly_rate: rate ? String(rate) : f.hourly_rate }))
+    // Абонентское дело: деньги идут по абонплате, часы — только для учёта труда (src/lib/balance.ts)
+    const sub = m ? isSubscription(m) : false
+    setForm(f => ({ ...f, matter_id: matterId, hourly_rate: rate ? String(rate) : f.hourly_rate, ...(sub ? { is_billable: false } : {}) }))
   }
 
   // Записи из подписанных и оплаченных актов — править и удалять нельзя

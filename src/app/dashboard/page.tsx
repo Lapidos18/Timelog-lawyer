@@ -11,6 +11,7 @@ import PageHeader from '@/components/PageHeader'
 import { SkeletonStats, SkeletonRows } from '@/components/Skeleton'
 import { daysUntil, untilLabel, toISO } from '@/lib/deadlines'
 import { useMounted } from '@/lib/use-mounted'
+import { matterFeeAccrued } from '@/lib/balance'
 
 /** Событие в блоке «Сроки и заседания» на Обзоре */
 type UpcomingEvent = {
@@ -91,9 +92,11 @@ export default function DashboardPage() {
           supabase
             .from('clients')
             .select('id, name'),
+          // Все поля дела: условия абонплаты (миграция 021) могут отсутствовать,
+          // пока миграция не выполнена, — перечислять их в запросе нельзя
           supabase
             .from('matters')
-            .select('id, client_id'),
+            .select('*'),
           // Издержки, ПРЕДЪЯВЛЕННЫЕ доверителю: он платит их вместе с
           // вознаграждением, поэтому без них «оплачено» больше «начислено»
           // и долг занижается ровно на сумму компенсации.
@@ -154,12 +157,19 @@ export default function DashboardPage() {
 
         // Ключуем по client_id, а не по имени — иначе тёзки (два разных
         // доверителя с одинаковым именем) задваиваются в одну строку.
-        const billedMap: Record<string, number> = {}
+        // Начислено по делу — через общую функцию: по часам или по абонплате
+        // (у абонентского дела часы денег не создают), см. src/lib/balance.ts
+        const hoursByMatter: Record<string, number> = {}
         for (const r of (allEntries ?? [])) {
-          const clientId = matterClientMap[r.matter_id]
-          if (clientId && r.is_billable) {
-            billedMap[clientId] = (billedMap[clientId] ?? 0) + Number(r.amount)
+          if (r.matter_id && r.is_billable) {
+            hoursByMatter[r.matter_id] = (hoursByMatter[r.matter_id] ?? 0) + Number(r.amount)
           }
+        }
+        const today = toISO(new Date())
+        const billedMap: Record<string, number> = {}
+        for (const m of (allMatters ?? [])) {
+          const accrued = matterFeeAccrued(m, hoursByMatter[m.id] ?? 0, today)
+          if (accrued !== 0) billedMap[m.client_id] = (billedMap[m.client_id] ?? 0) + accrued
         }
 
         const reimbMap: Record<string, number> = {}

@@ -12,6 +12,7 @@ import { buildActDoc } from '@/lib/act-doc'
 import { printActDoc, exportActWord } from '@/lib/act-print'
 import LoadError from '@/components/LoadError'
 import { nextActNo as computeNextActNo, toActRows, actRowsTotal } from '@/lib/acts'
+import { matterFeeAccrued } from '@/lib/balance'
 import { SkeletonRows, SkeletonCards } from '@/components/Skeleton'
 import PageHeader from '@/components/PageHeader'
 import ChangeHistory from '@/components/ChangeHistory'
@@ -147,8 +148,15 @@ export default function ActsPage() {
       for (const p of (paymentsRes.data ?? []) as { matter_id: string | null; amount: number }[]) {
         if (p.matter_id) balance[p.matter_id] = (balance[p.matter_id] ?? 0) + Number(p.amount)
       }
+      // Начислено по делу — общая функция (часы или абонплата), как на Обзоре и в «Делах»
+      const hoursByMatter: Record<string, number> = {}
       for (const e of (entriesRes.data ?? []) as { matter_id: string | null; amount: number; is_billable: boolean }[]) {
-        if (e.matter_id && e.is_billable) balance[e.matter_id] = (balance[e.matter_id] ?? 0) - Number(e.amount)
+        if (e.matter_id && e.is_billable) hoursByMatter[e.matter_id] = (hoursByMatter[e.matter_id] ?? 0) + Number(e.amount)
+      }
+      const today = format(new Date(), 'yyyy-MM-dd')
+      for (const m of (mattersRes.data ?? []) as Matter[]) {
+        const accrued = matterFeeAccrued(m, hoursByMatter[m.id] ?? 0, today)
+        if (accrued) balance[m.id] = (balance[m.id] ?? 0) - accrued
       }
       for (const r of (reimbRes.data ?? []) as { matter_id: string | null; amount: number }[]) {
         if (r.matter_id) balance[r.matter_id] = (balance[r.matter_id] ?? 0) - Number(r.amount)

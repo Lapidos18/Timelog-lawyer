@@ -194,8 +194,22 @@ export function buildRowsUs(input: {
   services: ServiceInput[]
   expenses: ExpenseInput[]
   payments: PaymentInput[]
+  /** Начисления абонентской платы за период: по одному на месяц, датой — последний день месяца */
+  subscriptions?: { date: string; kop: Kop }[]
 }): SettlementRow[] {
   const rows: SettlementRow[] = []
+
+  // Абонплата — своя строка на месяц («как Акт от 31.07» в акте сверки адвоката)
+  ;(input.subscriptions ?? []).forEach((a, k) => {
+    if (a.kop === 0) return
+    rows.push({
+      id: `sub-${k}`,
+      date: a.date,
+      doc: `Абонентская плата за ${monthLabel(a.date)}`,
+      debit: a.kop,
+      credit: 0,
+    })
+  })
 
   const groups = new Map<string, { title: string; ym: string; kop: Kop }>()
   for (const s of input.services) {

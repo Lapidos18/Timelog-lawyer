@@ -86,6 +86,10 @@ export interface Matter {
   task_date?: string | null
   act_subject?: string | null
   expenses_clause?: string | null
+  // Миграция 021 — абонентская плата (см. src/lib/balance.ts)
+  monthly_fee?: number | string | null
+  fee_from?: string | null
+  fee_to?: string | null
   created_by: string | null
   created_at: string
   updated_at: string

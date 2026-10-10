@@ -19,6 +19,7 @@ import {
   toKop, fmtDate, formatMoney,
 } from '@/lib/settlement-act'
 import { printSettlement, exportSettlementWord } from '@/lib/settlement-print'
+import { isSubscription, subscriptionAccruals } from '@/lib/balance'
 import SettlementEditor from './SettlementEditor'
 
 interface Editing {
@@ -118,17 +119,21 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
    *  — начальное сальдо: всё начисленное минус всё оплаченное ДО начала периода.
    */
   async function loadSource(clientId: string, from: string, to: string): Promise<{ rowsUs: SettlementRow[]; openingUs: Balance }> {
-    const { data: ms, error: me } = await supabase.from('matters').select('id').eq('client_id', clientId)
+    // Все поля дела: условия абонплаты (миграция 021) могут отсутствовать, пока миграция не выполнена
+    const { data: ms, error: me } = await supabase.from('matters').select('*').eq('client_id', clientId)
     if (me) throw me
     const matterIds = (ms ?? []).map(m => m.id as string)
+    // Абонентские дела: по ним начисление — абонплата за месяц, а часы денег не создают (src/lib/balance.ts)
+    const subs = (ms ?? []).filter(m => isSubscription(m))
+    const subIds = new Set(subs.map(m => m.id as string))
     // Нет дел — нет и издержек; пустой ответ той же формы, чтобы не плодить ветки
     const none: Promise<{ data: any[]; error: null }> = Promise.resolve({ data: [], error: null })
     const statuses = ['invoiced', 'reimbursed']
 
     const [svc, svcBefore, pay, payBefore, exp, expBefore] = await Promise.all([
-      supabase.from('report_view').select('work_date, matter_title, amount')
+      supabase.from('report_view').select('work_date, matter_title, amount, matter_id')
         .eq('client_id', clientId).eq('is_billable', true).gte('work_date', from).lte('work_date', to),
-      supabase.from('report_view').select('amount')
+      supabase.from('report_view').select('amount, matter_id')
         .eq('client_id', clientId).eq('is_billable', true).lt('work_date', from),
       supabase.from('payments').select('pay_date, doc_no, amount')
         .eq('client_id', clientId).gte('pay_date', from).lte('pay_date', to),
@@ -144,12 +149,20 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
     ])
     for (const r of [svc, svcBefore, pay, payBefore, exp, expBefore]) if (r.error) throw r.error
 
+    const notSub = (r: { matter_id?: string | null }) => !(r.matter_id && subIds.has(r.matter_id))
+    const subAccruals = subs.flatMap(m => subscriptionAccruals(m, to))
+    const subInPeriod = subAccruals.filter(a => a.date >= from)
+    const subBeforeKop = subAccruals.filter(a => a.date < from).reduce((s, a) => s + a.kop, 0)
+
     return {
       rowsUs: buildRowsUs({
         periodFrom: from, periodTo: to,
-        services: svc.data ?? [], expenses: exp.data ?? [], payments: pay.data ?? [],
+        services: (svc.data ?? []).filter(notSub), expenses: exp.data ?? [], payments: pay.data ?? [],
+        subscriptions: subInPeriod,
       }),
-      openingUs: openingFrom(sumKop(svcBefore.data) + sumKop(expBefore.data), sumKop(payBefore.data)),
+      openingUs: openingFrom(
+        sumKop((svcBefore.data ?? []).filter(notSub)) + sumKop(expBefore.data) + subBeforeKop,
+        sumKop(payBefore.data)),
     }
   }
 

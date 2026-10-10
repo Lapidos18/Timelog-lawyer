@@ -6,6 +6,7 @@ import {
   fileBaseName, sortRows, sortedDoc, themUnfilled, partyTitle, SettlementRow,
 } from './settlement-act'
 import { fmtMoneyFull, rubleWord } from './money-words'
+import { subscriptionAccruals } from './balance'
 
 // Intl ставит неразрывные пробелы — сравниваем без разницы в пробелах
 const norm = (s: string) => s.replace(/[\s  ]+/g, ' ')
@@ -470,5 +471,49 @@ describe('образец из 1С бухгалтера: заголовок и п
       contract: 'по договору №1 от 01.04.2026', openingUs: { debit: 0, credit: 0 }, rowsUs: [],
     })
     expect(d.contract).toBe('по договору №1 от 01.04.2026')
+  })
+})
+
+describe('абонентская плата в акте сверки (ООО УК «Альфа менеджмент»)', () => {
+  const alfa = { monthly_fee: 224000, fee_from: '2026-04-01', fee_to: null }
+  const pays = [
+    { pay_date: '2026-07-24', doc_no: 'ПП 6 от 24.07.2026', amount: 224000 },
+    { pay_date: '2026-08-25', doc_no: 'ПП 35 от 25.08.26', amount: 224000 },
+    { pay_date: '2026-09-24', doc_no: '21', amount: 224000 },
+  ]
+
+  it('строки периода: оплаты и начисления по месяцам идут парами по датам', () => {
+    const inPeriod = subscriptionAccruals(alfa, '2026-09-30').filter(a => a.date >= '2026-07-01')
+    const rows = buildRowsUs({ periodFrom: '2026-07-01', periodTo: '2026-09-30', services: [], expenses: [], payments: pays, subscriptions: inPeriod })
+    expect(rows.map(r => [r.date, r.doc, r.debit, r.credit])).toEqual([
+      ['2026-07-24', 'Оплата ПП 6 от 24.07.2026', 0, 22400000],
+      ['2026-07-31', 'Абонентская плата за июль 2026', 22400000, 0],
+      ['2026-08-25', 'Оплата ПП 35 от 25.08.26', 0, 22400000],
+      ['2026-08-31', 'Абонентская плата за август 2026', 22400000, 0],
+      ['2026-09-24', 'Оплата №21 от 24.09.2026', 0, 22400000],
+      ['2026-09-30', 'Абонентская плата за сентябрь 2026', 22400000, 0],
+    ])
+  })
+
+  it('начальное сальдо на 1 июля: апрель–июнь начислены и оплачены — долга нет', () => {
+    const before = subscriptionAccruals(alfa, '2026-09-30').filter(a => a.date < '2026-07-01')
+    expect(before).toHaveLength(3)
+    const charged = before.reduce((t, a) => t + a.kop, 0)
+    const paid = 3 * 22400000                                         // оплаты 27.04, 25.05, 25.06
+    expect(openingFrom(charged, paid)).toEqual({ debit: 0, credit: 0 })
+  })
+
+  it('итог акта за июль–сентябрь: обороты 672 000,00 с обеих сторон, «задолженность отсутствует»', () => {
+    const inPeriod = subscriptionAccruals(alfa, '2026-09-30').filter(a => a.date >= '2026-07-01')
+    const rows = buildRowsUs({ periodFrom: '2026-07-01', periodTo: '2026-09-30', services: [], expenses: [], payments: pays, subscriptions: inPeriod })
+    const t = tableTotals({ debit: 0, credit: 0 }, rows)
+    expect(t.turnDebit).toBe(67200000)
+    expect(t.turnCredit).toBe(67200000)
+    expect(conclusion(t.net, 'АК', 'Альфа').text).toBe('задолженность отсутствует')
+  })
+
+  it('начисление ровно нулевое — строки нет', () => {
+    const rows = buildRowsUs({ periodFrom: '2026-07-01', periodTo: '2026-09-30', services: [], expenses: [], payments: [], subscriptions: [{ date: '2026-07-31', kop: 0 }] })
+    expect(rows).toEqual([])
   })
 })

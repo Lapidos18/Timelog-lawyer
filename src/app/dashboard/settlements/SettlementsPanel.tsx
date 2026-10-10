@@ -20,6 +20,7 @@ import {
 } from '@/lib/settlement-act'
 import { printSettlement, exportSettlementWord } from '@/lib/settlement-print'
 import { isSubscription, subscriptionAccruals } from '@/lib/balance'
+import { shortDate } from '@/lib/act-doc'
 import SettlementEditor from './SettlementEditor'
 
 interface Editing {
@@ -130,7 +131,7 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
     const none: Promise<{ data: any[]; error: null }> = Promise.resolve({ data: [], error: null })
     const statuses = ['invoiced', 'reimbursed']
 
-    const [svc, svcBefore, pay, payBefore, exp, expBefore] = await Promise.all([
+    const [svc, svcBefore, pay, payBefore, exp, expBefore, accr] = await Promise.all([
       supabase.from('report_view').select('work_date, matter_title, amount, matter_id')
         .eq('client_id', clientId).eq('is_billable', true).gte('work_date', from).lte('work_date', to),
       supabase.from('report_view').select('amount, matter_id')
@@ -146,9 +147,18 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
         ? supabase.from('reimbursable_expenses').select('amount')
             .in('matter_id', matterIds).in('status', statuses).lt('expense_date', from)
         : none,
+      // Начисления по актам (миграция 022). Пока таблицы нет — их просто нет: не ошибка
+      matterIds.length
+        ? supabase.from('matter_accruals').select('accrual_date, amount, description')
+            .in('matter_id', matterIds).lte('accrual_date', to)
+        : none,
     ])
     for (const r of [svc, svcBefore, pay, payBefore, exp, expBefore]) if (r.error) throw r.error
 
+    const accrRows = (accr.error ? [] : (accr.data ?? [])) as { accrual_date: string; amount: number | string; description: string | null }[]
+    const actInPeriod = accrRows.filter(a => a.accrual_date >= from)
+      .map(a => ({ date: a.accrual_date, kop: toKop(a.amount), doc: a.description?.trim() || `Акт от ${shortDate(a.accrual_date)}` }))
+    const actBeforeKop = accrRows.filter(a => a.accrual_date < from).reduce((s, a) => s + toKop(a.amount), 0)
     const notSub = (r: { matter_id?: string | null }) => !(r.matter_id && subIds.has(r.matter_id))
     const subAccruals = subs.flatMap(m => subscriptionAccruals(m, to))
     const subInPeriod = subAccruals.filter(a => a.date >= from)
@@ -159,9 +169,10 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
         periodFrom: from, periodTo: to,
         services: (svc.data ?? []).filter(notSub), expenses: exp.data ?? [], payments: pay.data ?? [],
         subscriptions: subInPeriod,
+        actAccruals: actInPeriod,
       }),
       openingUs: openingFrom(
-        sumKop((svcBefore.data ?? []).filter(notSub)) + sumKop(expBefore.data) + subBeforeKop,
+        sumKop((svcBefore.data ?? []).filter(notSub)) + sumKop(expBefore.data) + subBeforeKop + actBeforeKop,
         sumKop(payBefore.data)),
     }
   }

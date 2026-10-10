@@ -517,3 +517,24 @@ describe('абонентская плата в акте сверки (ООО У�
     expect(rows).toEqual([])
   })
 })
+
+describe('начисления по актам в акте сверки (АБ «Гребнева и партнеры»)', () => {
+  it('акт на фиксированную сумму становится строкой начисления, оплата закрывает её', () => {
+    const rows = buildRowsUs({
+      periodFrom: '2026-08-01', periodTo: '2026-08-31', services: [], expenses: [],
+      payments: [{ pay_date: '2026-08-24', doc_no: '591', amount: 7000 }],
+      actAccruals: [{ date: '2026-08-31', kop: 700000, doc: 'Акт от 31.08.2026' }],
+    })
+    expect(rows.map(r => [r.date, r.doc, r.debit, r.credit])).toEqual([
+      ['2026-08-24', 'Оплата №591 от 24.08.2026', 0, 700000],
+      ['2026-08-31', 'Акт от 31.08.2026', 700000, 0],
+    ])
+    const t = tableTotals({ debit: 0, credit: 0 }, rows)
+    expect(conclusion(t.net, 'АК', 'Гребнева').text).toBe('задолженность отсутствует')
+  })
+
+  it('нулевая сумма — строки нет', () => {
+    const rows = buildRowsUs({ periodFrom: '2026-08-01', periodTo: '2026-08-31', services: [], expenses: [], payments: [], actAccruals: [{ date: '2026-08-31', kop: 0, doc: 'Акт' }] })
+    expect(rows).toEqual([])
+  })
+})

@@ -196,8 +196,15 @@ export function buildRowsUs(input: {
   payments: PaymentInput[]
   /** Начисления абонентской платы за период: по одному на месяц, датой — последний день месяца */
   subscriptions?: { date: string; kop: Kop }[]
+  /** Начисления по актам (работа на фиксированную сумму): подпись — как её ввёл пользователь */
+  actAccruals?: { date: string; kop: Kop; doc: string }[]
 }): SettlementRow[] {
   const rows: SettlementRow[] = []
+
+  ;(input.actAccruals ?? []).forEach((a, k) => {
+    if (a.kop === 0) return
+    rows.push({ id: `act-${k}`, date: a.date, doc: a.doc, debit: a.kop, credit: 0 })
+  })
 
   // Абонплата — своя строка на месяц («как Акт от 31.07» в акте сверки адвоката)
   ;(input.subscriptions ?? []).forEach((a, k) => {

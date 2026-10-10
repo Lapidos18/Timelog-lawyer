@@ -11,7 +11,8 @@ import Modal from '@/components/Modal'
 import EmptyState from '@/components/EmptyState'
 import { isDriveUrl, driveUrlHint } from '@/lib/drive-link'
 import { SkeletonRows } from '@/components/Skeleton'
-import { isSubscription, matterFeeAccrued } from '@/lib/balance'
+import { isSubscription, matterFeeAccrued, ManualAccrual } from '@/lib/balance'
+import AccrualsBlock from './AccrualsBlock'
 import { toISO } from '@/lib/deadlines'
 
 interface MatterWithClient extends Matter { clients: Client }
@@ -46,6 +47,8 @@ export default function MattersPage() {
   const [paidByMatter, setPaidByMatter] = useState<Record<string, number>>({})
   const [workedByMatter, setWorkedByMatter] = useState<Record<string, number>>({})
   const [reimbByMatter, setReimbByMatter] = useState<Record<string, number>>({})
+  /** Сколько начислений по актам у дела — от этого зависит подпись «Отработано» / «Начислено» */
+  const [accrCountByMatter, setAccrCountByMatter] = useState<Record<string, number>>({})
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -69,7 +72,7 @@ export default function MattersPage() {
     // на отображение. Итог по доверителю обязан считаться по всем его делам,
     // иначе он менялся бы при переключении фильтра и расходился бы с Обзором
     // и актом сверки — а он нужен именно чтобы совпадать с ними.
-    const [mattersRes, paymentsRes, entriesRes, reimbRes] = await Promise.all([
+    const [mattersRes, paymentsRes, entriesRes, reimbRes, accrualsRes] = await Promise.all([
       q,
       supabase.from('payments').select('matter_id, amount'),
       supabase.from('time_entries').select('matter_id, amount, is_billable'),
@@ -77,6 +80,9 @@ export default function MattersPage() {
       // вознаграждением, поэтому остаток аванса без них завышается
       supabase.from('reimbursable_expenses').select('matter_id, amount')
         .in('status', ['invoiced', 'reimbursed']),
+      // Начисления по актам (миграция 022). Пока таблицы нет, запрос вернёт ошибку —
+      // экран из-за этого не падает, начислений просто нет
+      supabase.from('matter_accruals').select('matter_id, accrual_date, amount'),
     ])
 
     setLoadError(!!(mattersRes.error || paymentsRes.error || entriesRes.error || reimbRes.error))
@@ -91,12 +97,18 @@ export default function MattersPage() {
         worked[e.matter_id] = (worked[e.matter_id] ?? 0) + Number(e.amount)
       }
     }
-    // Абонентское дело: «отработано» — это накопленная абонплата на последние дни месяцев;
-    // часы по нему денег не создают (общая функция, см. src/lib/balance.ts)
+    // Начислено по делу — общая функция (src/lib/balance.ts): часы или абонплата
+    // (у абонентского дела часы денег не создают) плюс начисления по актам
     const today = toISO(new Date())
-    for (const m of (mattersRes.data ?? [])) {
-      if (isSubscription(m)) worked[m.id] = matterFeeAccrued(m, 0, today)
+    const accr: Record<string, ManualAccrual[]> = {}
+    for (const a of ((accrualsRes.error ? [] : accrualsRes.data) ?? []) as (ManualAccrual & { matter_id: string })[]) {
+      (accr[a.matter_id] = accr[a.matter_id] ?? []).push(a)
     }
+    for (const m of (mattersRes.data ?? [])) {
+      const v = matterFeeAccrued(m, worked[m.id] ?? 0, today, accr[m.id])
+      if (v !== 0 || isSubscription(m)) worked[m.id] = v
+    }
+    setAccrCountByMatter(Object.fromEntries(Object.entries(accr).map(([k, v]) => [k, v.length])))
     const reimbursed: Record<string, number> = {}
     for (const r of (reimbRes.data ?? [])) {
       if (r.matter_id) reimbursed[r.matter_id] = (reimbursed[r.matter_id] ?? 0) + Number(r.amount)
@@ -294,6 +306,12 @@ export default function MattersPage() {
    * Издержки вычитаются потому, что доверитель платит их той же суммой, что и
    * вознаграждение: без этого их компенсация выглядела бы как остаток аванса.
    */
+  /** Подпись суммы «начислено по делу»: что именно в неё входит */
+  function workedLabel(m: MatterWithClient) {
+    if (isSubscription(m)) return 'Начислено по абонплате'
+    return (accrCountByMatter[m.id] ?? 0) > 0 ? 'Начислено (часы и акты)' : 'Отработано'
+  }
+
   function renderMoneyLine(m: MatterWithClient) {
     const paid = paidByMatter[m.id] ?? 0
     const worked = workedByMatter[m.id] ?? 0
@@ -319,7 +337,7 @@ export default function MattersPage() {
             </span>
             <span className="text-navy-400">·</span>
             <span className="text-navy-400">
-              {isSubscription(m) ? 'Начислено по абонплате' : 'Отработано'} <span className="num text-navy-200">{fmtMoney(worked)} ₽</span>
+              {workedLabel(m)} <span className="num text-navy-200">{fmtMoney(worked)} ₽</span>
             </span>
             <span className="text-navy-400">·</span>
             {reimb > 0 && (
@@ -512,6 +530,8 @@ export default function MattersPage() {
               <button type="button" onClick={resetForm} className="btn-secondary">Отмена</button>
             </div>
           </form>
+          {/* Начисления по актам — вне формы: Enter в их полях не должен сохранять само дело */}
+          {editId && <AccrualsBlock matterId={editId} onChanged={loadMatters} />}
       </Modal>
 
       {/* Filter tabs */}
@@ -638,7 +658,7 @@ export default function MattersPage() {
                       <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                         <dt className="text-navy-400">Оплачено</dt>
                         <dd className="num text-navy-200 text-right">{fmtMoney(paid)} ₽</dd>
-                        <dt className="text-navy-400">{isSubscription(m) ? 'Начислено по абонплате' : 'Отработано'}</dt>
+                        <dt className="text-navy-400">{workedLabel(m)}</dt>
                         <dd className="num text-navy-200 text-right">{fmtMoney(worked)} ₽</dd>
                         {reimb > 0 && <>
                           <dt className="text-navy-400">Возмещаемые расходы</dt>

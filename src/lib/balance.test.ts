@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { feeKop, isSubscription, subscriptionAccruals, subscriptionKop, matterFeeAccrued } from './balance'
+import { feeKop, isSubscription, subscriptionAccruals, subscriptionKop, matterFeeAccrued, manualAccrualsKop } from './balance'
 
 // ООО УК «Альфа менеджмент»: 224 000 ₽ в месяц с апреля 2026
 const alfa = { monthly_fee: 224000, fee_from: '2026-04-01', fee_to: null }
@@ -82,5 +82,48 @@ describe('начислено по делу: часы или абонплата',
   it('случай пользователя: шесть оплат по 224 000 закрывают шесть начислений — долга нет', () => {
     const paid = 6 * 224000
     expect(paid - matterFeeAccrued(alfa, 0, '2026-10-10')).toBe(0)
+  })
+})
+
+describe('начисления по актам (работа на фиксированную сумму без часов)', () => {
+  // АБ «Гребнева и партнеры»: оплата 7 000 ₽ за участие в заседании, закрыта актом от 31.08.2026
+  const act = { accrual_date: '2026-08-31', amount: 7000, description: 'Акт от 31.08.2026' }
+
+  it('начисление считается с даты акта, не раньше', () => {
+    expect(manualAccrualsKop([act], '2026-08-30')).toBe(0)
+    expect(manualAccrualsKop([act], '2026-08-31')).toBe(700000)
+    expect(manualAccrualsKop([act], '2026-10-10')).toBe(700000)
+  })
+
+  it('сумма из базы строкой, несколько актов складываются копейками', () => {
+    const list = [{ accrual_date: '2026-08-31', amount: '7000.10' }, { accrual_date: '2026-09-30', amount: '0.20' }]
+    expect(manualAccrualsKop(list, '2026-10-10')).toBe(700030)
+  })
+
+  it('отрезок «с даты» — для акта сверки: начисления внутри периода и до него считаются порознь', () => {
+    const list = [{ accrual_date: '2026-06-30', amount: 49500 }, act]
+    expect(manualAccrualsKop(list, '2026-09-30', '2026-07-01')).toBe(700000)
+    expect(manualAccrualsKop(list, '2026-09-30') - manualAccrualsKop(list, '2026-09-30', '2026-07-01')).toBe(4950000)
+  })
+
+  it('пусто и отсутствует — ноль', () => {
+    expect(manualAccrualsKop([], '2026-10-10')).toBe(0)
+    expect(manualAccrualsKop(null, '2026-10-10')).toBe(0)
+    expect(manualAccrualsKop(undefined, '2026-10-10')).toBe(0)
+  })
+
+  it('к часам прибавляется: дело без часов получает ровно сумму актов', () => {
+    expect(matterFeeAccrued({}, 0, '2026-10-10', [act])).toBe(7000)
+    expect(matterFeeAccrued({}, 1000, '2026-10-10', [act])).toBe(8000)
+    expect(matterFeeAccrued({}, 1000, '2026-10-10')).toBe(1000)          // без актов — как раньше
+  })
+
+  it('к абонплате тоже прибавляется (дополнительный акт сверх месячной платы)', () => {
+    const alfa = { monthly_fee: 224000, fee_from: '2026-04-01' }
+    expect(matterFeeAccrued(alfa, 0, '2026-10-10', [{ accrual_date: '2026-09-15', amount: 5000 }])).toBe(1349000)
+  })
+
+  it('случай пользователя: оплачено 7 000, акт на 7 000 — «аванса» нет', () => {
+    expect(7000 - matterFeeAccrued({}, 0, '2026-10-10', [act])).toBe(0)
   })
 })

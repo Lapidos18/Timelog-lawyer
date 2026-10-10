@@ -12,7 +12,7 @@ import { buildActDoc } from '@/lib/act-doc'
 import { printActDoc, exportActWord } from '@/lib/act-print'
 import LoadError from '@/components/LoadError'
 import { nextActNo as computeNextActNo, toActRows, actRowsTotal } from '@/lib/acts'
-import { matterFeeAccrued } from '@/lib/balance'
+import { matterFeeAccrued, ManualAccrual } from '@/lib/balance'
 import { SkeletonRows, SkeletonCards } from '@/components/Skeleton'
 import PageHeader from '@/components/PageHeader'
 import ChangeHistory from '@/components/ChangeHistory'
@@ -127,7 +127,7 @@ export default function ActsPage() {
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
-      const [profileRes, mattersRes, paymentsRes, entriesRes, reimbRes] = await Promise.all([
+      const [profileRes, mattersRes, paymentsRes, entriesRes, reimbRes, accrualsRes] = await Promise.all([
         user ? supabase.from('profiles').select('*').eq('id', user.id).single() : Promise.resolve({ data: null }),
         supabase.from('matters').select('*, clients(*)').order('title'),
         // Остаток аванса по делу — та же формула, что в «Делах» и на Обзоре:
@@ -140,6 +140,8 @@ export default function ActsPage() {
         supabase.from('time_entries').select('matter_id, amount, is_billable'),
         supabase.from('reimbursable_expenses').select('matter_id, amount')
           .in('status', ['invoiced', 'reimbursed']),
+        // Начисления по актам (миграция 022); пока таблицы нет — ошибка игнорируется
+        supabase.from('matter_accruals').select('matter_id, accrual_date, amount'),
       ])
       if (profileRes.data) setProfile(profileRes.data)
       setMatters((mattersRes.data ?? []) as (Matter & { clients: Client })[])
@@ -154,8 +156,12 @@ export default function ActsPage() {
         if (e.matter_id && e.is_billable) hoursByMatter[e.matter_id] = (hoursByMatter[e.matter_id] ?? 0) + Number(e.amount)
       }
       const today = format(new Date(), 'yyyy-MM-dd')
+      const accrByMatter: Record<string, ManualAccrual[]> = {}
+      for (const a of ((accrualsRes.error ? [] : accrualsRes.data) ?? []) as (ManualAccrual & { matter_id: string })[]) {
+        (accrByMatter[a.matter_id] = accrByMatter[a.matter_id] ?? []).push(a)
+      }
       for (const m of (mattersRes.data ?? []) as Matter[]) {
-        const accrued = matterFeeAccrued(m, hoursByMatter[m.id] ?? 0, today)
+        const accrued = matterFeeAccrued(m, hoursByMatter[m.id] ?? 0, today, accrByMatter[m.id])
         if (accrued) balance[m.id] = (balance[m.id] ?? 0) - accrued
       }
       for (const r of (reimbRes.data ?? []) as { matter_id: string | null; amount: number }[]) {

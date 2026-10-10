@@ -11,7 +11,7 @@ import PageHeader from '@/components/PageHeader'
 import { SkeletonStats, SkeletonRows } from '@/components/Skeleton'
 import { daysUntil, untilLabel, toISO } from '@/lib/deadlines'
 import { useMounted } from '@/lib/use-mounted'
-import { matterFeeAccrued } from '@/lib/balance'
+import { matterFeeAccrued, ManualAccrual } from '@/lib/balance'
 
 /** Событие в блоке «Сроки и заседания» на Обзоре */
 type UpcomingEvent = {
@@ -67,6 +67,7 @@ export default function DashboardPage() {
           allClientsRes,
           allMattersRes,
           allReimbRes,
+          accrualsRes,
           eventsRes,
         ] = await Promise.all([
           supabase
@@ -105,6 +106,11 @@ export default function DashboardPage() {
             .from('reimbursable_expenses')
             .select('matter_id, amount, status')
             .in('status', ['invoiced', 'reimbursed']),
+          // Начисления по актам (миграция 022): работа на фиксированную сумму без часов.
+          // Пока таблицы нет, запрос вернёт ошибку — Обзор из-за этого не падает
+          supabase
+            .from('matter_accruals')
+            .select('matter_id, accrual_date, amount'),
           // Сроки и заседания: берём только неисполненные и не дальше
           // полугода — фильтр «за сколько дней предупреждать» у каждого
           // события свой и применяется уже здесь, в коде.
@@ -166,9 +172,13 @@ export default function DashboardPage() {
           }
         }
         const today = toISO(new Date())
+        const accrByMatter: Record<string, ManualAccrual[]> = {}
+        for (const a of ((accrualsRes.error ? [] : accrualsRes.data) ?? []) as (ManualAccrual & { matter_id: string })[]) {
+          (accrByMatter[a.matter_id] = accrByMatter[a.matter_id] ?? []).push(a)
+        }
         const billedMap: Record<string, number> = {}
         for (const m of (allMatters ?? [])) {
-          const accrued = matterFeeAccrued(m, hoursByMatter[m.id] ?? 0, today)
+          const accrued = matterFeeAccrued(m, hoursByMatter[m.id] ?? 0, today, accrByMatter[m.id])
           if (accrued !== 0) billedMap[m.client_id] = (billedMap[m.client_id] ?? 0) + accrued
         }
 

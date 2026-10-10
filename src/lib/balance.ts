@@ -74,9 +74,28 @@ export function subscriptionKop(t: FeeTerms, asOf: string, from?: string): numbe
 }
 
 /**
- * Начислено вознаграждения по делу на дату, ₽: по абонплате — накопленные
- * начисления, по почасовому делу — сумма оплачиваемых часов (hoursAmount).
+ * Начисление по акту (миграция 022): работа на фиксированную сумму, которая
+ * закрыта актом, но не ведётся по часам. Запись вносится вручную в карточке дела.
  */
-export function matterFeeAccrued(t: FeeTerms, hoursAmount: number, asOf: string): number {
-  return isSubscription(t) ? subscriptionKop(t, asOf) / 100 : hoursAmount
+export interface ManualAccrual {
+  accrual_date: string
+  amount: number | string
+  description?: string | null
+}
+
+/** Начисления по актам до asOf включительно, копейки; с from — только начиная с этой даты */
+export function manualAccrualsKop(list: ManualAccrual[] | null | undefined, asOf: string, from?: string): number {
+  return (list ?? [])
+    .filter(a => a.accrual_date <= asOf && (!from || a.accrual_date >= from))
+    .reduce((s, a) => s + Math.round(Number(a.amount) * 100), 0)
+}
+
+/**
+ * Начислено вознаграждения по делу на дату, ₽: по абонплате — накопленные
+ * начисления, по почасовому делу — сумма оплачиваемых часов (hoursAmount);
+ * сверх этого всегда прибавляются начисления по актам (работа вне часов).
+ */
+export function matterFeeAccrued(t: FeeTerms, hoursAmount: number, asOf: string, accruals?: ManualAccrual[] | null): number {
+  const base = isSubscription(t) ? subscriptionKop(t, asOf) : Math.round(hoursAmount * 100)
+  return (base + manualAccrualsKop(accruals, asOf)) / 100
 }

@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeader from '@/components/PageHeader'
-import { calcNdfl, yearFraction } from '@/lib/tax'
+import { calcNdfl, yearFraction, isContributionType, contributionExpenseText, contributionsInDeduction } from '@/lib/tax'
 import Link from 'next/link'
 import CalculatorTab from './CalculatorTab'
 
@@ -93,6 +93,8 @@ export default function FinancePage() {
 
   // contributions payment form state (отдельная форма — своя вкладка, свой список)
   const [showContribPaymentForm, setShowContribPaymentForm] = useState(false)
+  // Уплата взноса по умолчанию сразу идёт в расходы — это профессиональный вычет по НДФЛ
+  const [contribToDeduction, setContribToDeduction] = useState(true)
   const [contribPaymentForm, setContribPaymentForm] = useState({
     payment_date: format(new Date(), 'yyyy-MM-dd'),
     payment_type: 'fixed_contributions' as TaxPaymentType,
@@ -406,26 +408,72 @@ export default function FinancePage() {
   async function submitContribPayment() {
     const amountNum = parseFloat(contribPaymentForm.amount)
     if (!amountNum || amountNum <= 0) { toast.error('Укажите сумму'); return }
+    const type = contribPaymentForm.payment_type
     setSubmitting(true)
+
+    // Такая сумма уже могла быть внесена в «Расходы» вручную (так делали до появления галочки):
+    // второй раз она уменьшила бы налоговую базу дважды. Спрашиваем ДО записи, чтобы отказ ничего не оставил.
+    if (contribToDeduction && isContributionType(type)) {
+      const { data: same } = await supabase.from('expenses').select('expense_date')
+        .eq('category', type).eq('amount', amountNum)
+      if (same && same.length > 0 && !confirm(
+        `В «Расходах» уже есть такая сумма в той же категории (от ${format(new Date(same[0].expense_date), 'dd.MM.yyyy')}). ` +
+        'Скорее всего, вы вносили эту уплату туда вручную.\n\n' +
+        'ОК — добавить в расходы ещё раз (вычет посчитается дважды).\n' +
+        'Отмена — ничего не записывать; потом можно внести уплату со снятой галочкой «Включить в расходы».')) {
+        setSubmitting(false)
+        return
+      }
+    }
+
     const { error } = await supabase.from('tax_payments').insert({
       payment_date: contribPaymentForm.payment_date,
-      payment_type: contribPaymentForm.payment_type,
+      payment_type: type,
       period_year: year,
       amount: amountNum,
       doc_no: contribPaymentForm.doc_no || null,
     })
+    if (error) { setSubmitting(false); toast.error('Ошибка: ' + error.message); return }
+
+    let deducted = false
+    if (contribToDeduction && isContributionType(type)) {
+      const { error: exError } = await supabase.from('expenses').insert({
+        expense_date: contribPaymentForm.payment_date,
+        category: type,
+        amount: amountNum,
+        description: contributionExpenseText(type, year),
+        is_documented: true,
+        doc_no: contribPaymentForm.doc_no || null,
+      })
+      if (exError) toast.error('Уплата записана, но в расходы не попала: ' + exError.message + '. Внесите её на вкладке «Расходы».')
+      else deducted = true
+    }
     setSubmitting(false)
-    if (error) { toast.error('Ошибка: ' + error.message); return }
-    toast.success('Платёж добавлен')
+    toast.success(deducted ? 'Уплата записана и включена в расходы (профвычет)' : 'Платёж добавлен')
     setShowContribPaymentForm(false)
+    setContribToDeduction(true)
     setContribPaymentForm({ payment_date: format(new Date(), 'yyyy-MM-dd'), payment_type: 'fixed_contributions', amount: '', doc_no: '' })
     loadAll()
   }
 
   async function deleteTaxPayment(id: string) {
     if (!confirm('Удалить запись об уплате?')) return
+    // Если это взнос, он мог быть включён в расходы (та же категория, дата и сумма) — найдём до удаления
+    const p = taxPayments.find(x => x.id === id)
+    let mirrored: string[] = []
+    if (p && isContributionType(p.payment_type)) {
+      const { data } = await supabase.from('expenses').select('id')
+        .eq('category', p.payment_type).eq('expense_date', p.payment_date).eq('amount', p.amount)
+      mirrored = (data ?? []).map((r: { id: string }) => r.id)
+    }
     const { error } = await supabase.from('tax_payments').delete().eq('id', id)
     if (error) { toast.error('Ошибка: ' + error.message); return }
+    if (mirrored.length === 1 && confirm(
+      'Эта уплата была включена в расходы (профессиональный вычет). Удалить и оттуда?\n\n' +
+      'Если оставить, вычет останется без записи об уплате.')) {
+      const { error: exError } = await supabase.from('expenses').delete().eq('id', mirrored[0])
+      if (exError) toast.error('Уплата удалена, а из расходов не убралась: ' + exError.message)
+    }
     toast.success('Удалено')
     loadAll()
   }
@@ -461,6 +509,8 @@ export default function FinancePage() {
   }
 
   const expensesTotal = expenses.filter(e => e.is_documented).reduce((a, b) => a + b.amount, 0)
+  // Страховые взносы, уже стоящие в расходах (вычет считается именно из них)
+  const contribInDeduction = contributionsInDeduction(expenses)
   const incomeTotal = incomes.reduce((a, b) => a + b.amount, 0)
 
   const TABS: { id: Tab; label: string; icon: any }[] = [
@@ -959,7 +1009,8 @@ export default function FinancePage() {
                   'компенсация издержек — не доход адвоката'],
                 ['Доход, учитываемый в декларации', quarterlyCalc[3].incomeCum, ''],
                 ['Профессиональный вычет (ст. 221 НК РФ)', -quarterlyCalc[3].expenseCum,
-                  'документально подтверждённые расходы кабинета'],
+                  'документально подтверждённые расходы кабинета' +
+                  (contribInDeduction > 0 ? `, в том числе страховые взносы ${fmt2(contribInDeduction)} ₽` : '')],
                 ['Налоговая база', quarterlyCalc[3].base, ''],
                 ['Исчислено НДФЛ', quarterlyCalc[3].ndflCum, 'по шкале ст. 224 НК РФ'],
                 ['Уплачено авансами за I–III кварталы',
@@ -985,16 +1036,16 @@ export default function FinancePage() {
               </div>
             </dl>
 
-            {/* Страховые взносы в состав вычета сейчас НЕ включаются — это
-                решение пользователя, а не упущение расчёта. См. пояснение. */}
-            {contributionsCalc && (contributionsCalc.paidFixed + contributionsCalc.paidOps) > 0 && (
+            {/* Страховые взносы — в профессиональном вычете (решение пользователя 10.10.2026).
+                Вычет считается из «Расходов»; уплата со вкладки «Взносы» попадает туда сама.
+                Предупреждаем, только если уплат записано больше, чем стоит в расходах. */}
+            {contributionsCalc && (contributionsCalc.paidFixed + contributionsCalc.paidOps) - contribInDeduction > 0.005 && (
               <p className="text-xs text-amber-400 mt-4 leading-relaxed">
-                За год уплачено страховых взносов на{' '}
-                <span className="num">{fmt2(contributionsCalc.paidFixed + contributionsCalc.paidOps)}</span> ₽.
-                В профессиональный вычет выше они не входят: в расчёт берутся только записи
-                из раздела «Расходы». Абз. 3 п. 3 ст. 221 НК РФ относит страховые взносы
-                к профвычету — если вы их туда включаете, заведите уплату отдельной строкой
-                в «Расходах» либо скажите, и я добавлю их в расчёт автоматически.
+                На вкладке «Взносы» записано уплаты на{' '}
+                <span className="num">{fmt2(contributionsCalc.paidFixed + contributionsCalc.paidOps)}</span> ₽, а в профвычет
+                (расходы) страховых взносов стоит на <span className="num">{fmt2(contribInDeduction)}</span> ₽.
+                Разницу внесите в «Расходы» (категории «Фиксированные взносы» и «1% ОПС») — уплата
+                входит в вычет в том году, когда деньги ушли.
               </p>
             )}
           </div>
@@ -1227,9 +1278,20 @@ export default function FinancePage() {
                   <input type="text" className="input" value={contribPaymentForm.doc_no}
                     onChange={e => setContribPaymentForm(f => ({ ...f, doc_no: e.target.value }))} />
                 </div>
+                <label className="md:col-span-4 tap flex items-start gap-2 cursor-pointer text-sm text-navy-200">
+                  <input type="checkbox" className="mt-0.5 w-4 h-4 accent-gold-500 flex-shrink-0" checked={contribToDeduction}
+                    onChange={e => setContribToDeduction(e.target.checked)} />
+                  <span>
+                    Включить в расходы — это профессиональный вычет по НДФЛ (ст. 221 НК РФ)
+                    <span className="block text-xs text-navy-400">
+                      Сумма появится на вкладке «Расходы» и уменьшит налоговую базу за тот год, в котором внесена платёжка.
+                      Если эту уплату вы уже вносили в «Расходы» вручную, снимите галочку, чтобы не посчиталось дважды.
+                    </span>
+                  </span>
+                </label>
                 <div className="md:col-span-4">
                   <button onClick={submitContribPayment} disabled={submitting}
-                    className="flex items-center gap-1.5 bg-gold-500 text-navy-950 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gold-400 disabled:opacity-50">
+                    className="tap flex items-center gap-1.5 bg-gold-500 text-navy-950 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gold-400 disabled:opacity-50">
                     <Check className="w-4 h-4" /> Записать уплату
                   </button>
                 </div>

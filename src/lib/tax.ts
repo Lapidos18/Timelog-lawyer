@@ -72,3 +72,32 @@ export function yearFraction(startDate: Date, year: number): number {
 
   return (fullMonthsAfter + partOfStartMonth) / 12
 }
+
+// ── Страховые взносы в профессиональном вычете ───────────────────────────
+
+/** Взносы адвоката за себя: уплата входит в профессиональный вычет (ст. 221 НК РФ) в том периоде, когда деньги ушли */
+export type ContributionType = 'fixed_contributions' | 'ops_one_percent'
+
+export function isContributionType(t: string): t is ContributionType {
+  return t === 'fixed_contributions' || t === 'ops_one_percent'
+}
+
+/** Текст расхода, который заводится из записи об уплате взноса */
+export function contributionExpenseText(type: ContributionType, periodYear: number): string {
+  return type === 'fixed_contributions'
+    ? `Фиксированные страховые взносы за ${periodYear} год`
+    : `1% ОПС с дохода свыше 300 000 руб. за ${periodYear} год`
+}
+
+/**
+ * Сколько страховых взносов уже стоит в расходах, принимаемых к вычету, ₽.
+ * Считается копейками: на длинном списке 0,1 + 0,2 в рублях не даёт 0,3.
+ */
+export function contributionsInDeduction(
+  expenses: { category: string; amount: number | string; is_documented: boolean }[],
+): number {
+  const kop = expenses
+    .filter(e => e.is_documented && isContributionType(e.category))
+    .reduce((s, e) => s + Math.round(Number(e.amount) * 100), 0)
+  return kop / 100
+}

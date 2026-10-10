@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcNdfl, yearFraction, NDFL_BANDS } from './tax'
+import { calcNdfl, yearFraction, NDFL_BANDS, isContributionType, contributionExpenseText, contributionsInDeduction } from './tax'
 
 describe('НДФЛ по шкале ст. 224 НК РФ', () => {
   it('ноль и отрицательная база дают ноль', () => {
@@ -45,6 +45,37 @@ describe('НДФЛ по шкале ст. 224 НК РФ', () => {
       expect(NDFL_BANDS[i].rate).toBeGreaterThan(NDFL_BANDS[i - 1].rate)
     }
     expect(NDFL_BANDS[NDFL_BANDS.length - 1].upTo).toBe(Infinity)
+  })
+})
+
+describe('страховые взносы в профвычете', () => {
+  it('какие уплаты считаются взносами', () => {
+    expect(isContributionType('fixed_contributions')).toBe(true)
+    expect(isContributionType('ops_one_percent')).toBe(true)
+    expect(isContributionType('ndfl_advance_q2')).toBe(false) // аванс НДФЛ — не взнос и в вычет не идёт
+    expect(isContributionType('palata_dues')).toBe(false)
+  })
+
+  it('текст расхода называет год, за который уплачено', () => {
+    expect(contributionExpenseText('fixed_contributions', 2026)).toBe('Фиксированные страховые взносы за 2026 год')
+    expect(contributionExpenseText('ops_one_percent', 2025)).toBe('1% ОПС с дохода свыше 300 000 руб. за 2025 год')
+  })
+
+  it('сумма взносов среди расходов — только взносы и только подтверждённые', () => {
+    const list = [
+      { category: 'ops_one_percent', amount: 25726.04, is_documented: true },   // 1% ОПС за 2025, оплачен 02.07.2026
+      { category: 'fixed_contributions', amount: '57390.00', is_documented: true }, // из базы numeric приходит строкой
+      { category: 'fixed_contributions', amount: 1000, is_documented: false },  // без подтверждения в вычет не идёт
+      { category: 'palata_dues', amount: 5100, is_documented: true },           // взносы в палату — другой расход
+      { category: 'other', amount: 9090, is_documented: true },
+    ]
+    expect(contributionsInDeduction(list)).toBe(83116.04)
+    expect(contributionsInDeduction([])).toBe(0)
+  })
+
+  it('копейки не накапливают дробную ошибку', () => {
+    const list = Array.from({ length: 3 }, (_, i) => ({ category: 'ops_one_percent', amount: [0.1, 0.2, 0.3][i], is_documented: true }))
+    expect(contributionsInDeduction(list)).toBe(0.6)
   })
 })
 

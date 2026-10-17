@@ -3,7 +3,7 @@ import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { escapeHtml } from '@/lib/html'
 import { CABINET_LINE } from '@/lib/print'
-import { agreementLine, specialistLines } from '@/lib/act-doc'
+import { agreementLine, agreementRef, specialistLines } from '@/lib/act-doc'
 import toast from 'react-hot-toast'
 
 function formatDate(d: string) {
@@ -105,11 +105,11 @@ export function exportToPDF(
     ? `с ${formatDate(meta.dateFrom)} по ${formatDate(meta.dateTo)}`
     : escapeHtml(subtitle ?? '')
 
-  // «19/06-26 от 19.06.2026, задание № 3» — как в образце отчёта адвоката
+  // «05/03-26 от 19.06.2026, задание № 3» — как в образце отчёта адвоката
   const agreementStr = escapeHtml(agreementLine(meta?.agreementNo, meta?.agreementDate, meta?.taskNo) || '—')
 
   // Номер берём как есть после «№»: он может содержать номер соглашения
-  // со слэшем («19/06-26-3108»), а прежнее «оставить только цифры» его калечило
+  // со слэшем («05/03-26-3108»), а прежнее «оставить только цифры» его калечило
   const reportNo = title.replace(/^.*?№\s*/, '').trim() || '1'
   // Дата берётся по МЕСТНОМУ времени: toISOString() отдаёт UTC, и в часовых поясах
   // восточнее Гринвича до утра документ получал вчерашнюю дату
@@ -259,7 +259,7 @@ export function exportToPDF(
 </table>
 
 <div class="footer">
-  <span>Отчёт №${reportNo} от ${reportDate} по соглашению ${escapeHtml(meta?.agreementNo ?? "—")}</span>
+  <span>Отчёт №${reportNo} от ${reportDate} по соглашению ${escapeHtml(agreementRef(meta?.agreementNo, meta?.agreementDate) || "—")}</span>
   <span>Стр. 1 из 1</span>
 </div>
 
@@ -319,7 +319,7 @@ export async function exportToWord(
   // восточнее Гринвича до утра документ получал вчерашнюю дату
   const reportDate = meta?.dateTo ? formatDate(meta.dateTo) : format(new Date(), 'dd.MM.yyyy', { locale: ru })
   // Номер берём как есть после «№»: он может содержать номер соглашения
-  // со слэшем («19/06-26-3108»), а прежнее «оставить только цифры» его калечило
+  // со слэшем («05/03-26-3108»), а прежнее «оставить только цифры» его калечило
   const reportNo = title.replace(/^.*?№\s*/, '').trim() || '1'
 
   const cellBorder = {
@@ -471,7 +471,7 @@ export async function exportToWord(
         new Paragraph({
           spacing: { before: 400 },
           children: [new TextRun({
-            text: `Отчёт №${reportNo} от ${reportDate} по соглашению ${meta?.agreementNo ?? '—'}`,
+            text: `Отчёт №${reportNo} от ${reportDate} по соглашению ${agreementRef(meta?.agreementNo, meta?.agreementDate) || '—'}`,
             size: 18,
           })],
         }),

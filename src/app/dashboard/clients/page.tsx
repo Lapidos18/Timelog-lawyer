@@ -111,7 +111,7 @@ export default function ClientsPage() {
               <label className="label">Наименование / ФИО *</label>
               <input className="input" required value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="Рудаков Евгений Владимирович" />
+                placeholder="Сидоров Сергей Петрович" />
             </div>
             <div>
               <label className="label">Тип</label>
@@ -161,7 +161,7 @@ export default function ClientsPage() {
               <label className="label">Полное наименование</label>
               <input className="input" value={form.full_name}
                 onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}
-                placeholder={form.type === 'legal_entity' ? 'Общество с ограниченной ответственностью «СИСТЕМА»' : 'Рудаков Евгений Владимирович'} />
+                placeholder={form.type === 'legal_entity' ? 'Общество с ограниченной ответственностью «РОМАШКА»' : 'Сидоров Сергей Петрович'} />
               <p className="text-xs text-navy-400 mt-1">Пусто — соберётся из названия выше (ООО → Общество с ограниченной ответственностью)</p>
             </div>
             {form.type === 'legal_entity' && (
@@ -169,7 +169,7 @@ export default function ClientsPage() {
                 <div>
                   <label className="label">ОГРН</label>
                   <input className="input" value={form.ogrn} inputMode="numeric"
-                    onChange={e => setForm(f => ({ ...f, ogrn: e.target.value }))} placeholder="1175476084178" />
+                    onChange={e => setForm(f => ({ ...f, ogrn: e.target.value }))} placeholder="1027700000001" />
                 </div>
                 <div>
                   <label className="label">Должность подписанта</label>
@@ -180,7 +180,7 @@ export default function ClientsPage() {
                   <label className="label">Кто подписывает — после слов «в лице»</label>
                   <input className="input" value={form.representative}
                     onChange={e => setForm(f => ({ ...f, representative: e.target.value }))}
-                    placeholder="генерального директора Зарипова Раиса Юрьевича" />
+                    placeholder="генерального директора Иванова Ивана Ивановича" />
                   <p className="text-xs text-navy-400 mt-1">В родительном падеже, как в тексте акта</p>
                 </div>
               </>
@@ -188,7 +188,7 @@ export default function ClientsPage() {
             <div>
               <label className="label">Подпись (инициалы и фамилия)</label>
               <input className="input" value={form.signer_short}
-                onChange={e => setForm(f => ({ ...f, signer_short: e.target.value }))} placeholder="Р.Ю. Зарипов" />
+                onChange={e => setForm(f => ({ ...f, signer_short: e.target.value }))} placeholder="И.И. Иванов" />
             </div>
             {editId && (
               <div className="md:col-span-2">

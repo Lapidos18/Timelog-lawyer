@@ -36,18 +36,20 @@ export function longDate(iso: string): string {
 }
 
 /**
- * Соглашение как оно пишется в документах: «19/06-26 от 19.06.2026».
- * В номере дело бывает уже с датой («19/06-26 от 19.06.2026» — так внесено у части
+ * Соглашение как оно пишется в документах: «05/03-26 от 19.06.2026».
+ * В номере дело бывает уже с датой («05/03-26 от 19.06.2026» — так внесено у части
  * дел), тогда второй раз её не добавляем.
+ * Соглашение бывает и без номера (АБ «Смирнова и партнеры»: «от 14.05.2026») —
+ * тогда остаётся одна дата, и «№» перед ней не ставится (см. agreementTail).
  */
 export function agreementRef(no?: string | null, dateIso?: string | null): string {
   const n = (no ?? '').trim()
-  if (!n) return ''
+  if (!n) return dateIso ? `от ${shortDate(dateIso)}` : ''
   if (/\sот\s+\d{1,2}\.\d{1,2}\.\d{2,4}/i.test(n)) return n
   return dateIso ? `${n} от ${shortDate(dateIso)}` : n
 }
 
-/** Строка «Соглашение:» в отчёте: «19/06-26 от 19.06.2026, задание № 3» */
+/** Строка «Соглашение:» в отчёте: «05/03-26 от 19.06.2026, задание № 3» */
 export function agreementLine(no?: string | null, dateIso?: string | null, taskNo?: string | null): string {
   const ref = agreementRef(no, dateIso)
   const task = (taskNo ?? '').trim()
@@ -73,9 +75,9 @@ export function guillemets(s: string): string {
 
 /**
  * Полное наименование из того, как доверитель записан в программе:
- * ООО УК "Альфа менеджмент" → Общество с ограниченной ответственностью
- * Управляющая компания «Альфа менеджмент». Регистр самого названия не трогаем
- * (в образце «СИСТЕМА» заглавными — это пишется в карточке доверителя вручную).
+ * ООО УК "Орион сервис" → Общество с ограниченной ответственностью
+ * Управляющая компания «Орион сервис». Регистр самого названия не трогаем
+ * (в образце «РОМАШКА» заглавными — это пишется в карточке доверителя вручную).
  */
 export function expandLegalForm(name: string): string {
   let s = name.trim()
@@ -86,12 +88,12 @@ export function expandLegalForm(name: string): string {
   return guillemets(s)
 }
 
-/** Кратко для подписи: ООО "Система" → ООО «Система» */
+/** Кратко для подписи: ООО "Ромашка" → ООО «Ромашка» */
 export function shortOrgName(name: string): string {
   return guillemets(name.trim())
 }
 
-/** Кадырова Наталья Викторовна → Н.В. Кадырова */
+/** Петрова Мария Сергеевна → М.С. Петрова */
 export function shortFio(full: string): string {
   const parts = full.trim().split(/\s+/).filter(Boolean)
   if (parts.length < 2) return full.trim()
@@ -232,7 +234,8 @@ export function buildActDoc(input: ActDocInput): ActDoc {
 
   // Соглашение и задание
   const agr = agreementRef(m.agreement_no, m.agreement_date)
-  const agrTail = agr ? ` № ${agr}` : ''
+  // С номером — «№ 05/03-26 от …», без номера — просто «от 14.05.2026»
+  const agrTail = agr ? (clean(m.agreement_no) ? ` № ${agr}` : ` ${agr}`) : ''
   const taskNo = clean(m.task_no)
   const taskDate = clean(m.task_date) || clean(m.started_at)
   const taskRef = taskNo ? `№ ${taskNo}${taskDate ? ` от ${shortDate(taskDate)}` : ''}` : ''

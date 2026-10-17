@@ -37,9 +37,9 @@ describe('текст напоминания', () => {
 
   it('показывает доверителя и дело', () => {
     const text = buildNotification([
-      ev({ title: 'Заседание', matters: { title: 'Метизные решения', clients: { name: 'ООО "Система"' } } }),
+      ev({ title: 'Заседание', matters: { title: 'Вектор поставок', clients: { name: 'ООО "Ромашка"' } } }),
     ], today)!
-    expect(text).toContain('ООО "Система" / Метизные решения')
+    expect(text).toContain('ООО "Ромашка" / Вектор поставок')
   })
 
   it('у каждого события свой срок предупреждения', () => {

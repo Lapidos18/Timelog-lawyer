@@ -403,7 +403,7 @@ export default function MattersPage() {
               <label className="label">Название дела *</label>
               <input className="input" required value={form.title}
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                placeholder="Шипунова против Рудакова, дело о ремонте" />
+                placeholder="Иванов против Петрова, спор о подряде" />
             </div>
             <div>
               <label className="label">№ соглашения</label>

@@ -135,17 +135,17 @@ describe('сборка таблицы кабинета из данных при�
     const rows = buildRowsUs({
       ...period,
       services: [
-        { work_date: '2026-09-21', matter_title: 'Метизные решения', amount: '14118.00' },
-        { work_date: '2026-09-24', matter_title: 'Метизные решения', amount: '9412.00' },
+        { work_date: '2026-09-21', matter_title: 'Вектор поставок', amount: '14118.00' },
+        { work_date: '2026-09-24', matter_title: 'Вектор поставок', amount: '9412.00' },
         { work_date: '2026-09-24', matter_title: 'Консультации', amount: '10293.75' },
       ],
       expenses: [], payments: [],
     })
     expect(rows).toHaveLength(2)
-    const m = rows.find(r => r.doc.includes('Метизные'))!
+    const m = rows.find(r => r.doc.includes('Вектор'))!
     expect(m.debit).toBe(2353000)   // 14118 + 9412 = 23 530,00
     expect(m.credit).toBe(0)
-    expect(m.doc).toBe('Услуги по делу «Метизные решения» за сентябрь 2026')
+    expect(m.doc).toBe('Услуги по делу «Вектор поставок» за сентябрь 2026')
     expect(m.date).toBe('2026-09-30') // последний день месяца
   })
 
@@ -267,7 +267,7 @@ describe('вывод и расхождение', () => {
 
 describe('зеркало в документе', () => {
   const base = () => newSettlementDoc({
-    periodFrom: '2026-09-01', periodTo: '2026-09-30', clientName: 'ООО "Система"', clientInn: '5406000000',
+    periodFrom: '2026-09-01', periodTo: '2026-09-30', clientName: 'ООО "Ромашка"', clientInn: '5406000000',
     cabinetLine: 'Адвокатский кабинет …', openingUs: { debit: 100000, credit: 0 },
     rowsUs: [row('2026-09-30', 'Услуги', 500000, 0, 'a')],
   })
@@ -304,7 +304,7 @@ describe('зеркало в документе', () => {
     expect(d.currency).toBe('руб.') // как печатает 1С бухгалтера (образец 08.10.2026)
     expect(d.contract).toBe('')
     expect(d.mirror).toBe(true)
-    expect(d.them.intro).toBe('ООО "Система"') // ИНН — отдельно, он стоит в заголовке, а не во вводном абзаце
+    expect(d.them.intro).toBe('ООО "Ромашка"') // ИНН — отдельно, он стоит в заголовке, а не во вводном абзаце
     expect(d.them.inn).toBe('5406000000')
     expect(d.us.intro).toBe('Адвокатский кабинет …')
     // Название кабинета не склоняется и стоит после «в пользу» — поэтому сокращение
@@ -358,10 +358,10 @@ describe('разбор документа из базы', () => {
 describe('имя файла', () => {
   it('без символов, запрещённых в Windows', () => {
     const d = newSettlementDoc({
-      periodFrom: '2026-01-01', periodTo: '2026-09-30', clientName: 'ООО "Система"', cabinetLine: 'С',
+      periodFrom: '2026-01-01', periodTo: '2026-09-30', clientName: 'ООО "Ромашка"', cabinetLine: 'С',
       openingUs: { debit: 0, credit: 0 }, rowsUs: [],
     })
-    expect(fileBaseName(d)).toBe('Акт сверки ООО -Система- 01.01.2026-30.09.2026')
+    expect(fileBaseName(d)).toBe('Акт сверки ООО -Ромашка- 01.01.2026-30.09.2026')
     expect(fileBaseName(d)).not.toMatch(/[\\/:*?"<>|]/)
   })
 })
@@ -427,7 +427,7 @@ describe('образец из 1С бухгалтера: заголовок и п
     expect(partyTitle(party('АК Бухмина А.А.',
       'Адвокатский кабинет Бухмина Антона Андреевича, рег. № 54/1831 в реестре адвокатов Новосибирской области, ИНН 540233730471')))
       .toBe('Адвокатский кабинет Бухмина Антона Андреевича (ИНН 540233730471)')
-    expect(partyTitle(party('Х', 'ООО "Система", ИНН 5406000000'))).toBe('ООО "Система" (ИНН 5406000000)')
+    expect(partyTitle(party('Х', 'ООО "Ромашка", ИНН 5406000000'))).toBe('ООО "Ромашка" (ИНН 5406000000)')
   })
 
   it('без ИНН — просто наименование; запятая внутри названия не режет его', () => {
@@ -452,17 +452,17 @@ describe('образец из 1С бухгалтера: заголовок и п
 
   it('новый акт: во вводном абзаце только наименование, ИНН — отдельным полем и в заголовке', () => {
     const d = newSettlementDoc({
-      periodFrom: '2026-07-01', periodTo: '2026-09-30', clientName: 'ООО УК "Альфа менеджмент"', clientInn: '5406828355',
+      periodFrom: '2026-07-01', periodTo: '2026-09-30', clientName: 'ООО УК "Орион сервис"', clientInn: '5400000022',
       cabinetLine: 'Адвокатский кабинет Бухмина Антона Андреевича, рег. № 54/1831 в реестре адвокатов Новосибирской области, ИНН 540233730471',
       openingUs: { debit: 0, credit: 0 }, rowsUs: [],
     })
     expect(d.us.intro).toBe('Адвокатский кабинет Бухмина Антона Андреевича')
     expect(d.us.inn).toBe('540233730471')
-    expect(d.them.intro).toBe('ООО УК "Альфа менеджмент"')
+    expect(d.them.intro).toBe('ООО УК "Орион сервис"')
     expect(partyTitle(d.us)).toBe('Адвокатский кабинет Бухмина Антона Андреевича (ИНН 540233730471)')
-    expect(partyTitle(d.them)).toBe('ООО УК "Альфа менеджмент" (ИНН 5406828355)')
+    expect(partyTitle(d.them)).toBe('ООО УК "Орион сервис" (ИНН 5400000022)')
     // ИНН, поправленный в поле, важнее того, что когда-то был в реквизитах
-    expect(partyTitle({ ...d.them, inn: '5406000000' })).toBe('ООО УК "Альфа менеджмент" (ИНН 5406000000)')
+    expect(partyTitle({ ...d.them, inn: '5406000000' })).toBe('ООО УК "Орион сервис" (ИНН 5406000000)')
   })
 
   it('основание из прошлого акта переходит в новый', () => {
@@ -474,7 +474,7 @@ describe('образец из 1С бухгалтера: заголовок и п
   })
 })
 
-describe('абонентская плата в акте сверки (ООО УК «Альфа менеджмент»)', () => {
+describe('абонентская плата в акте сверки (ООО УК «Орион сервис»)', () => {
   const alfa = { monthly_fee: 224000, fee_from: '2026-04-01', fee_to: null }
   const pays = [
     { pay_date: '2026-07-24', doc_no: 'ПП 6 от 24.07.2026', amount: 224000 },
@@ -509,7 +509,7 @@ describe('абонентская плата в акте сверки (ООО У�
     const t = tableTotals({ debit: 0, credit: 0 }, rows)
     expect(t.turnDebit).toBe(67200000)
     expect(t.turnCredit).toBe(67200000)
-    expect(conclusion(t.net, 'АК', 'Альфа').text).toBe('задолженность отсутствует')
+    expect(conclusion(t.net, 'АК', 'Орион').text).toBe('задолженность отсутствует')
   })
 
   it('начисление ровно нулевое — строки нет', () => {
@@ -518,7 +518,7 @@ describe('абонентская плата в акте сверки (ООО У�
   })
 })
 
-describe('начисления по актам в акте сверки (АБ «Гребнева и партнеры»)', () => {
+describe('начисления по актам в акте сверки (АБ «Смирнова и партнеры»)', () => {
   it('акт на фиксированную сумму становится строкой начисления, оплата закрывает её', () => {
     const rows = buildRowsUs({
       periodFrom: '2026-08-01', periodTo: '2026-08-31', services: [], expenses: [],
@@ -530,7 +530,7 @@ describe('начисления по актам в акте сверки (АБ «
       ['2026-08-31', 'Акт от 31.08.2026', 700000, 0],
     ])
     const t = tableTotals({ debit: 0, credit: 0 }, rows)
-    expect(conclusion(t.net, 'АК', 'Гребнева').text).toBe('задолженность отсутствует')
+    expect(conclusion(t.net, 'АК', 'Смирнова').text).toBe('задолженность отсутствует')
   })
 
   it('нулевая сумма — строки нет', () => {

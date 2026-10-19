@@ -235,7 +235,10 @@ export default function CalculatorTab() {
           </div>
           <div className="flex justify-between border-b border-navy-800/50 py-1.5">
             <span>Фикс. взносы СФР</span>
-            <span className="text-navy-400">57 390 ₽/год · ≈4 783 ₽/мес</span>
+            <span className="text-navy-400 text-right">
+              <span className="block whitespace-nowrap">2026: 57 390 ₽ (≈4 783/мес)</span>
+              <span className="block whitespace-nowrap">2027: 61 154 ₽ (≈5 096/мес)</span>
+            </span>
           </div>
           <div className="flex justify-between border-b border-navy-800/50 py-1.5">
             <span>Взносы в палату</span>

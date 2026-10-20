@@ -924,10 +924,13 @@ export default function FinancePage() {
                 {(() => {
                   const d = quarterDeadlines(row.quarter - 1)
                   if (!d) return null
-                  // Просрочка подсвечивается, только если по кварталу ничего не уплачено —
-                  // прошедший срок при уплаченном авансе не повод для тревоги
+                  // Просрочка подсвечивается, только если аванс БЫЛ к уплате и не уплачен.
+                  // Прошедший срок при уплаченном авансе — не повод для тревоги, и при
+                  // нулевом авансе тоже (I квартал 2026 года без дохода горел жёлтым).
+                  // Допуск 1 ₽: НДФЛ платится в целых рублях (92 613,30 → 92 614)
                   const overdue = (date: Date | null) =>
-                    !!date && date < new Date() && row.actuallyPaidThisQ <= 0
+                    !!date && date < new Date() && row.advanceDue > 0
+                    && row.actuallyPaidThisQ < row.advanceDue - 1
                   return (
                     <p className="text-xs mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
                       <span className={overdue(d.report) ? 'text-amber-400' : 'text-navy-400'}>

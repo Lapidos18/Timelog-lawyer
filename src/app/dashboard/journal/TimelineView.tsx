@@ -79,6 +79,11 @@ interface DragState {
 }
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
+
+// 'ГГГГ-ММ-ДД' → дата в местном времени (new Date('ГГГГ-ММ-ДД') даёт UTC и в минусовых поясах съезжает на день)
+const isoToLocal = (s: string) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d) }
+const MAX_MULTI_DAYS = 31
+const daysWord = (n: number) => (n % 10 === 1 && n % 100 !== 11) ? 'день' : ([2, 3, 4].indexOf(n % 10) !== -1 && [12, 13, 14].indexOf(n % 100) === -1) ? 'дня' : 'дней'
 const minToLabel = (m: number) => `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`
 const snapStart = (m: number) => Math.round(m / START_STEP) * START_STEP
 const snapDur = (m: number) => Math.round(m / DUR_STEP) * DUR_STEP
@@ -214,12 +219,6 @@ export default function TimelineView() {
     setMultiLoading(false)
   }
 
-  function toggleDateSelection(dStr: string) {
-    setSelectedDates(prev =>
-      prev.includes(dStr) ? prev.filter(x => x !== dStr) : [...prev, dStr].sort()
-    )
-  }
-
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (calRef.current && !calRef.current.contains(e.target as Node)) setShowCal(false)
@@ -246,12 +245,39 @@ export default function TimelineView() {
     setLoading(false)
   }
 
-  function selectDay(d: Date) {
-    if (multiSelectMode) {
-      toggleDateSelection(format(d, 'yyyy-MM-dd'))
+  // Выбор дней в календаре. Обычный клик: один день (или переключение дня в режиме «несколько»).
+  // Shift+клик — диапазон от прошлого выбранного дня; Ctrl (⌘)+клик — добавить/убрать отдельный день,
+  // в том числе из другого месяца (выбор не сбрасывается при перелистывании месяцев). Shift и Ctrl
+  // сами включают режим «несколько дней», открытый сейчас день попадает в выбор.
+  const anchorRef = useRef<string | null>(null)
+  function selectDay(d: Date, ev?: React.MouseEvent) {
+    const dStr = format(d, 'yyyy-MM-dd')
+    const shift = !!ev?.shiftKey
+    const ctrl = !!(ev?.ctrlKey || ev?.metaKey)
+    if (!multiSelectMode && !shift && !ctrl) {
+      setDate(d); setCalMonth(d); setShowCal(false)
       return
     }
-    setDate(d); setCalMonth(d); setShowCal(false)
+    const base = multiSelectMode ? selectedDates : [format(date, 'yyyy-MM-dd')]
+    if (!multiSelectMode) setMultiSelectMode(true)
+    let next: string[]
+    if (shift) {
+      const anchor = anchorRef.current ?? format(date, 'yyyy-MM-dd')
+      const [from, to] = anchor < dStr ? [anchor, dStr] : [dStr, anchor]
+      const range = eachDayOfInterval({ start: isoToLocal(from), end: isoToLocal(to) }).map(x => format(x, 'yyyy-MM-dd'))
+      next = Array.from(new Set(base.concat(range))).sort()
+    } else {
+      next = base.indexOf(dStr) !== -1 ? base.filter(x => x !== dStr) : base.concat(dStr).sort()
+    }
+    if (next.length > MAX_MULTI_DAYS) { toast.error('Можно сравнить не больше ' + MAX_MULTI_DAYS + ' дней сразу'); return }
+    anchorRef.current = dStr
+    setSelectedDates(next)
+  }
+
+  // Из режима «несколько дней» — на конкретный день и сразу в редактирование записи
+  function openFromMulti(dStr: string, e: DayEntry) {
+    setDate(isoToLocal(dStr)); setMultiSelectMode(false); setSelectedDates([])
+    setTimeout(() => openEdit(e), 100)
   }
 
   // Автозаполнение ставки при выборе дела вручную (не при открытии формы на редактирование —
@@ -555,6 +581,9 @@ export default function TimelineView() {
                     <span className="text-xs text-gold-400 font-medium">{selectedDates.length} выбрано</span>
                   )}
                 </div>
+                <p className="hidden md:block text-[11px] text-navy-400 mb-2 px-1 leading-snug">
+                  Shift + клик — диапазон дней, Ctrl + клик — отдельные дни (можно из разных месяцев)
+                </p>
 
                 <div className="grid grid-cols-7 mb-1">
                   {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => (
@@ -571,7 +600,7 @@ export default function TimelineView() {
                     const inMonth = isSameMonth(d, calMonth)
                     const hasEntries = datesWithEntries.has(dStr)
                     return (
-                      <button key={d.toISOString()} onClick={() => selectDay(d)}
+                      <button key={d.toISOString()} onClick={ev => selectDay(d, ev)}
                         className={`relative h-11 md:h-8 w-full rounded-lg text-xs font-medium transition-colors
                           ${isSelected || isMultiSelected ? 'bg-gold-500 text-navy-950'
                             : isToday ? 'bg-navy-700 text-gold-400 ring-1 ring-gold-500/50'
@@ -725,7 +754,7 @@ export default function TimelineView() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-medium text-navy-300">
-              Записи за {selectedDates.length} {selectedDates.length === 1 ? 'день' : 'дней'}
+              Записи за {selectedDates.length} {daysWord(selectedDates.length)}
             </h2>
             <button onClick={() => { setMultiSelectMode(false); setSelectedDates([]) }} className="btn-secondary text-xs">
               <X className="w-3.5 h-3.5" /> Закрыть сравнение
@@ -736,6 +765,66 @@ export default function TimelineView() {
             <SkeletonRows rows={5} />
           ) : (
             <div className="space-y-4">
+              {/* Столбцы по дням — на компьютере: общая шкала времени, записи на своих местах */}
+              <div className="hidden md:block card p-0 overflow-x-auto">
+                <div className="flex" style={{ minWidth: `${64 + selectedDates.length * 200}px` }}>
+                  {/* Шкала часов остаётся на месте, когда столбцы прокручивают вбок */}
+                  <div className="w-16 flex-shrink-0 border-r border-navy-800 sticky left-0 z-20 bg-navy-900">
+                    <div className="h-14 border-b border-navy-800" />
+                    {HOURS.map(h => (
+                      <div key={h} className="h-16 border-b border-navy-800/50 px-2 py-1 text-xs text-navy-400 num">{h}:00</div>
+                    ))}
+                  </div>
+                  {selectedDates.map(dStr => {
+                    const dayEntries = multiEntries[dStr] ?? []
+                    const dayHours = dayEntries.reduce((s, e) => s + e.duration_min / 60, 0)
+                    const dayAmount = dayEntries.filter(e => e.is_billable).reduce((s, e) => s + Number(e.amount), 0)
+                    const dslots = layoutColumns(dayEntries.map(e => ({ id: e.id, start: Math.round(timeToDecimal(e.start_time) * 60), dur: e.duration_min })))
+                    return (
+                      <div key={dStr} className="flex-1 min-w-[200px] border-r border-navy-800 last:border-r-0">
+                        <div className="h-14 px-3 py-1.5 border-b border-navy-800">
+                          <p className="text-sm font-semibold text-navy-200 capitalize truncate">
+                            {format(isoToLocal(dStr), 'EEE, d MMM', { locale: ru })}
+                          </p>
+                          <p className="text-[11px] text-navy-300 num truncate">
+                            {dayEntries.length} зап. · {dayHours.toFixed(2)} ч · {formatMoney(dayAmount)} ₽
+                          </p>
+                        </div>
+                        <div className="relative" style={{ height: `${HOURS.length * 64}px` }}>
+                          {HOURS.map((h, i) => (
+                            <div key={h} className="absolute left-0 right-0 border-b border-navy-800/50" style={{ top: `${i * 64}px`, height: '64px' }} />
+                          ))}
+                          {dayEntries.map(e => {
+                            const startMin = Math.round(timeToDecimal(e.start_time) * 60)
+                            const top = Math.max(0, (startMin / 60 - 8) * 64)
+                            const heightPx = Math.max(28, (e.duration_min / 60) * 64)
+                            const slot = dslots.get(e.id) ?? { col: 0, cols: 1 }
+                            return (
+                              <div key={e.id}
+                                onDoubleClick={() => openFromMulti(dStr, e)}
+                                onClick={isTouch ? () => openFromMulti(dStr, e) : undefined}
+                                title={(e.matters?.clients?.name ?? '') + ' · ' + minToLabel(startMin) + '–' + minToLabel(startMin + e.duration_min) + ' · ' + e.description + '\n' + (isTouch ? 'Нажмите — редактировать' : 'Двойной клик — редактировать')}
+                                className={`absolute rounded-lg border px-2 py-1 cursor-pointer hover:brightness-125 overflow-hidden ${COLORS[e.activity_type]}`}
+                                style={{
+                                  top: `${top}px`, height: `${heightPx}px`, zIndex: 5,
+                                  left: `calc(${(slot.col / slot.cols) * 100}% + 4px)`,
+                                  width: `calc(${100 / slot.cols}% - 8px)`,
+                                }}>
+                                <p className="text-xs font-semibold truncate">{e.matters?.clients?.name}</p>
+                                {heightPx > 40 && <p className="text-[10px] num opacity-70">{minToLabel(startMin)}–{minToLabel(startMin + e.duration_min)}</p>}
+                                {heightPx > 52 && <p className="text-xs opacity-80 truncate">{e.description}</p>}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* На телефоне — списками по дням: столбцы там не поместились бы */}
+              <div className="md:hidden space-y-4">
               {selectedDates.map(dStr => {
                 const dayEntries = multiEntries[dStr] ?? []
                 const dayHours = dayEntries.reduce((s, e) => s + e.duration_min / 60, 0)
@@ -782,6 +871,7 @@ export default function TimelineView() {
                   </div>
                 )
               })}
+              </div>
 
               {/* Итого по всем выбранным дням */}
               <div className="card bg-navy-900/60">

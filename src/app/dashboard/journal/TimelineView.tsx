@@ -13,6 +13,7 @@ import LoadError from '@/components/LoadError'
 import { useLockedEntries, lockedMessage } from '@/lib/locked-entries'
 import { SkeletonRows } from '@/components/Skeleton'
 import { useMounted } from '@/lib/use-mounted'
+import { layoutColumns } from '@/lib/timeline-layout'
 
 interface DayEntry {
   id: string
@@ -66,7 +67,7 @@ const SNAP_MIN = 15
 
 interface DragState {
   id: string
-  edge: 'top' | 'bottom'
+  edge: 'top' | 'bottom' | 'move'   // move — вся запись целиком (только мышью)
   startY: number
   origStart: number   // минуты от полуночи
   origEnd: number
@@ -266,6 +267,18 @@ export default function TimelineView() {
     setNdfl(false)
   }
 
+  // Форма на выделенный протяжкой отрезок шкалы: начало и длительность уже подставлены
+  function openFormAtRange(startMin: number, endMin: number) {
+    resetForm()
+    const dur = Math.max(SNAP_MIN, endMin - startMin)
+    setForm(f => ({
+      ...f,
+      start_hour: String(Math.floor(startMin / 60)), start_minute: String(startMin % 60),
+      hours: String(Math.floor(dur / 60)), minutes: String(dur % 60),
+    }))
+    setShowForm(true)
+  }
+
   function openFormAtHour(h: number) {
     resetForm()
     setForm(f => ({ ...f, start_hour: String(h), start_minute: '0', hours: '1', minutes: '0' }))
@@ -347,11 +360,65 @@ export default function TimelineView() {
   // пересчитывается сама. Запись из подписанного акта не двигается (см. п. 13 CLAUDE.md).
   const [drag, setDrag] = useState<DragState | null>(null)
   const dragRef = useRef<DragState | null>(null)
+  // Двойной клик сразу после сдвига записи не должен открывать форму редактирования
+  const lastMoveAt = useRef(0)
 
-  function beginDrag(ev: React.PointerEvent<HTMLDivElement>, e: DayEntry, edge: 'top' | 'bottom') {
+  // ── Новая запись протяжкой по пустому месту шкалы ───────────────────────
+  // Мышью: нажать, протянуть, отпустить — форма откроется с готовым началом и длительностью.
+  // Касание без протяжки (и на телефоне — всегда) работает как раньше: час целиком.
+  // На сенсорном экране протяжка занята прокруткой страницы, поэтому только мышь и перо.
+  const colRef = useRef<HTMLDivElement>(null)
+  const [create, setCreate] = useState<{ a: number; b: number } | null>(null)
+  const createRef = useRef<{ startY: number; startMin: number; touch: boolean; moved: boolean; a: number; b: number } | null>(null)
+
+  const minAtY = (clientY: number) => {
+    const top = colRef.current?.getBoundingClientRect().top ?? 0
+    return GRID_START_MIN + (clientY - top) / PX_PER_MIN
+  }
+
+  function beginCreate(ev: React.PointerEvent<HTMLDivElement>) {
+    // Только по пустому месту (часовые полосы), не по записям
+    if (!(ev.target as HTMLElement).dataset.grid) return
+    if (ev.pointerType === 'mouse' && ev.button !== 0) return
+    const touch = ev.pointerType === 'touch'
+    if (!touch) ev.currentTarget.setPointerCapture(ev.pointerId)
+    const m = minAtY(ev.clientY)
+    createRef.current = { startY: ev.clientY, startMin: m, touch, moved: false, a: Math.floor(m / 60) * 60, b: Math.floor(m / 60) * 60 + 60 }
+  }
+
+  function moveCreate(ev: React.PointerEvent<HTMLDivElement>) {
+    const c = createRef.current
+    if (!c || c.touch) return
+    if (!c.moved && Math.abs(ev.clientY - c.startY) < 4) return
+    c.moved = true
+    const m = minAtY(ev.clientY)
+    const lo = Math.min(c.startMin, m), hi = Math.max(c.startMin, m)
+    let a = Math.max(GRID_START_MIN, Math.floor(lo / SNAP_MIN) * SNAP_MIN)
+    let b = Math.min(GRID_END_MIN, Math.ceil(hi / SNAP_MIN) * SNAP_MIN)
+    if (b - a < SNAP_MIN) b = Math.min(GRID_END_MIN, a + SNAP_MIN)
+    if (b - a < SNAP_MIN) a = b - SNAP_MIN
+    c.a = a; c.b = b
+    setCreate({ a, b })
+  }
+
+  function endCreate() {
+    const c = createRef.current
+    createRef.current = null
+    setCreate(null)
+    if (!c) return
+    if (c.moved) openFormAtRange(c.a, c.b)
+    else openFormAtHour(Math.floor(c.startMin / 60))
+  }
+
+  function cancelCreate() {
+    createRef.current = null
+    setCreate(null)
+  }
+
+  function beginDrag(ev: React.PointerEvent<HTMLDivElement>, e: DayEntry, edge: DragState['edge']) {
     ev.stopPropagation()
     const actNo = locked.get(e.id)
-    if (actNo) { toast.error(lockedMessage(actNo)); return }
+    if (actNo) { if (edge !== 'move') toast.error(lockedMessage(actNo)); return }
     ev.currentTarget.setPointerCapture(ev.pointerId)
     const s = Math.round(timeToDecimal(e.start_time) * 60)
     const st: DragState = { id: e.id, edge, startY: ev.clientY, origStart: s, origEnd: s + e.duration_min, start: s, end: s + e.duration_min }
@@ -364,7 +431,12 @@ export default function TimelineView() {
     if (!d) return
     const dMin = (ev.clientY - d.startY) / PX_PER_MIN
     let start = d.origStart, end = d.origEnd
-    if (d.edge === 'bottom') {
+    if (d.edge === 'move') {
+      // Запись целиком: длительность прежняя, двигается время начала
+      const dur = d.origEnd - d.origStart
+      start = Math.max(Math.min(GRID_START_MIN, d.origStart), Math.min(Math.max(GRID_END_MIN - dur, d.origStart), snapMin(d.origStart + dMin)))
+      end = start + dur
+    } else if (d.edge === 'bottom') {
       end = Math.max(d.origStart + SNAP_MIN, Math.min(Math.max(GRID_END_MIN, d.origEnd), snapMin(d.origEnd + dMin)))
     } else {
       start = Math.max(Math.min(GRID_START_MIN, d.origStart), Math.min(d.origEnd - SNAP_MIN, snapMin(d.origStart + dMin)))
@@ -382,6 +454,7 @@ export default function TimelineView() {
     dragRef.current = null
     setDrag(null)
     if (!d || (d.start === d.origStart && d.end === d.origEnd)) return
+    lastMoveAt.current = Date.now()
     const startTime = `${pad2(Math.floor(d.start / 60))}:${pad2(d.start % 60)}:00`
     const durationMin = d.end - d.start
     // Сразу показываем новое время, не дожидаясь базы; loadDay ниже вернёт правду
@@ -396,6 +469,9 @@ export default function TimelineView() {
     dragRef.current = null
     setDrag(null)
   }
+
+  // Записи, идущие в одно время, встают рядом (src/lib/timeline-layout.ts)
+  const slots = layoutColumns(entries.map(e => ({ id: e.id, start: Math.round(timeToDecimal(e.start_time) * 60), dur: e.duration_min })))
 
   const totalHours = entries.reduce((s, e) => s + e.duration_min / 60, 0)
   const totalAmount = entries.filter(e => e.is_billable).reduce((s, e) => s + Number(e.amount), 0)
@@ -709,7 +785,7 @@ export default function TimelineView() {
       {/* Hint */}
       {!showForm && entries.length > 0 && (
         <p className="text-xs text-navy-400 mb-3">
-          💡 <span className="hidden md:inline">Двойной клик по записи — редактировать; потяните за нижний край — изменить длительность, за верхний — время начала</span>
+          💡 <span className="hidden md:inline">Двойной клик по записи — редактировать; потяните запись — сдвинуть по времени, за нижний край — изменить длительность, за верхний — время начала; протяните по пустому месту шкалы — новая запись</span>
           <span className="md:hidden">Нажмите на запись — редактировать; потяните за нижний край — изменить длительность</span>
         </p>
       )}
@@ -732,16 +808,28 @@ export default function TimelineView() {
             </div>
 
             {/* Entries column */}
-            <div className="flex-1 relative min-w-0" style={{ height: `${HOURS.length * 64}px` }}>
-              {/* Hour grid lines (clickable to add) */}
+            <div ref={colRef}
+              onPointerDown={beginCreate} onPointerMove={moveCreate} onPointerUp={endCreate} onPointerCancel={cancelCreate}
+              className="flex-1 relative min-w-0 select-none"
+              style={{ height: `${HOURS.length * 64}px`, touchAction: 'pan-y' }}>
+              {/* Hour grid lines: клик — час целиком, протяжка мышью — свой отрезок */}
               {HOURS.map((h, i) => (
-                <div key={h}
-                  onClick={() => openFormAtHour(h)}
+                <div key={h} data-grid="1"
+                  title="Нажмите — добавить запись на час; протяните мышью — на нужное время"
                   className="absolute left-0 right-0 border-b border-navy-800/50
                              hover:bg-navy-800/30 cursor-pointer transition-colors"
                   style={{ top: `${i * 64}px`, height: '64px' }}
                 />
               ))}
+
+              {/* Выделение протяжкой: что получится, если отпустить */}
+              {create && (
+                <div className="pointer-events-none absolute left-1 right-1 md:left-2 md:right-2 rounded-lg border-2 border-dashed
+                                border-gold-400/70 bg-gold-500/15 px-2 py-1 text-[11px] num text-gold-300"
+                     style={{ top: `${((create.a - GRID_START_MIN) / 60) * 64}px`, height: `${((create.b - create.a) / 60) * 64}px`, zIndex: 4 }}>
+                  Новая запись {minToLabel(create.a)}–{minToLabel(create.b)}
+                </div>
+              )}
 
               {/* Entry blocks positioned by real start_time */}
               {entries.map(e => {
@@ -753,6 +841,10 @@ export default function TimelineView() {
                 const heightPx = Math.max(28, (durMin / 60) * 64)
                 const startLabel = e.start_time || dg ? minToLabel(startMin) : '—'
                 const endLabel = minToLabel(startMin + durMin)
+                const slot = slots.get(e.id) ?? { col: 0, cols: 1 }
+                // В узкой колонке (записи рядом) время переносится под название, иначе название
+                // обрезается до пары букв
+                const stacked = slot.cols > 1 && heightPx >= 56
                 const stop = (ev: React.SyntheticEvent) => ev.stopPropagation()
                 const handleProps = {
                   onPointerMove: moveDrag, onPointerUp: endDrag, onPointerCancel: cancelDrag,
@@ -762,16 +854,23 @@ export default function TimelineView() {
                 return (
                   <div
                     key={e.id}
-                    onDoubleClick={() => openEdit(e)}
+                    onDoubleClick={() => { if (Date.now() - lastMoveAt.current < 400) return; openEdit(e) }}
                     onClick={isTouch ? () => openEdit(e) : undefined}
-                    title={isTouch ? 'Нажмите — редактировать' : 'Двойной клик — редактировать'}
-                    className={`absolute left-1 right-1 md:left-2 md:right-2 rounded-lg border px-2 md:px-3 py-1.5
-                                cursor-pointer hover:brightness-125 overflow-hidden
-                                ${dg ? 'transition-none select-none shadow-lg ring-1 ring-white/40' : 'transition-all'}
+                    onPointerDown={ev => { if (ev.pointerType !== 'touch' && ev.button === 0) beginDrag(ev, e, 'move') }}
+                    onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={cancelDrag}
+                    title={isTouch ? 'Нажмите — редактировать' : 'Двойной клик — редактировать, потяните — сдвинуть по времени'}
+                    className={`absolute rounded-lg border px-2 md:px-3 py-1.5
+                                hover:brightness-125 overflow-hidden
+                                ${dg ? 'transition-none select-none shadow-lg ring-1 ring-white/40 cursor-grabbing' : 'transition-all cursor-pointer md:cursor-grab'}
                                 ${COLORS[e.activity_type]}`}
-                    style={{ top: `${top}px`, height: `${heightPx}px`, zIndex: dg ? 10 : 5 }}
+                    style={{
+                      top: `${top}px`, height: `${heightPx}px`, zIndex: dg ? 10 : 5,
+                      // Записи в одно время — рядом: колонка slot.col из slot.cols
+                      left: `calc(${(slot.col / slot.cols) * 100}% + 6px)`,
+                      width: `calc(${100 / slot.cols}% - 12px)`,
+                    }}
                   >
-                    <div className="flex items-center justify-between gap-2">
+                    <div className={stacked ? 'flex flex-col gap-0' : 'flex items-center justify-between gap-2'}>
                       <p className="text-xs font-semibold truncate">{e.matters?.clients?.name}</p>
                       <span className="text-[10px] num opacity-70 flex-shrink-0">
                         {startLabel}–{endLabel}

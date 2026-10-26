@@ -58,6 +58,26 @@ function timeToDecimal(t: string | null): number {
   return h + (m || 0) / 60
 }
 
+// Растягивание записи мышкой (или пальцем) за край: шаг 15 минут, в пределах шкалы 8:00–21:00
+const PX_PER_MIN = 64 / 60            // высота часа на шкале — 64 px
+const GRID_START_MIN = 8 * 60
+const GRID_END_MIN = 21 * 60
+const SNAP_MIN = 15
+
+interface DragState {
+  id: string
+  edge: 'top' | 'bottom'
+  startY: number
+  origStart: number   // минуты от полуночи
+  origEnd: number
+  start: number
+  end: number
+}
+
+const pad2 = (n: number) => String(n).padStart(2, '0')
+const minToLabel = (m: number) => `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`
+const snapMin = (m: number) => Math.round(m / SNAP_MIN) * SNAP_MIN
+
 export default function TimelineView() {
   const supabase = createClient()
   // Число в заголовке зависит от «сегодня», а страница собирается заранее —
@@ -319,6 +339,62 @@ export default function TimelineView() {
     const { error } = await supabase.from('time_entries').delete().eq('id', editId)
     if (error) { toast.error('Ошибка удаления') }
     else { toast.success('Удалено'); resetForm(); loadDay() }
+  }
+
+  // ── Растягивание записи за край ─────────────────────────────────────────
+  // Нижний край меняет длительность, верхний — время начала (конец остаётся на месте).
+  // Сохраняются только start_time и duration_min: сумма в базе — вычисляемое поле и
+  // пересчитывается сама. Запись из подписанного акта не двигается (см. п. 13 CLAUDE.md).
+  const [drag, setDrag] = useState<DragState | null>(null)
+  const dragRef = useRef<DragState | null>(null)
+
+  function beginDrag(ev: React.PointerEvent<HTMLDivElement>, e: DayEntry, edge: 'top' | 'bottom') {
+    ev.stopPropagation()
+    const actNo = locked.get(e.id)
+    if (actNo) { toast.error(lockedMessage(actNo)); return }
+    ev.currentTarget.setPointerCapture(ev.pointerId)
+    const s = Math.round(timeToDecimal(e.start_time) * 60)
+    const st: DragState = { id: e.id, edge, startY: ev.clientY, origStart: s, origEnd: s + e.duration_min, start: s, end: s + e.duration_min }
+    dragRef.current = st
+    setDrag(st)
+  }
+
+  function moveDrag(ev: React.PointerEvent<HTMLDivElement>) {
+    const d = dragRef.current
+    if (!d) return
+    const dMin = (ev.clientY - d.startY) / PX_PER_MIN
+    let start = d.origStart, end = d.origEnd
+    if (d.edge === 'bottom') {
+      end = Math.max(d.origStart + SNAP_MIN, Math.min(Math.max(GRID_END_MIN, d.origEnd), snapMin(d.origEnd + dMin)))
+    } else {
+      start = Math.max(Math.min(GRID_START_MIN, d.origStart), Math.min(d.origEnd - SNAP_MIN, snapMin(d.origStart + dMin)))
+    }
+    // Пока не сдвинули хотя бы на несколько пикселей, время не трогаем: иначе простое
+    // нажатие «округлило» бы запись, у которой минуты не кратны 15
+    if (Math.abs(ev.clientY - d.startY) < 4) { start = d.origStart; end = d.origEnd }
+    const next = { ...d, start, end }
+    dragRef.current = next
+    setDrag(next)
+  }
+
+  async function endDrag() {
+    const d = dragRef.current
+    dragRef.current = null
+    setDrag(null)
+    if (!d || (d.start === d.origStart && d.end === d.origEnd)) return
+    const startTime = `${pad2(Math.floor(d.start / 60))}:${pad2(d.start % 60)}:00`
+    const durationMin = d.end - d.start
+    // Сразу показываем новое время, не дожидаясь базы; loadDay ниже вернёт правду
+    setEntries(prev => prev.map(x => x.id === d.id ? { ...x, start_time: startTime, duration_min: durationMin } : x))
+    const { error } = await supabase.from('time_entries').update({ start_time: startTime, duration_min: durationMin }).eq('id', d.id)
+    if (error) toast.error('Не удалось изменить время: ' + error.message)
+    else toast.success(`Время записи: ${minToLabel(d.start)}–${minToLabel(d.end)}`)
+    loadDay()
+  }
+
+  function cancelDrag() {
+    dragRef.current = null
+    setDrag(null)
   }
 
   const totalHours = entries.reduce((s, e) => s + e.duration_min / 60, 0)
@@ -633,8 +709,8 @@ export default function TimelineView() {
       {/* Hint */}
       {!showForm && entries.length > 0 && (
         <p className="text-xs text-navy-400 mb-3">
-          💡 <span className="hidden md:inline">Двойной клик по записи — редактировать</span>
-          <span className="md:hidden">Нажмите на запись — редактировать</span>
+          💡 <span className="hidden md:inline">Двойной клик по записи — редактировать; потяните за нижний край — изменить длительность, за верхний — время начала</span>
+          <span className="md:hidden">Нажмите на запись — редактировать; потяните за нижний край — изменить длительность</span>
         </p>
       )}
 
@@ -669,14 +745,19 @@ export default function TimelineView() {
 
               {/* Entry blocks positioned by real start_time */}
               {entries.map(e => {
-                const startDec = timeToDecimal(e.start_time)
-                const top = Math.max(0, (startDec - 8) * 64)
-                const heightPx = Math.max(28, (e.duration_min / 60) * 64)
-                const startLabel = e.start_time ? e.start_time.slice(0,5) : '—'
-                const endDec = startDec + e.duration_min / 60
-                const endH = Math.floor(endDec)
-                const endM = Math.round((endDec - endH) * 60)
-                const endLabel = `${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`
+                // Во время перетаскивания показываем время из drag, а не из базы
+                const dg = drag && drag.id === e.id ? drag : null
+                const startMin = dg ? dg.start : Math.round(timeToDecimal(e.start_time) * 60)
+                const durMin = dg ? dg.end - dg.start : e.duration_min
+                const top = Math.max(0, (startMin / 60 - 8) * 64)
+                const heightPx = Math.max(28, (durMin / 60) * 64)
+                const startLabel = e.start_time || dg ? minToLabel(startMin) : '—'
+                const endLabel = minToLabel(startMin + durMin)
+                const stop = (ev: React.SyntheticEvent) => ev.stopPropagation()
+                const handleProps = {
+                  onPointerMove: moveDrag, onPointerUp: endDrag, onPointerCancel: cancelDrag,
+                  onClick: stop, onDoubleClick: stop,
+                }
 
                 return (
                   <div
@@ -685,9 +766,10 @@ export default function TimelineView() {
                     onClick={isTouch ? () => openEdit(e) : undefined}
                     title={isTouch ? 'Нажмите — редактировать' : 'Двойной клик — редактировать'}
                     className={`absolute left-1 right-1 md:left-2 md:right-2 rounded-lg border px-2 md:px-3 py-1.5
-                                cursor-pointer hover:brightness-125 transition-all overflow-hidden
+                                cursor-pointer hover:brightness-125 overflow-hidden
+                                ${dg ? 'transition-none select-none shadow-lg ring-1 ring-white/40' : 'transition-all'}
                                 ${COLORS[e.activity_type]}`}
-                    style={{ top: `${top}px`, height: `${heightPx}px`, zIndex: 5 }}
+                    style={{ top: `${top}px`, height: `${heightPx}px`, zIndex: dg ? 10 : 5 }}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-semibold truncate">{e.matters?.clients?.name}</p>
@@ -698,6 +780,24 @@ export default function TimelineView() {
                     {heightPx > 30 && (
                       <p className="text-xs opacity-80 truncate">{e.description}</p>
                     )}
+                    {/* Верхний край — время начала (на телефоне скрыт: там тянут за нижний) */}
+                    <div
+                      aria-label="Потяните, чтобы изменить время начала"
+                      title="Потяните — изменить время начала"
+                      onPointerDown={ev => beginDrag(ev, e, 'top')}
+                      {...handleProps}
+                      className="absolute left-0 right-0 top-0 h-1.5 cursor-ns-resize touch-none hover:bg-white/20 [@media(pointer:coarse)]:hidden"
+                    />
+                    {/* Нижний край — длительность; на сенсорном экране ручка выше и с видимой «полоской» */}
+                    <div
+                      aria-label="Потяните, чтобы изменить длительность"
+                      title="Потяните — изменить длительность"
+                      onPointerDown={ev => beginDrag(ev, e, 'bottom')}
+                      {...handleProps}
+                      className="absolute left-0 right-0 bottom-0 h-1.5 cursor-ns-resize touch-none hover:bg-white/20 [@media(pointer:coarse)]:h-3.5"
+                    >
+                      <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-0.5 w-8 h-0.5 rounded-full bg-current opacity-30" />
+                    </div>
                   </div>
                 )
               })}

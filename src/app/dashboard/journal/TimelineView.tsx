@@ -63,7 +63,10 @@ function timeToDecimal(t: string | null): number {
 const PX_PER_MIN = 64 / 60            // высота часа на шкале — 64 px
 const GRID_START_MIN = 8 * 60
 const GRID_END_MIN = 21 * 60
-const SNAP_MIN = 15
+// Время начала — с шагом 5 минут (16:10, 13:40, 16:15), ДЛИТЕЛЬНОСТЬ — по 15: часы в акте считаются
+// четвертями (0,25 ч), и «часы × ставка» сходятся с итогом до копейки. 1/6 часа так не записать.
+const START_STEP = 5
+const DUR_STEP = 15
 
 interface DragState {
   id: string
@@ -77,7 +80,15 @@ interface DragState {
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
 const minToLabel = (m: number) => `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`
-const snapMin = (m: number) => Math.round(m / SNAP_MIN) * SNAP_MIN
+const snapStart = (m: number) => Math.round(m / START_STEP) * START_STEP
+const snapDur = (m: number) => Math.round(m / DUR_STEP) * DUR_STEP
+// Минуты начала в форме: 0, 5, 10 … 55; а если у записи стоит другое (например, после
+// растягивания за верхний край), оно остаётся в списке
+const startMinuteOptions = (cur: number) => {
+  const o = Array.from({ length: 60 / START_STEP }, (_, i) => i * START_STEP)
+  if (!isNaN(cur) && o.indexOf(cur) === -1) { o.push(cur); o.sort((a, b) => a - b) }
+  return o
+}
 
 export default function TimelineView() {
   const supabase = createClient()
@@ -270,7 +281,7 @@ export default function TimelineView() {
   // Форма на выделенный протяжкой отрезок шкалы: начало и длительность уже подставлены
   function openFormAtRange(startMin: number, endMin: number) {
     resetForm()
-    const dur = Math.max(SNAP_MIN, endMin - startMin)
+    const dur = Math.max(DUR_STEP, endMin - startMin)
     setForm(f => ({
       ...f,
       start_hour: String(Math.floor(startMin / 60)), start_minute: String(startMin % 60),
@@ -393,10 +404,12 @@ export default function TimelineView() {
     c.moved = true
     const m = minAtY(ev.clientY)
     const lo = Math.min(c.startMin, m), hi = Math.max(c.startMin, m)
-    let a = Math.max(GRID_START_MIN, Math.floor(lo / SNAP_MIN) * SNAP_MIN)
-    let b = Math.min(GRID_END_MIN, Math.ceil(hi / SNAP_MIN) * SNAP_MIN)
-    if (b - a < SNAP_MIN) b = Math.min(GRID_END_MIN, a + SNAP_MIN)
-    if (b - a < SNAP_MIN) a = b - SNAP_MIN
+    let a = Math.max(GRID_START_MIN, Math.floor(lo / START_STEP) * START_STEP)
+    // длительность — вверх до ближайших 15 минут, не меньше 15 и не дальше конца шкалы
+    let dur = Math.max(DUR_STEP, Math.ceil((hi - a) / DUR_STEP) * DUR_STEP)
+    const maxDur = Math.floor((GRID_END_MIN - a) / DUR_STEP) * DUR_STEP
+    if (maxDur < DUR_STEP) { a = GRID_END_MIN - DUR_STEP; dur = DUR_STEP } else dur = Math.min(dur, maxDur)
+    const b = a + dur
     c.a = a; c.b = b
     setCreate({ a, b })
   }
@@ -431,18 +444,23 @@ export default function TimelineView() {
     if (!d) return
     const dMin = (ev.clientY - d.startY) / PX_PER_MIN
     let start = d.origStart, end = d.origEnd
+    const dur0 = d.origEnd - d.origStart
     if (d.edge === 'move') {
-      // Запись целиком: длительность прежняя, двигается время начала
-      const dur = d.origEnd - d.origStart
-      start = Math.max(Math.min(GRID_START_MIN, d.origStart), Math.min(Math.max(GRID_END_MIN - dur, d.origStart), snapMin(d.origStart + dMin)))
-      end = start + dur
+      // Запись целиком: длительность прежняя, начало — с шагом 5 минут
+      start = Math.max(Math.min(GRID_START_MIN, d.origStart), Math.min(Math.max(GRID_END_MIN - dur0, d.origStart), snapStart(d.origStart + dMin)))
+      end = start + dur0
     } else if (d.edge === 'bottom') {
-      end = Math.max(d.origStart + SNAP_MIN, Math.min(Math.max(GRID_END_MIN, d.origEnd), snapMin(d.origEnd + dMin)))
+      // Нижний край: начало на месте, длительность меняется по 15 минут
+      const maxDur = Math.max(dur0, Math.floor((GRID_END_MIN - d.origStart) / DUR_STEP) * DUR_STEP)
+      end = d.origStart + Math.max(DUR_STEP, Math.min(maxDur, snapDur(dur0 + dMin)))
     } else {
-      start = Math.max(Math.min(GRID_START_MIN, d.origStart), Math.min(d.origEnd - SNAP_MIN, snapMin(d.origStart + dMin)))
+      // Верхний край: конец на месте, длительность тоже по 15 минут — значит начало
+      // сдвигается от конца кратно 15 (оно не обязано лежать на сетке в 5 минут)
+      const maxDur = Math.max(dur0, Math.floor((d.origEnd - GRID_START_MIN) / DUR_STEP) * DUR_STEP)
+      start = d.origEnd - Math.max(DUR_STEP, Math.min(maxDur, snapDur(dur0 - dMin)))
     }
     // Пока не сдвинули хотя бы на несколько пикселей, время не трогаем: иначе простое
-    // нажатие «округлило» бы запись, у которой минуты не кратны 15
+    // нажатие «округлило» бы запись, начатую не на сетке шага
     if (Math.abs(ev.clientY - d.startY) < 4) { start = d.origStart; end = d.origEnd }
     const next = { ...d, start, end }
     dragRef.current = next
@@ -623,7 +641,7 @@ export default function TimelineView() {
                 <label className="label">Мин</label>
                 <select className="select" value={form.start_minute}
                   onChange={e => setForm(f => ({ ...f, start_minute: e.target.value }))}>
-                  {[0,15,30,45].map(m => <option key={m} value={m}>{m}</option>)}
+                  {startMinuteOptions(parseInt(form.start_minute)).map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
               </div>
             </div>

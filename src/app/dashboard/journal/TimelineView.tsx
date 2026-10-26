@@ -274,6 +274,46 @@ export default function TimelineView() {
     setSelectedDates(next)
   }
 
+  // Выбор диапазона протяжкой мыши по дням календаря (решение пользователя 27.10.2026:
+  // «зажать кнопку и растянуть», а Ctrl остаётся для отдельных дней). Только мышь и перо:
+  // на сенсорном экране остаётся выбор касаниями при включённом режиме «несколько дней».
+  // Ctrl, зажатый в начале протяжки, ДОБАВЛЯЕТ диапазон к уже выбранным дням,
+  // без Ctrl — диапазон заменяет прежний выбор.
+  const dragSel = useRef<{ from: string; base: string[]; moved: boolean } | null>(null)
+  const suppressClick = useRef(false)
+
+  function dayPointerDown(ev: React.PointerEvent, dStr: string) {
+    if (ev.pointerType === 'touch' || ev.button !== 0 || ev.shiftKey) return
+    const keep = ev.ctrlKey || ev.metaKey
+    dragSel.current = { from: dStr, base: keep ? (multiSelectMode ? selectedDates : [format(date, 'yyyy-MM-dd')]) : [], moved: false }
+  }
+
+  function dayPointerEnter(ev: React.PointerEvent, dStr: string) {
+    const d = dragSel.current
+    if (!d || ev.buttons !== 1) return
+    if (dStr === d.from && !d.moved) return
+    const [a, b] = d.from < dStr ? [d.from, dStr] : [dStr, d.from]
+    const range = eachDayOfInterval({ start: isoToLocal(a), end: isoToLocal(b) }).map(x => format(x, 'yyyy-MM-dd'))
+    const next = Array.from(new Set(d.base.concat(range))).sort()
+    if (next.length > MAX_MULTI_DAYS) return
+    d.moved = true
+    anchorRef.current = d.from
+    if (!multiSelectMode) setMultiSelectMode(true)
+    setSelectedDates(next)
+  }
+
+  useEffect(() => {
+    function end() {
+      const d = dragSel.current
+      dragSel.current = null
+      // Отпускание после протяжки порождает ещё и «клик» — его гасим, иначе день переключился бы
+      if (d?.moved) { suppressClick.current = true; setTimeout(() => { suppressClick.current = false }, 60) }
+    }
+    window.addEventListener('pointerup', end)
+    window.addEventListener('pointercancel', end)
+    return () => { window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end) }
+  }, [])
+
   // Из режима «несколько дней» — на конкретный день и сразу в редактирование записи
   function openFromMulti(dStr: string, e: DayEntry) {
     setDate(isoToLocal(dStr)); setMultiSelectMode(false); setSelectedDates([])
@@ -551,7 +591,7 @@ export default function TimelineView() {
                 left-0 от кнопки и при переносе шапки уезжал за правый край */}
             {showCal && (
               <div ref={calRef} className="fixed left-4 right-4 top-20 w-auto
-                              md:absolute md:left-0 md:right-auto md:top-10 md:w-80
+                              md:absolute md:left-auto md:right-0 lg:left-0 lg:right-auto md:top-10 md:w-80
                               z-50 bg-navy-900 border border-navy-700
                               rounded-xl shadow-2xl p-4">
                 <div className="flex items-center justify-between mb-3">
@@ -582,7 +622,7 @@ export default function TimelineView() {
                   )}
                 </div>
                 <p className="hidden md:block text-[11px] text-navy-400 mb-2 px-1 leading-snug">
-                  Shift + клик — диапазон дней, Ctrl + клик — отдельные дни (можно из разных месяцев)
+                  Зажмите кнопку мыши и протяните — выберутся дни подряд; Ctrl + клик — отдельные дни (можно из разных месяцев)
                 </p>
 
                 <div className="grid grid-cols-7 mb-1">
@@ -590,7 +630,7 @@ export default function TimelineView() {
                     <div key={d} className="text-center text-xs text-navy-400 py-1">{d}</div>
                   ))}
                 </div>
-                <div className="grid grid-cols-7 gap-0.5">
+                <div className="grid grid-cols-7 gap-0.5 select-none">
                   {Array.from({ length: firstDow }).map((_, i) => <div key={`e${i}`} />)}
                   {calDays.map(d => {
                     const dStr = format(d, 'yyyy-MM-dd')
@@ -600,7 +640,10 @@ export default function TimelineView() {
                     const inMonth = isSameMonth(d, calMonth)
                     const hasEntries = datesWithEntries.has(dStr)
                     return (
-                      <button key={d.toISOString()} onClick={ev => selectDay(d, ev)}
+                      <button key={d.toISOString()}
+                        onPointerDown={ev => dayPointerDown(ev, dStr)}
+                        onPointerEnter={ev => dayPointerEnter(ev, dStr)}
+                        onClick={ev => { if (suppressClick.current) return; selectDay(d, ev) }}
                         className={`relative h-11 md:h-8 w-full rounded-lg text-xs font-medium transition-colors
                           ${isSelected || isMultiSelected ? 'bg-gold-500 text-navy-950'
                             : isToday ? 'bg-navy-700 text-gold-400 ring-1 ring-gold-500/50'

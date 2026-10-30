@@ -439,7 +439,7 @@ export default function MattersPage() {
             </div>
             <div>
               <label className="label">Ставка, руб./ч.</label>
-              <input type="number" inputMode="decimal" className="input" value={form.hourly_rate}
+              <input step="0.01" type="number" inputMode="decimal" className="input" value={form.hourly_rate}
                 onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))} placeholder="1290" />
             </div>
             <div>
@@ -503,7 +503,7 @@ export default function MattersPage() {
             </div>
             <div>
               <label className="label">Сумма в месяц, ₽</label>
-              <input type="number" inputMode="decimal" className="input" value={form.monthly_fee} placeholder="224000"
+              <input step="0.01" type="number" inputMode="decimal" className="input" value={form.monthly_fee} placeholder="224000"
                 onChange={e => setForm(f => ({ ...f, monthly_fee: e.target.value }))} />
             </div>
             <div>

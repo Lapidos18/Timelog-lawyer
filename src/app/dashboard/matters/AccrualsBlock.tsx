@@ -122,7 +122,7 @@ export default function AccrualsBlock({ matterId, onChanged }: { matterId: strin
             </div>
             <div>
               <label className="label">Сумма, ₽</label>
-              <input type="number" inputMode="decimal" className="input" value={form.amount} placeholder="7000"
+              <input step="0.01" type="number" inputMode="decimal" className="input" value={form.amount} placeholder="7000"
                 onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
             </div>
             <div className="md:col-span-2">

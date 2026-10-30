@@ -17,77 +17,94 @@ export default function BackupPage() {
   const [loading, setLoading] = useState(false)
   const [lastBackup, setLastBackup] = useState<string | null>(null)
   const [results, setResults] = useState<BackupResult[]>([])
+  const [backupError, setBackupError] = useState('')
+  const [backupSucceeded, setBackupSucceeded] = useState(false)
 
   async function doBackup() {
     setLoading(true)
     setResults([])
-    const backup: Record<string, any[]> = {}
-    const newResults: BackupResult[] = []
+    setBackupError('')
+    setBackupSucceeded(false)
+    try {
+      const backup: Record<string, any[]> = {}
+      const newResults: BackupResult[] = []
 
-    const tables = [
-      'clients',
-      'matters',
-      'time_entries',
-      'payments',
-      'acts',
-      'profiles',
-      'expenses',
-      'tax_settings',
-      'tax_payments',
-      'manual_income',
-      'reimbursable_expenses',
-      'audit_log',
-      // Сроки и заседания (миграция 017) — их потеря дороже всего
-      'court_events',
-      // Акты взаимных расчётов (миграция 019)
-      'settlement_acts',
-      // Начисления по актам (миграция 022)
-      'matter_accruals',
-    ]
+      const tables = [
+        'clients',
+        'matters',
+        'time_entries',
+        'payments',
+        'acts',
+        'profiles',
+        'expenses',
+        'tax_settings',
+        'tax_payments',
+        'manual_income',
+        'reimbursable_expenses',
+        'audit_log',
+        // Сроки и заседания (миграция 017) — их потеря дороже всего
+        'court_events',
+        // Акты взаимных расчётов (миграция 019)
+        'settlement_acts',
+        // Начисления по актам (миграция 022)
+        'matter_accruals',
+      ]
 
-    // tax_settings не имеет столбца created_at (первичный ключ — year, дата
-    // строки не нужна), поэтому для неё сортируем по году, а не по умолчанию
-    const orderColumn: Record<string, string> = {
-      tax_settings: 'year',
-      audit_log: 'changed_at',
-    }
-
-    for (const table of tables) {
-      const { data, error } = await supabase.from(table).select('*').order((orderColumn[table] ?? 'created_at') as any)
-      if (error) {
-        newResults.push({ table, count: 0, status: 'error' })
-      } else {
-        backup[table] = data ?? []
-        newResults.push({ table, count: (data ?? []).length, status: 'ok' })
+      // tax_settings не имеет столбца created_at (первичный ключ — year, дата
+      // строки не нужна), поэтому для неё сортируем по году, а не по умолчанию
+      const orderColumn: Record<string, string> = {
+        tax_settings: 'year',
+        audit_log: 'changed_at',
       }
-      setResults([...newResults])
+
+      for (const table of tables) {
+        const { data, error } = await supabase.from(table).select('*').order((orderColumn[table] ?? 'created_at') as any)
+        if (error) {
+          newResults.push({ table, count: 0, status: 'error' })
+        } else {
+          backup[table] = data ?? []
+          newResults.push({ table, count: (data ?? []).length, status: 'ok' })
+        }
+        setResults([...newResults])
+      }
+
+      if (newResults.some(r => r.status === 'error')) {
+        throw new Error('Не все таблицы удалось выгрузить. Неполная копия не скачана. Повторите попытку.')
+      }
+
+      // Add metadata
+      const meta = {
+        backup_date: new Date().toISOString(),
+        backup_version: '1.0',
+        tables: Object.keys(backup),
+        total_records: Object.values(backup).reduce((s, arr) => s + arr.length, 0),
+      }
+
+      const fullBackup = { meta, data: backup }
+      const json = JSON.stringify(fullBackup, null, 2)
+      const blob = new Blob([json], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `timelog_backup_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+
+      const dateStr = format(new Date(), 'dd.MM.yyyy HH:mm')
+      setLastBackup(dateStr)
+      // Недоступное хранилище браузера не отменяет уже сформированный файл.
+      try { localStorage.setItem('last_backup', dateStr) } catch { /* только локальная отметка */ }
+      setBackupSucceeded(true)
+      toast.success('Бэкап скачан!')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось создать копию. Повторите попытку.'
+      setBackupError(message)
+      toast.error(message)
+    } finally {
+      setLoading(false)
     }
-
-    // Add metadata
-    const meta = {
-      backup_date: new Date().toISOString(),
-      backup_version: '1.0',
-      tables: Object.keys(backup),
-      total_records: Object.values(backup).reduce((s, arr) => s + arr.length, 0),
-    }
-
-    const fullBackup = { meta, data: backup }
-    const json = JSON.stringify(fullBackup, null, 2)
-    const blob = new Blob([json], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `timelog_backup_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-
-    const dateStr = format(new Date(), 'dd.MM.yyyy HH:mm')
-    setLastBackup(dateStr)
-    localStorage.setItem('last_backup', dateStr)
-    toast.success('Бэкап скачан!')
-    setLoading(false)
   }
 
   const totalRecords = results.filter(r => r.status === 'ok').reduce((s, r) => s + r.count, 0)
@@ -158,7 +175,7 @@ export default function BackupPage() {
               </div>
             ))}
           </div>
-          {!loading && results.length === Object.keys(TABLE_LABELS).length && (
+          {backupSucceeded && (
             <div className="mt-4 pt-4 border-t border-navy-800 flex items-center justify-between">
               <span className="text-sm text-navy-400">
                 Итого: <strong className="text-navy-200">{totalRecords} записей</strong>
@@ -168,6 +185,8 @@ export default function BackupPage() {
           )}
         </div>
       )}
+
+      {backupError && <p role="alert" className="text-sm text-red-400 mb-4">{backupError}</p>}
 
       {/* Action */}
       <button onClick={doBackup} disabled={loading} className="btn-primary w-full justify-center py-3">

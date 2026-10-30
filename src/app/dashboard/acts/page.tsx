@@ -866,7 +866,7 @@ export default function ActsPage() {
               </div>
               <div>
                 <label className="label">Сумма</label>
-                <input type="number" inputMode="decimal" className="input" value={payConfirmAmount}
+                <input step="0.01" type="number" inputMode="decimal" className="input" value={payConfirmAmount}
                   onChange={e => setPayConfirmAmount(e.target.value)} />
               </div>
               <div>

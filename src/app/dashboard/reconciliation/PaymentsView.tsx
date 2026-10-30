@@ -526,7 +526,7 @@ export default function PaymentsView({ clients, matters, switcher, openFormSigna
             </div>
             <div>
               <label className="label">Сумма, руб. *</label>
-              <input type="number" inputMode="decimal" className="input" required placeholder="50000"
+              <input step="0.01" type="number" inputMode="decimal" className="input" required placeholder="50000"
                 value={payForm.amount} onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))} />
             </div>
             <div>

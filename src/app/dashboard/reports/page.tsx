@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { ReportRow, ReportFilters, Client, Matter, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import {
@@ -93,10 +93,20 @@ export default function ReportsPage() {
   // загрузки в браузере (см. src/lib/use-mounted.ts)
   const mounted = useMounted()
   const now = new Date()
-  const [filters, setFilters] = useState<ReportFilters>({
+  const reportRequest = useRef(0)
+  const [filters, setFiltersState] = useState<ReportFilters>({
     date_from: format(startOfMonth(now), 'yyyy-MM-dd'),
     date_to: format(endOfMonth(now), 'yyyy-MM-dd'),
   })
+
+  // Строки и реквизиты выгрузки должны относиться к одной выборке.
+  function setFilters(update: React.SetStateAction<ReportFilters>) {
+    reportRequest.current++
+    setRows([])
+    setSearched(false)
+    setLoading(false)
+    setFiltersState(update)
+  }
 
   useEffect(() => {
     Promise.all([
@@ -133,23 +143,34 @@ export default function ReportsPage() {
   const effectiveReportNo = reportNo.trim() || suggestedReportNo
 
   async function runReport() {
+    const request = ++reportRequest.current
     setLoading(true)
-    let q = supabase.from('report_view').select('*').order('work_date')
+    setRows([])
+    setSearched(false)
+    try {
+      let q = supabase.from('report_view').select('*').order('work_date')
 
-    if (filters.date_from) q = q.gte('work_date', filters.date_from)
-    if (filters.date_to)   q = q.lte('work_date', filters.date_to)
-    // Фильтруем по идентификаторам (миграция 011), а не по названиям: тёзки-доверители
-    // и одноимённые дела иначе смешиваются, а переименование ломает выборку
-    if (filters.client_id) q = q.eq('client_id', filters.client_id)
-    if (filters.matter_id) q = q.eq('matter_id', filters.matter_id)
-    if (filters.user_id)   q = q.eq('user_id', filters.user_id)
-    if (filters.activity_type) q = q.eq('activity_type', filters.activity_type)
-    if (filters.is_billable !== undefined) q = q.eq('is_billable', filters.is_billable)
+      if (filters.date_from) q = q.gte('work_date', filters.date_from)
+      if (filters.date_to)   q = q.lte('work_date', filters.date_to)
+      // Фильтруем по идентификаторам (миграция 011), а не по названиям: тёзки-доверители
+      // и одноимённые дела иначе смешиваются, а переименование ломает выборку
+      if (filters.client_id) q = q.eq('client_id', filters.client_id)
+      if (filters.matter_id) q = q.eq('matter_id', filters.matter_id)
+      if (filters.user_id)   q = q.eq('user_id', filters.user_id)
+      if (filters.activity_type) q = q.eq('activity_type', filters.activity_type)
+      if (filters.is_billable !== undefined) q = q.eq('is_billable', filters.is_billable)
 
-    const { data, error } = await q
-    if (error) { toast.error('Не удалось получить данные. Проверьте связь и попробуйте снова') }
-    else { setRows(data ?? []); setSearched(true) }
-    setLoading(false)
+      const { data, error } = await q
+      if (request !== reportRequest.current) return
+      if (error) { toast.error('Не удалось получить данные. Проверьте связь и попробуйте снова') }
+      else { setRows(data ?? []); setSearched(true) }
+    } catch {
+      if (request === reportRequest.current) {
+        toast.error('Не удалось получить данные. Проверьте связь и попробуйте снова')
+      }
+    } finally {
+      if (request === reportRequest.current) setLoading(false)
+    }
   }
 
   function openEdit(row: ReportRow) {
@@ -626,7 +647,7 @@ export default function ReportsPage() {
               </div>
               <div className="md:col-span-2">
                 <label className="label">Ставка, руб./ч. *</label>
-                <input type="number" inputMode="decimal" className="input" value={editForm.hourly_rate}
+                <input step="0.01" type="number" inputMode="decimal" className="input" value={editForm.hourly_rate}
                   onChange={e => setEditForm(f => ({ ...f, hourly_rate: e.target.value }))} />
               </div>
               <div className="md:col-span-2">

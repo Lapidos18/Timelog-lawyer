@@ -739,7 +739,7 @@ export default function TimelineView() {
             </div>
             <div>
               <label className="label">Ставка, руб./ч. *</label>
-              <input type="number" min="0" required inputMode="decimal" className="input" value={form.hourly_rate}
+              <input step="0.01" type="number" min="0" required inputMode="decimal" className="input" value={form.hourly_rate}
                 onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))} />
             </div>
             <div className="flex items-end pb-1">

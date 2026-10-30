@@ -173,6 +173,7 @@ export default function TableView() {
   useDraft(DRAFT_KEY, form, showForm && !editId)
 
   function resetForm() {
+    setNdfl(false)
     setForm({
       matter_id: '',
       work_date: format(new Date(), 'yyyy-MM-dd'),
@@ -199,6 +200,7 @@ export default function TableView() {
    * было бы обиднее, чем не восстановить ничего.
    */
   function openNewEntry() {
+    setNdfl(false)
     const draft = loadDraft<typeof form>(DRAFT_KEY)
     if (draft && (draft.description?.trim() || draft.matter_id)) {
       setForm(draft)
@@ -220,6 +222,7 @@ export default function TableView() {
    * заново, иначе легко сохранить вчерашние часы, не заметив.
    */
   function repeatEntry(e: EntryWithRelations) {
+    setNdfl(false)
     setForm({
       matter_id: e.matter_id,
       work_date: format(new Date(), 'yyyy-MM-dd'),
@@ -238,6 +241,8 @@ export default function TableView() {
   function startEdit(e: EntryWithRelations) {
     const actNo = locked.get(e.id)
     if (actNo) { toast.error(lockedMessage(actNo)); return }
+    // Сохранённая ставка уже включает выбранную при вводе надбавку.
+    setNdfl(false)
     const h = Math.floor(e.duration_min / 60)
     const m = e.duration_min % 60
     setForm({
@@ -468,7 +473,7 @@ export default function TableView() {
                   </span>
                 )}
               </label>
-              <input type="number" min="0" inputMode="decimal" className="input" placeholder="7000"
+              <input step="0.01" type="number" min="0" inputMode="decimal" className="input" placeholder="7000"
                 value={form.hourly_rate}
                 onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))} required />
             </div>

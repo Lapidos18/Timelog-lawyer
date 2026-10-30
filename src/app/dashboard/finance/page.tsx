@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import {
   Expense, ExpenseCategory, EXPENSE_CATEGORY_LABELS, EXPENSE_CATEGORY_RISKY,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeader from '@/components/PageHeader'
+import LoadError from '@/components/LoadError'
 import { calcNdfl, yearFraction, isContributionType, contributionExpenseText, contributionsInDeduction } from '@/lib/tax'
 import Link from 'next/link'
 import CalculatorTab from './CalculatorTab'
@@ -51,6 +52,8 @@ export default function FinancePage() {
   const supabase = createClient()
   const [tab, setTab] = useState<Tab>('calc')
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
+  const loadRequest = useRef(0)
   // Год выбирается, а не берётся жёстко текущий: декларация за прошедший год
   // подаётся до 30 апреля следующего, и в этот момент нужны цифры именно
   // прошлого года. Раньше приложение уже показывало новый год, и достать
@@ -103,76 +106,85 @@ export default function FinancePage() {
   })
 
   const loadAll = useCallback(async () => {
+    const request = ++loadRequest.current
     setLoading(true)
-    const [
-      { data: paymentsData },
-      { data: manualIncomeData },
-      { data: expensesData },
-      { data: settingsData },
-      { data: taxPaymentsData },
-      { data: clientsData },
-      { data: mattersData },
-      { data: reimbData },
-    ] = await Promise.all([
-      supabase.from('payments').select('*, clients(name), matters(title)').order('pay_date', { ascending: false }),
-      supabase.from('manual_income').select('*, clients(name), matters(title)').order('income_date', { ascending: false }),
-      supabase.from('expenses').select('*, matters(title, clients(name))').order('expense_date', { ascending: false }),
-      supabase.from('tax_settings').select('*').eq('year', year).single(),
-      supabase.from('tax_payments').select('*').eq('period_year', year).order('payment_date', { ascending: false }),
-      supabase.from('clients').select('*').order('name'),
-      supabase.from('matters').select('*, clients(*)').order('title'),
-      // Компенсированные издержки — вычитаются из дохода, это не доход адвоката
-      supabase.from('reimbursable_expenses').select('*')
-        .eq('status', 'reimbursed').not('reimbursed_date', 'is', null),
-    ])
+    setLoadError(false)
+    try {
+      const responses = await Promise.all([
+        supabase.from('payments').select('*, clients(name), matters(title)').order('pay_date', { ascending: false }),
+        supabase.from('manual_income').select('*, clients(name), matters(title)').order('income_date', { ascending: false }),
+        supabase.from('expenses').select('*, matters(title, clients(name))').order('expense_date', { ascending: false }),
+        supabase.from('tax_settings').select('*').eq('year', year).maybeSingle(),
+        supabase.from('tax_payments').select('*').eq('period_year', year).order('payment_date', { ascending: false }),
+        supabase.from('clients').select('*').order('name'),
+        supabase.from('matters').select('*, clients(*)').order('title'),
+        // Компенсированные издержки — вычитаются из дохода, это не доход адвоката
+        supabase.from('reimbursable_expenses').select('*')
+          .eq('status', 'reimbursed').not('reimbursed_date', 'is', null),
+      ])
+      if (request !== loadRequest.current) return
+      // Пустая таблица допустима; ошибка чтения — нет. Расчёт по части данных запрещён.
+      if (responses.some(r => r.error)) throw new Error('Не удалось загрузить финансовые данные')
+      const [
+        { data: paymentsData }, { data: manualIncomeData }, { data: expensesData },
+        { data: settingsData }, { data: taxPaymentsData }, { data: clientsData },
+        { data: mattersData }, { data: reimbData },
+      ] = responses
 
-    const fromPayments: IncomeRow[] = (paymentsData || []).map((p: any) => ({
-      id: p.id,
-      pay_date: p.pay_date,
-      pay_year: new Date(p.pay_date).getFullYear(),
-      pay_quarter: quarterOf(p.pay_date),
-      client_id: p.client_id,
-      client_name: p.clients?.name ?? '—',
-      matter_id: p.matter_id,
-      matter_title: p.matters?.title ?? null,
-      amount: p.amount,
-      description: p.description,
-      doc_no: p.doc_no,
-      source: 'payment' as const,
-    }))
+      const fromPayments: IncomeRow[] = (paymentsData || []).map((p: any) => ({
+        id: p.id,
+        pay_date: p.pay_date,
+        pay_year: new Date(p.pay_date).getFullYear(),
+        pay_quarter: quarterOf(p.pay_date),
+        client_id: p.client_id,
+        client_name: p.clients?.name ?? '—',
+        matter_id: p.matter_id,
+        matter_title: p.matters?.title ?? null,
+        amount: p.amount,
+        description: p.description,
+        doc_no: p.doc_no,
+        source: 'payment' as const,
+      }))
 
-    const fromManual: IncomeRow[] = (manualIncomeData || []).map((m: any) => ({
-      id: m.id,
-      pay_date: m.income_date,
-      pay_year: new Date(m.income_date).getFullYear(),
-      pay_quarter: quarterOf(m.income_date),
-      client_id: m.client_id,
-      client_name: m.clients?.name ?? '—',
-      matter_id: m.matter_id,
-      matter_title: m.matters?.title ?? null,
-      amount: m.amount,
-      description: m.description,
-      doc_no: m.doc_no,
-      source: 'manual' as const,
-    }))
+      const fromManual: IncomeRow[] = (manualIncomeData || []).map((m: any) => ({
+        id: m.id,
+        pay_date: m.income_date,
+        pay_year: new Date(m.income_date).getFullYear(),
+        pay_quarter: quarterOf(m.income_date),
+        client_id: m.client_id,
+        client_name: m.clients?.name ?? '—',
+        matter_id: m.matter_id,
+        matter_title: m.matters?.title ?? null,
+        amount: m.amount,
+        description: m.description,
+        doc_no: m.doc_no,
+        source: 'manual' as const,
+      }))
 
-    const mappedIncomes = [...fromPayments, ...fromManual].sort(
-      (a, b) => new Date(b.pay_date).getTime() - new Date(a.pay_date).getTime()
-    )
+      const mappedIncomes = [...fromPayments, ...fromManual].sort(
+        (a, b) => new Date(b.pay_date).getTime() - new Date(a.pay_date).getTime()
+      )
 
-    setIncomes(mappedIncomes.filter(i => i.pay_year === year))
-    setExpenses((expensesData || []).filter((e: Expense) => new Date(e.expense_date).getFullYear() === year))
-    setTaxSettings(settingsData || null)
-    setTaxPayments(taxPaymentsData || [])
-    setClients(clientsData || [])
-    setMatters((mattersData || []) as (Matter & { clients: Client })[])
-    // Фильтруем по ГОДУ ПОСТУПЛЕНИЯ компенсации, а не по дате расхода
-    setReimbursements(((reimbData || []) as ReimbursableExpense[])
-      .filter(r => r.reimbursed_date && new Date(r.reimbursed_date).getFullYear() === year))
-    setLoading(false)
+      setIncomes(mappedIncomes.filter(i => i.pay_year === year))
+      setExpenses((expensesData || []).filter((e: Expense) => new Date(e.expense_date).getFullYear() === year))
+      setTaxSettings(settingsData || null)
+      setTaxPayments(taxPaymentsData || [])
+      setClients(clientsData || [])
+      setMatters((mattersData || []) as (Matter & { clients: Client })[])
+      // Фильтруем по ГОДУ ПОСТУПЛЕНИЯ компенсации, а не по дате расхода
+      setReimbursements(((reimbData || []) as ReimbursableExpense[])
+        .filter(r => r.reimbursed_date && new Date(r.reimbursed_date).getFullYear() === year))
+    } catch {
+      if (request === loadRequest.current) setLoadError(true)
+    } finally {
+      if (request === loadRequest.current) setLoading(false)
+    }
   }, [supabase, year])
 
-  useEffect(() => { loadAll() }, [loadAll])
+  useEffect(() => {
+    loadAll()
+    return () => { loadRequest.current++ }
+  }, [loadAll])
 
   // ------------------------------------------------------------
   // Квартальные суммы (нарастающим итогом)
@@ -525,6 +537,15 @@ export default function FinancePage() {
     return <div className="p-7 text-navy-300 text-sm">Загрузка...</div>
   }
 
+  if (loadError) {
+    return (
+      <div className="p-4 md:p-7 max-w-6xl">
+        <PageHeader title="Доходы и налоги" />
+        <LoadError onRetry={loadAll} />
+      </div>
+    )
+  }
+
   return (
     <div className="p-4 md:p-7 max-w-6xl">
       <PageHeader title="Доходы и налоги" icon={Wallet}
@@ -619,7 +640,7 @@ export default function FinancePage() {
                 </div>
                 <div>
                   <label className="label">Сумма</label>
-                  <input type="number" inputMode="decimal" className="input" value={incomeForm.amount}
+                  <input step="0.01" type="number" inputMode="decimal" className="input" value={incomeForm.amount}
                     onChange={e => setIncomeForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
                 </div>
                 <div className="md:col-span-2">
@@ -770,7 +791,7 @@ export default function FinancePage() {
                 <div>
                   <label className="label">Сумма</label>
                   <div className="relative">
-                    <input type="number" inputMode="decimal" className="input pr-10" value={expenseForm.amount}
+                    <input step="0.01" type="number" inputMode="decimal" className="input pr-10" value={expenseForm.amount}
                       onChange={e => setExpenseForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-navy-300 text-sm">₽</span>
                   </div>
@@ -1078,7 +1099,7 @@ export default function FinancePage() {
                 </div>
                 <div>
                   <label className="label">Сумма</label>
-                  <input type="number" inputMode="decimal" className="input" value={paymentForm.amount}
+                  <input step="0.01" type="number" inputMode="decimal" className="input" value={paymentForm.amount}
                     onChange={e => setPaymentForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
                 </div>
                 <div>
@@ -1273,7 +1294,7 @@ export default function FinancePage() {
                 </div>
                 <div>
                   <label className="label">Сумма</label>
-                  <input type="number" inputMode="decimal" className="input" value={contribPaymentForm.amount}
+                  <input step="0.01" type="number" inputMode="decimal" className="input" value={contribPaymentForm.amount}
                     onChange={e => setContribPaymentForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
                 </div>
                 <div>

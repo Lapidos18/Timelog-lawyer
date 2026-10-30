@@ -9,6 +9,7 @@ import path from 'node:path'
  * и сломанный расчёт не попадает на сайт.
  */
 export default defineConfig({
+  esbuild: { jsx: 'automatic' },
   test: {
     include: ['src/**/*.test.ts'],
     environment: 'node',

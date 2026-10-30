@@ -13,6 +13,7 @@ import PageHeader from '@/components/PageHeader'
 import ChangeHistory from '@/components/ChangeHistory'
 import Modal from '@/components/Modal'
 import EmptyState from '@/components/EmptyState'
+import LoadError from '@/components/LoadError'
 
 function fmt(n: number) {
   return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
@@ -50,6 +51,7 @@ export default function ReimbursementsPage() {
   const [expenses, setExpenses] = useState<ReimbursableExpense[]>([])
   const [matters, setMatters] = useState<(Matter & { clients: Client })[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const [showForm, setShowForm] = useState(false)
@@ -66,13 +68,22 @@ export default function ReimbursementsPage() {
 
   const loadAll = useCallback(async () => {
     setLoading(true)
-    const [{ data: expData }, { data: mattersData }] = await Promise.all([
-      supabase.from('reimbursable_expenses').select('*, matters(*, clients(*))').order('expense_date', { ascending: false }),
-      supabase.from('matters').select('*, clients(*)').order('title'),
-    ])
-    setExpenses((expData ?? []) as ReimbursableExpense[])
-    setMatters((mattersData ?? []) as (Matter & { clients: Client })[])
-    setLoading(false)
+    setLoadError(false)
+    try {
+      const [exp, matter] = await Promise.all([
+        supabase.from('reimbursable_expenses').select('*, matters(*, clients(*))').order('expense_date', { ascending: false }),
+        supabase.from('matters').select('*, clients(*)').order('title'),
+      ])
+      if (exp.error || matter.error) throw new Error('Не удалось загрузить расходы')
+      const expData = exp.data
+      const mattersData = matter.data
+      setExpenses((expData ?? []) as ReimbursableExpense[])
+      setMatters((mattersData ?? []) as (Matter & { clients: Client })[])
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
+    }
   }, [supabase])
 
   useEffect(() => { loadAll() }, [loadAll])
@@ -183,6 +194,15 @@ export default function ReimbursementsPage() {
   useEscapeKey(showForm, resetForm)
   useEscapeKey(!!dateAskFor, () => setDateAskFor(null))
 
+  if (loadError) {
+    return (
+      <div className="p-4 md:p-7">
+        <PageHeader title="Возмещаемые расходы" />
+        <LoadError onRetry={loadAll} />
+      </div>
+    )
+  }
+
   return (
     <div className="p-4 md:p-7">
       <PageHeader title="Возмещаемые расходы" icon={Receipt}
@@ -242,7 +262,7 @@ export default function ReimbursementsPage() {
             </div>
             <div>
               <label className="label">Сумма *</label>
-              <input type="number" inputMode="decimal" className="input" value={form.amount}
+              <input step="0.01" type="number" inputMode="decimal" className="input" value={form.amount}
                 onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
             </div>
             <div className="md:col-span-2">

@@ -102,7 +102,7 @@ export default function CalculatorTab() {
               {mode === 'net_to_gross' ? 'Хочу получить «на руки»' : 'Сумма дохода (начислено)'}
             </label>
             <div className="relative">
-              <input
+              <input step="0.01"
                 type="number"
                 inputMode="decimal"
                 className="input pr-10"
@@ -130,7 +130,7 @@ export default function CalculatorTab() {
               <span className="ml-1 text-navy-400 normal-case font-normal">(для профвычета)</span>
             </label>
             <div className="relative">
-              <input
+              <input step="0.01"
                 type="number"
                 inputMode="decimal"
                 className="input pr-10"

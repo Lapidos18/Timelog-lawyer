@@ -35,6 +35,7 @@ export default function AccrualsBlock({ matterId, onChanged }: { matterId: strin
   const [loading, setLoading] = useState(true)
   const [missing, setMissing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [kind, setKind] = useState<'charge' | 'reduction'>('charge')
   const [form, setForm] = useState({ accrual_date: '', amount: '', description: '' })
 
   const load = useCallback(async () => {
@@ -54,30 +55,31 @@ export default function AccrualsBlock({ matterId, onChanged }: { matterId: strin
 
   async function add() {
     const amount = parseFloat(form.amount.replace(',', '.'))
-    if (!form.accrual_date) { toast.error('Укажите дату акта'); return }
-    if (!(amount > 0)) { toast.error('Укажите сумму акта'); return }
+    if (!form.accrual_date) { toast.error('Укажите дату'); return }
+    if (!Number.isFinite(amount) || Math.round(amount * 100) <= 0) { toast.error('Укажите сумму больше нуля'); return }
+    if (kind === 'reduction' && !form.description.trim()) { toast.error('Укажите причину уменьшения стоимости'); return }
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
     const { error } = await supabase.from('matter_accruals').insert({
       matter_id: matterId,
       accrual_date: form.accrual_date,
-      amount,
+      amount: (kind === 'reduction' ? -1 : 1) * Math.round(amount * 100) / 100,
       description: form.description.trim() || `Акт от ${shortDate(form.accrual_date)}`,
       created_by: user?.id ?? null,
     })
     setSaving(false)
     if (error) {
-      toast.error(isMissingTable(error) ? 'Начисления пока негде хранить: выполните миграцию 022 в Supabase' : 'Ошибка: ' + error.message)
+      toast.error(isMissingTable(error) ? 'Начисления пока негде хранить: выполните миграцию 022 в Supabase' : error.code === '23514' && kind === 'reduction' ? 'Для уменьшения стоимости выполните миграцию 023 в Supabase' : 'Ошибка: ' + error.message)
       return
     }
-    toast.success('Начисление добавлено')
+    toast.success(kind === 'reduction' ? 'Уменьшение стоимости добавлено' : 'Начисление добавлено')
     setForm({ accrual_date: form.accrual_date, amount: '', description: '' })
     await load()
     onChanged()
   }
 
   async function remove(a: Accrual) {
-    if (!confirm(`Удалить начисление «${a.description}» на ${fmt(Number(a.amount))} ₽?`)) return
+    if (!confirm(`Удалить ${Number(a.amount) < 0 ? 'уменьшение стоимости' : 'начисление'} «${a.description}» на ${fmt(Math.abs(Number(a.amount)))} ₽?`)) return
     const { error } = await supabase.from('matter_accruals').delete().eq('id', a.id)
     if (error) { toast.error('Не удалось удалить: ' + error.message); return }
     toast.success('Удалено')
@@ -87,17 +89,18 @@ export default function AccrualsBlock({ matterId, onChanged }: { matterId: strin
 
   return (
     <div className="mt-4 pt-3 border-t border-navy-800">
-      <p className="text-sm font-medium text-navy-200">Начисления по актам</p>
+      <p className="text-sm font-medium text-navy-200">Начисления и корректировки стоимости</p>
       <p className="text-xs text-navy-400 mt-0.5 mb-3">
         Для работы на фиксированную сумму без записей времени: добавьте акт — сумма станет начисленной на Обзоре,
         в «Делах» и в акте сверки. Если работа уже ведётся по часам, здесь её дублировать не нужно.
+        Уменьшение стоимости снижает долг с выбранной даты и сохраняет фактические часы и ставки журнала.
       </p>
 
       {missing ? (
         <p className="text-xs text-amber-400">Чтобы начисления сохранялись, один раз выполните SQL из файла supabase/migrations/022_matter_accruals.sql в Supabase.</p>
       ) : (
         <>
-          {!loading && list.length === 0 && <p className="text-xs text-navy-400 mb-2">Начислений пока нет.</p>}
+          {!loading && list.length === 0 && <p className="text-xs text-navy-400 mb-2">Начислений и корректировок пока нет.</p>}
           {list.length > 0 && (
             <ul className="divide-y divide-navy-800/60 mb-3">
               {list.map(a => (
@@ -105,7 +108,7 @@ export default function AccrualsBlock({ matterId, onChanged }: { matterId: strin
                   <span className="num text-navy-400 text-xs whitespace-nowrap">{shortDate(a.accrual_date)}</span>
                   <span className="flex-1 min-w-0 text-navy-200 break-words">{a.description}</span>
                   <span className="num text-navy-100 whitespace-nowrap">{fmt(Number(a.amount))} ₽</span>
-                  <button type="button" aria-label="Удалить начисление" onClick={() => remove(a)}
+                  <button type="button" aria-label={Number(a.amount) < 0 ? 'Удалить уменьшение стоимости' : 'Удалить начисление'} onClick={() => remove(a)}
                     className="tap-icon text-navy-400 hover:text-red-400 flex-shrink-0">
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -115,25 +118,33 @@ export default function AccrualsBlock({ matterId, onChanged }: { matterId: strin
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="md:col-span-4">
+              <label className="label" htmlFor="accrual-kind">Вид записи</label>
+              <select id="accrual-kind" className="input min-h-11" value={kind}
+                onChange={e => setKind(e.target.value as 'charge' | 'reduction')}>
+                <option value="charge">Начисление по акту</option>
+                <option value="reduction">Уменьшение стоимости услуг</option>
+              </select>
+            </div>
             <div>
-              <label className="label">Дата акта</label>
+              <label className="label">{kind === 'reduction' ? 'Дата корректировки' : 'Дата акта'}</label>
               <input type="date" className="input" value={form.accrual_date}
                 onChange={e => setForm(f => ({ ...f, accrual_date: e.target.value }))} />
             </div>
             <div>
               <label className="label">Сумма, ₽</label>
-              <input step="0.01" type="number" inputMode="decimal" className="input" value={form.amount} placeholder="7000"
+              <input min="0.01" step="0.01" type="number" inputMode="decimal" className="input" value={form.amount} placeholder={kind === 'reduction' ? '294,25' : '7000'}
                 onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
             </div>
             <div className="md:col-span-2">
-              <label className="label">Подпись в акте сверки</label>
+              <label className="label">{kind === 'reduction' ? 'Причина уменьшения (обязательно)' : 'Подпись в акте сверки'}</label>
               <input type="text" className="input" value={form.description}
-                placeholder={form.accrual_date ? `Акт от ${shortDate(form.accrual_date)}` : 'Акт от …'}
+                placeholder={kind === 'reduction' ? 'Уменьшение стоимости услуг за …' : form.accrual_date ? `Акт от ${shortDate(form.accrual_date)}` : 'Акт от …'}
                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
             <div className="md:col-span-4">
               <button type="button" onClick={add} disabled={saving || loading} className="btn-secondary">
-                <Plus className="w-4 h-4" /> {saving ? 'Добавляю…' : 'Добавить начисление'}
+                <Plus className="w-4 h-4" /> {saving ? 'Добавляю…' : kind === 'reduction' ? 'Уменьшить стоимость' : 'Добавить начисление'}
               </button>
             </div>
           </div>

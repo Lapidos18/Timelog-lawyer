@@ -106,7 +106,7 @@ export default function MattersPage() {
     }
     for (const m of (mattersRes.data ?? [])) {
       const v = matterFeeAccrued(m, worked[m.id] ?? 0, today, accr[m.id])
-      if (v !== 0 || isSubscription(m)) worked[m.id] = v
+      worked[m.id] = v
     }
     setAccrCountByMatter(Object.fromEntries(Object.entries(accr).map(([k, v]) => [k, v.length])))
     const reimbursed: Record<string, number> = {}

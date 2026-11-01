@@ -86,6 +86,13 @@ describe('начислено по делу: часы или абонплата',
 })
 
 describe('начисления по актам (работа на фиксированную сумму без часов)', () => {
+  it('уменьшение стоимости снижает начисления с выбранной даты, в том числе до нуля', () => {
+    const reduction = { accrual_date: '2026-10-31', amount: '-294.25' }
+    expect(manualAccrualsKop([reduction], '2026-10-30')).toBe(0)
+    expect(manualAccrualsKop([reduction], '2026-10-31')).toBe(-29425)
+    expect(matterFeeAccrued({}, 1000, '2026-10-31', [reduction])).toBe(705.75)
+    expect(matterFeeAccrued({}, 294.25, '2026-10-31', [reduction])).toBe(0)
+  })
   // АБ «Смирнова и партнеры»: оплата 7 000 ₽ за участие в заседании, закрыта актом от 31.08.2026
   const act = { accrual_date: '2026-08-31', amount: 7000, description: 'Акт от 31.08.2026' }
 

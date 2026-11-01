@@ -14,6 +14,26 @@ const norm = (s: string) => s.replace(/[\s  ]+/g, ' ')
 const row = (date: string, doc: string, debit: number, credit: number, id = doc): SettlementRow =>
   ({ id, date, doc, debit, credit })
 
+describe('уменьшение стоимости услуг', () => {
+  it('попадает в кредит, сохраняется при открытии и уменьшает долг без изменения часов', () => {
+    const rows = buildRowsUs({
+      periodFrom: '2026-10-01', periodTo: '2026-10-31',
+      services: [{ work_date: '2026-10-15', matter_title: 'Тестовое дело', amount: 1000 }],
+      payments: [{ pay_date: '2026-10-28', doc_no: '1', amount: 2000 }], expenses: [],
+      actAccruals: [{ date: '2026-10-31', kop: -29425, doc: 'Уменьшение стоимости услуг' }],
+    })
+    expect(rows.find(r => r.id === 'act-0')).toMatchObject({ debit: 0, credit: 29425 })
+    const doc = newSettlementDoc({ periodFrom: '2026-10-01', periodTo: '2026-10-31',
+      clientName: 'ООО «Пример»', cabinetLine: 'Кабинет',
+      openingUs: { debit: 229425, credit: 0 }, rowsUs: rows })
+    const restored = normalizeDoc(JSON.parse(JSON.stringify(doc)), { from: doc.periodFrom, to: doc.periodTo })
+    expect(tableTotals(restored.openingUs, restored.rowsUs).net).toBe(100000)
+    const mirror = effectiveThem(restored)
+    expect(tableTotals(mirror.opening, mirror.rows).net).toBe(-100000)
+    expect(openingFrom(100000 - 29425, 0)).toEqual({ debit: 70575, credit: 0 })
+  })
+})
+
 describe('деньги в копейках', () => {
   it('рубли из базы → копейки без ошибки дробей', () => {
     expect(toKop(0.1) + toKop(0.2)).toBe(30) // в рублях 0.1 + 0.2 = 0.30000000000000004

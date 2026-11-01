@@ -203,7 +203,7 @@ export function buildRowsUs(input: {
 
   ;(input.actAccruals ?? []).forEach((a, k) => {
     if (a.kop === 0) return
-    rows.push({ id: `act-${k}`, date: a.date, doc: a.doc, debit: a.kop, credit: 0 })
+    rows.push({ id: `act-${k}`, date: a.date, doc: a.doc, debit: Math.max(a.kop, 0), credit: Math.max(-a.kop, 0) })
   })
 
   // Абонплата — своя строка на месяц («как Акт от 31.07» в акте сверки адвоката)

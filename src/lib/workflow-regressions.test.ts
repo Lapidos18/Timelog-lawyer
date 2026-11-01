@@ -55,6 +55,7 @@ import FinancePage from '@/app/dashboard/finance/page'
 import ReportsPage from '@/app/dashboard/reports/page'
 import ReimbursementsPage from '@/app/dashboard/reimbursements/page'
 import LoadError from '@/components/LoadError'
+import AccrualsBlock from '@/app/dashboard/matters/AccrualsBlock'
 
 const entry = {
   id: 'entry-1', matter_id: 'matter-1', user_id: 'user-1', work_date: '2026-10-05',
@@ -72,6 +73,7 @@ const fixture: Record<string, any[]> = {
 type Reply = { data: any; error: null | { message: string } }
 let replies: (table: string) => Reply | Promise<Reply>
 const updates: any[] = []
+const inserts: any[] = []
 function makeClient() {
   return {
     auth: { getUser: async () => ({ data: { user: { id: 'user-1' } } }) },
@@ -83,6 +85,7 @@ function makeClient() {
             .then(r => ({ ...r, data: single ? r.data?.[0] ?? null : r.data })).then(resolve, reject)
           if (name === 'single' || name === 'maybeSingle') return () => { single = true; return query }
           if (name === 'update') return (payload: unknown) => { updates.push({ table, payload }); return query }
+          if (name === 'insert') return (payload: unknown) => { inserts.push({ table, payload }); return query }
           return () => query
         },
       })
@@ -111,12 +114,42 @@ function text(tree: any): string {
   return typeof tree === 'object' ? '' : String(tree)
 }
 const button = (tree: any, name: string) => nodes(tree).find(n => n.type === 'button' && text(n).trim() === name)
+
+describe('уменьшение стоимости в карточке дела', () => {
+  async function reductionForm(reason: string) {
+    const component = () => AccrualsBlock({ matterId: 'matter-1', onChanged: vi.fn() })
+    let tree = render(component)
+    await effects()
+    tree = render(component)
+    nodes(tree).find(n => n.type === 'select')!.props.onChange({ target: { value: 'reduction' } })
+    tree = render(component)
+    for (const [type, value] of [['date', '2026-10-31'], ['number', '294.25'], ['text', reason]]) {
+      nodes(tree).find(n => n.type === 'input' && n.props.type === type)!.props.onChange({ target: { value } })
+      tree = render(component)
+    }
+    await button(tree, 'Уменьшить стоимость').props.onClick()
+  }
+
+  it('сохраняет отрицательное начисление с причиной, не создаёт платёж', async () => {
+    await reductionForm('Уменьшение стоимости услуг за прошлый месяц')
+    expect(inserts).toEqual([{ table: 'matter_accruals', payload: {
+      matter_id: 'matter-1', accrual_date: '2026-10-31', amount: -294.25,
+      description: 'Уменьшение стоимости услуг за прошлый месяц', created_by: 'user-1',
+    } }])
+  })
+
+  it('отклоняет уменьшение без причины', async () => {
+    await reductionForm('  ')
+    expect(inserts).toEqual([])
+    expect(runtime.error).toHaveBeenCalledWith('Укажите причину уменьшения стоимости')
+  })
+})
 const taxToggle = (tree: any) => nodes(tree).find(n => n.type === 'label' && text(n).includes('+НДФЛ 15%'))
   ?.props.children.find((n: any) => n?.type === 'input')
 
 beforeEach(() => {
   runtime.slots = []; runtime.cursor = 0; runtime.effects = []
-  vi.clearAllMocks(); updates.length = 0
+  vi.clearAllMocks(); updates.length = 0; inserts.length = 0
   replies = table => ({ data: fixture[table] ?? [], error: null })
   runtime.client = makeClient()
   vi.stubGlobal('window', { scrollTo: vi.fn() })

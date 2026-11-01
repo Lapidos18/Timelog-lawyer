@@ -8,8 +8,10 @@
     "start": "next start",
     "lint": "next lint",
     "backup": "node scripts/backup-local.mjs",
-    "prebuild": "vitest run",
-    "test": "vitest run"
+    "prebuild": "vitest run && node scripts/test-finance-db.cjs",
+    "test": "vitest run",
+    "backup:verify": "node scripts/verify-backup.mjs",
+    "backup:restore-check": "node scripts/restore-check.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.0",
@@ -24,6 +26,7 @@
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.14",
     "@eslint/eslintrc": "^3.3.7",
     "@types/node": "^20",
     "@types/react": "^18",

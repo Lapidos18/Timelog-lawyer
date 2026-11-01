@@ -329,6 +329,10 @@ export const EVENT_KIND_LABELS: Record<CourtEventKind, string> = {
 }
 
 export interface CourtEvent {
+  source_document?: string | null
+  calculated_date?: string | null
+  calendar_version?: string | null
+  confirmed_at?: string | null
   id: string
   matter_id: string | null
   kind: CourtEventKind

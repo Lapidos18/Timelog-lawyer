@@ -10,6 +10,7 @@ import { useDraft, loadDraft, clearDraft } from '@/lib/draft'
 import { useLockedEntries, lockedMessage } from '@/lib/locked-entries'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import EmptyState from '@/components/EmptyState'
+import ChangeHistory from '@/components/ChangeHistory'
 import Modal from '@/components/Modal'
 import LoadError from '@/components/LoadError'
 import { SkeletonRows, SkeletonCards } from '@/components/Skeleton'
@@ -67,6 +68,7 @@ export default function TableView() {
   const [loadError, setLoadError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [ndfl, setNdfl] = useState(false)
+  const [changeReason,setChangeReason]=useState('')
   const [showTemplates, setShowTemplates] = useState(false)
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [selectedUserId, setSelectedUserId] = useState<string>('')
@@ -256,7 +258,7 @@ export default function TableView() {
       is_billable: e.is_billable,
       notes: e.notes ?? '',
     })
-    setEditId(e.id)
+    setEditId(e.id);setChangeReason('')
     setSelectedUserId(e.user_id)
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -268,6 +270,7 @@ export default function TableView() {
     const dmin = (parseInt(form.hours || '0') * 60) + parseInt(form.minutes || '0')
     if (dmin <= 0) { toast.error('Укажите время'); return }
     if (dmin > 1440) { toast.error('Длительность одной записи не может превышать 24 часа'); return }
+    if(editId && !changeReason.trim()){toast.error('Укажите причину изменения записи');return}
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
     const payload = {
@@ -280,6 +283,7 @@ export default function TableView() {
       description: form.description,
       is_billable: form.is_billable,
       notes: form.notes || null,
+      ...(editId ? {change_reason:changeReason.trim()} : {}),
     }
     const { error } = editId
       ? await supabase.from('time_entries').update(payload).eq('id', editId)
@@ -293,7 +297,9 @@ export default function TableView() {
     const actNo = locked.get(id)
     if (actNo) { toast.error(lockedMessage(actNo)); return }
     if (!confirm('Удалить запись?')) return
-    const { error } = await supabase.from('time_entries').delete().eq('id', id)
+    const deleteReason=window.prompt('Причина удаления записи:')
+    if(!deleteReason?.trim())return
+    const { error } = await supabase.rpc('delete_time_entry',{p_id:id,p_reason:deleteReason.trim()})
     if (error) { toast.error('Не удалось удалить: ' + error.message) }
     else { toast.success('Удалено'); loadEntries() }
   }
@@ -375,6 +381,7 @@ export default function TableView() {
         title={editId ? 'Редактировать запись' : 'Новая запись'} wide>
 
           <form onKeyDown={submitOnCtrlEnter} onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+        {editId && <div className="mb-4 md:col-span-3"><label className="label" htmlFor="entry-change-reason">Причина изменения</label><input id="entry-change-reason" className="input min-h-11" value={changeReason} onChange={e=>setChangeReason(e.target.value)} required/><ChangeHistory table="time_entries" rowId={editId}/></div>}
             <div className="md:col-span-1">
               <label className="label">Дело *</label>
               <select className="select" value={form.matter_id}

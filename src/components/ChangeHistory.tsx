@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { format } from 'date-fns'
 import { History } from 'lucide-react'
 import { REIMBURSEMENT_STATUS_LABELS } from '@/types'
+import { readAllRows } from '@/lib/billing'
 
 /**
  * История изменений одной записи из audit_log (миграция 013).
@@ -19,6 +20,7 @@ import { REIMBURSEMENT_STATUS_LABELS } from '@/types'
  */
 
 type Row = {
+  changed_by: string | null
   id: string
   action: 'insert' | 'update' | 'delete'
   old_data: Record<string, unknown> | null
@@ -27,6 +29,11 @@ type Row = {
 }
 
 const LABELS: Record<string, string> = {
+  allocation_summary: 'Распределение платежа',document_snapshot:'Сохранённый документ',rows:'Состав документа',snapshot:'Контрольный расчёт',
+  duration_min: 'Время, мин', hourly_rate: 'Ставка', work_date: 'Дата работы',
+  change_reason: 'Причина изменения', monthly_fee: 'Абонентская плата',fee_from:'Начало абонплаты',fee_to:'Конец абонплаты',
+  fee_amount:'Вознаграждение',expense_amount:'Возмещение',closed:'Месяц закрыт',reopen_reason:'Причина открытия',
+  document_revision:'Версия документа',is_void:'Заменён исправлением',void_reason:'Причина исправления',
   pay_date: 'Дата платежа',
   income_date: 'Дата поступления',
   expense_date: 'Дата расхода',
@@ -47,7 +54,7 @@ const LABELS: Record<string, string> = {
 const ID_FIELDS = new Set(['matter_id', 'client_id', 'payment_id'])
 
 // Технические поля, которые меняются сами и в истории только мешают
-const SKIP = new Set(['id', 'created_at', 'updated_at', 'created_by'])
+const SKIP = new Set(['id', 'created_at', 'updated_at', 'created_by', 'revision', 'document_html', 'document_css', 'document_word', 'document_fingerprint'])
 
 const ACT_STATUS: Record<string, string> = {
   draft: 'Черновик', signed: 'Подписан', paid: 'Оплачен',
@@ -66,6 +73,7 @@ function fmtValue(field: string, v: unknown): string {
       ?? ACT_STATUS[s] ?? s
   }
   if (field === 'is_billable') return v ? 'да' : 'нет'
+  if(typeof v==='object')return 'сохранённая версия'
   if (/_date$|^period_/.test(field) && typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) {
     return format(new Date(v), 'dd.MM.yyyy')
   }
@@ -90,21 +98,22 @@ export default function ChangeHistory({ table, rowId }: { table: string; rowId: 
   const supabase = createClient()
   const [rows, setRows] = useState<Row[] | null>(null)
   const [failed, setFailed] = useState(false)
+  const [authors,setAuthors]=useState<Record<string,string>>({})
 
   useEffect(() => {
-    supabase.from('audit_log')
-      .select('id, action, old_data, new_data, changed_at')
-      .eq('table_name', table).eq('row_id', rowId)
-      .order('changed_at', { ascending: false })
-      .limit(20)
-      .then(({ data, error }) => {
-        if (error) { setFailed(true); return }
-        setRows((data ?? []) as Row[])
-      })
+    let active=true
+    setRows(null);setFailed(false)
+    Promise.all([
+      readAllRows<Row>(supabase,'audit_log','id,action,old_data,new_data,changed_at,changed_by',q=>q.eq('table_name',table).eq('row_id',rowId).order('changed_at',{ascending:false})),
+      supabase.from('profiles').select('id,full_name'),
+    ]).then(([data,profiles])=>{if(!active)return;setRows(data);setAuthors(Object.fromEntries((profiles.data??[]).map((p:{id:string;full_name:string})=>[p.id,p.full_name])))})
+      .catch(()=>active&&setFailed(true))
+    return ()=>{active=false}
   }, [table, rowId])
 
   // Пока миграция 013 не выполнена, таблицы нет — молчим, а не пугаем ошибкой
-  if (failed || rows === null || rows.length === 0) return null
+  if(failed)return <p className="text-xs text-amber-300 mt-3" role="status">История изменений временно недоступна. Откройте запись заново для повторной загрузки.</p>
+  if(rows===null||rows.length===0)return null
 
   return (
     <div className="mt-5 pt-4 border-t border-navy-800">
@@ -124,6 +133,8 @@ export default function ChangeHistory({ table, rowId }: { table: string; rowId: 
                   : r.action === 'delete' ? 'удалено'
                   : 'изменено'}
               </span>
+              <p className="text-navy-400 mt-1">Автор: {r.changed_by?(authors[r.changed_by]||'Пользователь кабинета'):'Служебная операция'}</p>
+              {r.action==='delete'&&!!r.old_data?.change_reason&&<p className="text-navy-300 mt-1">Причина: {String(r.old_data.change_reason)}</p>}
               {r.action === 'update' && changes.length > 0 && (
                 <ul className="mt-1 ml-1 space-y-0.5">
                   {changes.map(c => (

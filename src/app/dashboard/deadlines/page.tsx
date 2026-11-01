@@ -64,7 +64,7 @@ export default function DeadlinesPage() {
     kind: 'deadline' as CourtEventKind,
     title: '', matter_id: '', event_date: '', event_time: '',
     place: '', note: '', remind_days: '7',
-    template_id: '', base_date: '',
+    template_id: '', base_date: '', source_document: '', confirmed: false,
   }
   const [form, setForm] = useState(empty)
 
@@ -89,14 +89,14 @@ export default function DeadlinesPage() {
   const shown = useMemo(() => {
     const list = events.filter(e => {
       if (filter === 'all') return true
-      const past = e.done || daysUntil(e.event_date) < 0
+      const past = e.done
       return filter === 'past' ? past : !past
     })
     // Просроченное — наверх: оно требует решения сегодня
     return list.sort((a, b) => a.event_date.localeCompare(b.event_date))
   }, [events, filter])
 
-  const openCount = events.filter(e => !e.done && daysUntil(e.event_date) >= 0).length
+  const openCount = events.filter(e => !e.done).length
   const overCount = events.filter(e => !e.done && daysUntil(e.event_date) < 0).length
 
   /** Подсказка расчёта под полями «дата основания» + «вид срока» */
@@ -121,7 +121,7 @@ export default function DeadlinesPage() {
       note: e.note ?? '',
       remind_days: String(e.remind_days),
       template_id: e.template_id ?? '',
-      base_date: e.base_date ?? '',
+      base_date: e.base_date ?? '', source_document: e.source_document ?? '', confirmed: !!e.confirmed_at,
     })
     setShowForm(true)
   }
@@ -132,6 +132,7 @@ export default function DeadlinesPage() {
       toast.error('Нужны название и дата')
       return
     }
+    if(form.kind === 'deadline' && !form.confirmed) { toast.error('Проверьте и подтвердите конечную дату срока'); return }
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
     const payload = {
@@ -145,6 +146,10 @@ export default function DeadlinesPage() {
       remind_days: Math.max(0, Number(form.remind_days) || 0),
       template_id: form.template_id || null,
       base_date: form.base_date || null,
+      calculated_date: computed?.date ?? null,
+      calendar_version: computed?.calendarSource ?? null,
+      source_document: form.source_document.trim() || null,
+      confirmed_at: form.confirmed ? new Date().toISOString() : null,
     }
 
     const { error } = editId
@@ -226,8 +231,8 @@ export default function DeadlinesPage() {
       {/* Фильтры. flex-wrap обязателен: в 375 px четыре кнопки в строку не влезают */}
       <div className="flex flex-wrap gap-2 mb-4">
         {([
-          ['open', `Предстоящие${openCount ? ` · ${openCount}` : ''}`],
-          ['past', 'Прошедшие и закрытые'],
+          ['open', `Неисполненные${openCount ? ` · ${openCount}` : ''}`],
+          ['past', 'Завершённые'],
           ['all', 'Все'],
         ] as [Filter, string][]).map(([v, label]) => (
           <button key={v} onClick={() => setFilter(v)}
@@ -340,6 +345,11 @@ export default function DeadlinesPage() {
         title={editId ? 'Изменить событие' : 'Новое событие'} wide>
         <form onSubmit={handleSubmit} onKeyDown={submitOnCtrlEnter}
           className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="mb-4 md:col-span-2">
+            <label className="label" htmlFor="deadline-source">Документ-основание / источник срока</label>
+            <input id="deadline-source" className="input min-h-11" value={form.source_document} onChange={e=>setForm(f=>({...f,source_document:e.target.value}))} placeholder="Решение, дата получения, номер документа" />
+            {form.kind === 'deadline' && <label className="flex items-center gap-3 min-h-11 text-sm mt-2"><input type="checkbox" checked={form.confirmed} onChange={e=>setForm(f=>({...f,confirmed:e.target.checked}))} />Проверил основание и конечную дату срока</label>}
+          </div>
 
           <div>
             <label className="label">Что это *</label>
@@ -381,7 +391,7 @@ export default function DeadlinesPage() {
                 <div>
                   <label className="label">Вид срока</label>
                   <select className="select" value={form.template_id}
-                    onChange={ev => setForm(f => ({ ...f, template_id: ev.target.value }))}>
+                    onChange={ev => setForm(f => ({ ...f, template_id: ev.target.value, confirmed: false }))}>
                     <option value="">— считать не нужно, укажу дату сам —</option>
                     {DEADLINE_TEMPLATES.map(t => (
                       <option key={t.id} value={t.id}>{t.label}</option>
@@ -393,7 +403,7 @@ export default function DeadlinesPage() {
                     Дата {template ? template.from.replace(/^со дня /, '') : 'события, от которой идёт срок'}
                   </label>
                   <input type="date" className="input" value={form.base_date}
-                    onChange={ev => setForm(f => ({ ...f, base_date: ev.target.value }))} />
+                    onChange={ev => setForm(f => ({ ...f, base_date: ev.target.value, confirmed: false }))} />
                 </div>
               </div>
 
@@ -405,7 +415,7 @@ export default function DeadlinesPage() {
                     <span className="text-navy-400">{computed.explanation}.</span>
                   </p>
                   <button type="button" className="btn-secondary text-xs"
-                    onClick={() => setForm(f => ({ ...f, event_date: computed.date }))}>
+                    onClick={() => setForm(f => ({ ...f, event_date: computed.date, confirmed: false }))}>
                     Подставить дату
                   </button>
                 </div>
@@ -421,7 +431,7 @@ export default function DeadlinesPage() {
           <div>
             <label className="label">{form.kind === 'deadline' ? 'Последний день срока *' : 'Дата *'}</label>
             <input type="date" className="input" value={form.event_date}
-              onChange={ev => setForm(f => ({ ...f, event_date: ev.target.value }))} required />
+              onChange={ev => setForm(f => ({ ...f, event_date: ev.target.value, confirmed: false }))} required />
           </div>
 
           {form.kind !== 'deadline' && (

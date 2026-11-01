@@ -21,7 +21,7 @@ export function useLockedEntries() {
     const { data, error } = await createClient()
       .from('acts')
       .select('act_no, rows')
-      .in('status', ['signed', 'paid'])
+      .in('status', ['signed', 'paid']).eq('is_void', false)
     if (error || !data) { setLocked(new Map()); return }
     const map = new Map<string, string>()
     for (const act of data as { act_no: string; rows: { id: string }[] | null }[]) {
@@ -37,5 +37,5 @@ export function useLockedEntries() {
 
 /** Текст для пользователя — один на все три экрана, где правятся записи */
 export function lockedMessage(actNo: string) {
-  return `Запись входит в акт ${actNo}, он подписан или оплачен. Чтобы её изменить, переведите акт в «Черновик».`
+  return `Запись входит в акт ${actNo}, он подписан или оплачен. Чтобы её изменить, создайте исправление выпущенного акта.`
 }

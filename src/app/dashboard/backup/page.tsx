@@ -1,5 +1,6 @@
 'use client'
-import { useState } from 'react'
+import { createBackup } from '../../../../scripts/backup-format.mjs'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { format } from 'date-fns'
 import { Download, Database, CheckCircle, AlertCircle, HardDrive } from 'lucide-react'
@@ -26,63 +27,12 @@ export default function BackupPage() {
     setBackupError('')
     setBackupSucceeded(false)
     try {
-      const backup: Record<string, any[]> = {}
-      const newResults: BackupResult[] = []
-
-      const tables = [
-        'clients',
-        'matters',
-        'time_entries',
-        'payments',
-        'acts',
-        'profiles',
-        'expenses',
-        'tax_settings',
-        'tax_payments',
-        'manual_income',
-        'reimbursable_expenses',
-        'audit_log',
-        // Сроки и заседания (миграция 017) — их потеря дороже всего
-        'court_events',
-        // Акты взаимных расчётов (миграция 019)
-        'settlement_acts',
-        // Начисления по актам (миграция 022)
-        'matter_accruals',
-      ]
-
-      // tax_settings не имеет столбца created_at (первичный ключ — year, дата
-      // строки не нужна), поэтому для неё сортируем по году, а не по умолчанию
-      const orderColumn: Record<string, string> = {
-        tax_settings: 'year',
-        audit_log: 'changed_at',
-      }
-
-      for (const table of tables) {
-        const { data, error } = await supabase.from(table).select('*').order((orderColumn[table] ?? 'created_at') as any)
-        if (error) {
-          newResults.push({ table, count: 0, status: 'error' })
-        } else {
-          backup[table] = data ?? []
-          newResults.push({ table, count: (data ?? []).length, status: 'ok' })
-        }
-        setResults([...newResults])
-      }
-
-      if (newResults.some(r => r.status === 'error')) {
-        throw new Error('Не все таблицы удалось выгрузить. Неполная копия не скачана. Повторите попытку.')
-      }
-
-      // Add metadata
-      const meta = {
-        backup_date: new Date().toISOString(),
-        backup_version: '1.0',
-        tables: Object.keys(backup),
-        total_records: Object.values(backup).reduce((s, arr) => s + arr.length, 0),
-      }
-
-      const fullBackup = { meta, data: backup }
-      const json = JSON.stringify(fullBackup, null, 2)
-      const blob = new Blob([json], { type: 'application/json' })
+      const {data: snapshot,error: snapshotError}=await supabase.rpc('backup_snapshot')
+      if(snapshotError)throw new Error('Не удалось получить полный снимок базы: '+snapshotError.message)
+      const payload=await createBackup(snapshot,'manual')
+      const backup=payload.data
+      setResults(payload.meta.tables.map((table:string)=>({table,status:'ok' as const,count:backup[table].length})))
+      const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'})
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -107,9 +57,13 @@ export default function BackupPage() {
     }
   }
 
+  const [lastRun,setLastRun]=useState<{success:boolean;mirror_success:boolean;completed_at:string|null;message:string}|null>(null)
+  useEffect(()=>{supabase.from('backup_runs').select('success,mirror_success,completed_at,message').order('started_at',{ascending:false}).limit(1)
+    .then(({data})=>setLastRun(data?.[0]??null))},[])
   const totalRecords = results.filter(r => r.status === 'ok').reduce((s, r) => s + r.count, 0)
 
   const TABLE_LABELS: Record<string, string> = {
+    payment_allocations:'Распределения платежей',act_entry_claims:'Связь работ с актами',billing_periods:'Закрытые месяцы',backup_runs:'Состояние резервирования',financial_operations:'Защита от повторных операций',
     clients:               'Доверители',
     matters:               'Дела',
     time_entries:          'Записи времени',
@@ -132,6 +86,10 @@ export default function BackupPage() {
       <PageHeader title="Резервная копия" icon={HardDrive}
         description="Скачивает все данные из базы одним файлом. Это копия «на руки» — например, перед крупными изменениями; ежедневная копия и так делается сама." />
 
+      <div className="card mb-4 text-sm">
+        <p className="font-medium">Автоматическое резервирование</p>
+        {lastRun?<><p className="mt-2">Основная копия: {lastRun.success?'проверена':'не подтверждена'}</p><p>Вторая копия: {lastRun.mirror_success?'проверена':'не создана или не настроена'}</p><p className="text-xs text-navy-300 mt-2">{lastRun.message}</p><p className="num text-xs mt-2">{lastRun.completed_at?new Date(lastRun.completed_at).toLocaleString('ru-RU'): 'Запуск ещё не завершён'}</p></>:<p className="mt-2">Сведения о новом запуске пока отсутствуют. Отметка о ручном скачивании не подтверждает автоматическую или вторую копию.</p>}
+      </div>
       {/* Info card */}
       <div className="card mb-6">
         <div className="flex items-start gap-4">

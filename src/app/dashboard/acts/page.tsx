@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { readAllResult } from '@/lib/billing'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format } from 'date-fns'
@@ -7,9 +8,13 @@ import { ru } from 'date-fns/locale'
 import { Plus, X, Check, Printer, Trash2, FileCheck, RefreshCw, Lock, Wallet, FileText } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
+import { printDocument, PRINT_CSS } from '@/lib/print'
+import { readAllRows } from '@/lib/billing'
+import { escapeHtml } from '@/lib/html'
+import { blobBase64,downloadWord } from '@/lib/document-files'
 import { CABINET } from '@/lib/print'
-import { buildActDoc } from '@/lib/act-doc'
-import { printActDoc, exportActWord } from '@/lib/act-print'
+import { buildActDoc, ActDoc } from '@/lib/act-doc'
+import { printActDoc, exportActWord, actBodyHtml, actCss, buildActWord } from '@/lib/act-print'
 import LoadError from '@/components/LoadError'
 import { nextActNo as computeNextActNo, toActRows, actRowsTotal } from '@/lib/acts'
 import { matterFeeAccrued, ManualAccrual } from '@/lib/balance'
@@ -20,6 +25,14 @@ import Modal from '@/components/Modal'
 import EmptyState from '@/components/EmptyState'
 
 interface Act {
+  document_snapshot?: ActDoc | null
+  document_word?: string | null
+  document_html?: string | null
+  document_css?: string | null
+  issued_at?: string | null
+  document_revision?: number
+  is_void?: boolean
+  externally_paid?: boolean
   id: string
   act_no: string
   matter_id: string
@@ -112,6 +125,10 @@ export default function ActsPage() {
   const [previewRows, setPreviewRows] = useState<ServiceRow[]>([])
   const [previewTotal, setPreviewTotal] = useState(0)
   const [loadingPreview, setLoadingPreview] = useState(false)
+  const previewGeneration = useRef(0)
+  const paymentOperation = useRef('')
+  const [issuing,setIssuing]=useState(false)
+  const [paymentTotals,setPaymentTotals] = useState<Record<string,{paid_amount:number;remaining:number;overpayment:number}>>({})
 
   const loadActs = useCallback(async () => {
     setLoading(true)
@@ -119,7 +136,12 @@ export default function ActsPage() {
       .from('acts')
       .select('*, matters(*, clients(*))')
       .order('created_at', { ascending: false })
-    setLoadError(!!error)
+    let totalsError=false
+    try {
+      const totals=await readAllRows<{act_id:string;paid_amount:number;remaining:number;overpayment:number}>(supabase,'act_payment_totals','*',undefined,'act_id')
+      setPaymentTotals(Object.fromEntries((totals ?? []).map((t: {act_id:string;paid_amount:number;remaining:number;overpayment:number})=>[t.act_id,t])))
+    } catch { totalsError=true }
+    setLoadError(!!error || totalsError)
     setActs((data ?? []) as Act[])
     setLoading(false)
   }, [])
@@ -136,12 +158,11 @@ export default function ActsPage() {
         // вознаграждением; без них остаток аванса был бы завышен (см. п. 11
         // в CLAUDE.md). Формулу держать одинаковой во всех четырёх местах,
         // иначе акт будет обещать не то, что показывают «Дела».
-        supabase.from('payments').select('matter_id, amount'),
-        supabase.from('time_entries').select('matter_id, amount, is_billable'),
-        supabase.from('reimbursable_expenses').select('matter_id, amount')
-          .in('status', ['invoiced', 'reimbursed']),
+        readAllResult(supabase,'effective_payment_allocations','matter_id, amount'),
+        readAllResult(supabase,'time_entries','matter_id, amount, is_billable'),
+        readAllResult(supabase,'reimbursable_expenses','matter_id, amount',q=>q.in('status',['invoiced','reimbursed'])),
         // Начисления по актам (миграция 022); пока таблицы нет — ошибка игнорируется
-        supabase.from('matter_accruals').select('matter_id, accrual_date, amount'),
+        readAllResult(supabase,'matter_accruals','matter_id, accrual_date, amount'),
       ])
       if (profileRes.data) setProfile(profileRes.data)
       setMatters((mattersRes.data ?? []) as (Matter & { clients: Client })[])
@@ -172,6 +193,8 @@ export default function ActsPage() {
       loadActs()
     }
     init()
+    const params=new URLSearchParams(window.location.search)
+    if(params.get('from')&&params.get('to')){setForm(f=>({...f,period_from:params.get('from')!,period_to:params.get('to')!}));setShowForm(true)}
   }, [])
 
   // Load preview when matter + period selected
@@ -181,14 +204,17 @@ export default function ActsPage() {
     }
     const m = matters.find(x => x.id === form.matter_id)
     if (!m) return
-    setLoadingPreview(true)
+    const generation=++previewGeneration.current
+    setLoadingPreview(true);setPreviewRows([]);setPreviewTotal(0)
     supabase.from('report_view').select('*')
       .eq('matter_id', form.matter_id)
       .gte('work_date', form.period_from)
       .lte('work_date', form.period_to)
       .eq('is_billable', true)
       .order('work_date')
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if(generation!==previewGeneration.current)return
+        if(error){setLoadingPreview(false);toast.error('Не удалось загрузить актуальный состав акта');return}
         const rows = (data ?? []).map((r: any) => ({
           id: r.id, work_date: r.work_date, activity_type: r.activity_type,
           description: r.description, hours: Number(r.hours),
@@ -199,6 +225,7 @@ export default function ActsPage() {
         setPreviewTotal(actRowsTotal(rows))
         setLoadingPreview(false)
       })
+    return ()=>{previewGeneration.current++}
   }, [form.matter_id, form.period_from, form.period_to])
 
   // Возмещаемые расходы по делу за период: «Доверитель возмещает Адвокату расходы в размере …».
@@ -236,6 +263,7 @@ export default function ActsPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.matter_id) { toast.error('Выберите дело'); return }
+    if (loadingPreview) { toast.error('Дождитесь загрузки состава акта'); return }
     if (previewTotal === 0) { toast.error('Нет оплачиваемых записей за период'); return }
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
@@ -255,6 +283,8 @@ export default function ActsPage() {
       // выполнена, колонки нет, и лишнее поле уронило бы создание ЛЮБОГО акта
       ...(expenses > 0 ? { expenses_amount: expenses } : {}),
     }
+    const doc=buildActDoc({cabinet:CABINET,client:m.clients,matter:m,periodFrom:form.period_from,periodTo:form.period_to,rows:previewRows,expensesAmount:expenses,note:form.description})
+    Object.assign(base,{document_snapshot:doc,document_html:actBodyHtml(doc),document_css:PRINT_CSS+actCss()})
     // Копия строк — чтобы акт печатался таким, каким был создан, а не
     // тем, что лежит в журнале сегодня (миграция 015).
     let { error } = await supabase.from('acts').insert({ ...base, rows: previewRows })
@@ -327,36 +357,47 @@ export default function ActsPage() {
       ? `Сумма не изменится: ${fmt(total)} руб. Обновить состав акта из журнала?`
       : `Сумма акта изменится: было ${fmt(was)} руб., станет ${fmt(total)} руб. Обновить?`
     if (!confirm(msg)) return
-    const { error } = await supabase.from('acts').update({ rows, amount: total }).eq('id', act.id)
+    const fresh=buildActDoc({cabinet:CABINET,client:act.matters.clients,matter:act.matters,periodFrom:act.period_from,periodTo:act.period_to,rows,expensesAmount:act.expenses_amount,note:act.description})
+    const { error } = await supabase.from('acts').update({ rows, amount: total,document_snapshot:fresh,document_html:actBodyHtml(fresh),document_css:PRINT_CSS+actCss() }).eq('id', act.id)
     if (error) { toast.error('Не удалось обновить акт: ' + error.message); return }
     toast.success('Состав акта обновлён из журнала')
-    setPreviewAct({ act: { ...act, rows, amount: total }, rows })
+    setPreviewAct({ act: { ...act, rows, amount: total,document_snapshot:fresh }, rows })
     loadActs()
   }
 
   async function changeStatus(id: string, status: Act['status']) {
-    const act = acts.find(a => a.id === id)
-
-    // При переводе в "Оплачен" — всегда предложить зафиксировать фактический платёж
-    // через модалку (пользователь может отказаться, если уже внёс оплату вручную).
-    // Раньше здесь была эвристика поиска "уже существующего" платежа по подстроке
-    // номера акта в описании — она ненадёжна в обе стороны (не находит платёж,
-    // если он был создан через "Акт сверки" с типовым описанием без номера акта;
-    // либо ложно находит чужой платёж при коротком номере акта) и могла как создать
-    // задвоение, так и молча пропустить фиксацию платежа. Решение по факту оплаты
-    // теперь всегда принимает пользователь в модалке, а не автоматика.
-    if (status === 'paid' && act) {
-      setPayConfirmAct(act)
-      setPayConfirmDate(format(new Date(), 'yyyy-MM-dd'))
-      setPayConfirmAmount(String(act.amount))
-      setPayConfirmDocNo('')
-      return // статус пока не меняем — дождёмся подтверждения в модалке
+    if(issuing)return
+    const act=acts.find(a=>a.id===id)
+    if(!act||act.is_void)return
+    if(status==='draft'&&act.status!=='draft'){
+      const reason=window.prompt('Причина исправления выпущенного акта. Исходная версия сохранится:')
+      if(!reason?.trim())return
+      const {error}=await supabase.rpc('create_act_revision',{p_id:id,p_reason:reason.trim(),p_operation_id:crypto.randomUUID()})
+      if(error){toast.error(error.message);return}
+      toast.success('Создан отдельный черновик исправления');setPreviewAct(null);loadActs();return
     }
-
-    const { error } = await supabase.from('acts').update({ status }).eq('id', id)
-    if (error) { toast.error('Не удалось изменить статус: ' + error.message); return }
-    loadActs()
-    toast.success('Статус обновлён')
+    if(act.status==='draft'&&status!=='draft'){
+      if(!window.confirm('Выпустить акт? Его содержание будет зафиксировано; исправления оформляются отдельной версией.'))return
+      const rows=Array.isArray(act.rows)?act.rows:await fetchLiveRows(act)
+      if(!rows){toast.error('Не удалось получить состав акта');return}
+      const doc=buildActDoc({cabinet:CABINET,client:act.matters.clients,matter:act.matters,periodFrom:act.period_from,periodTo:act.period_to,rows,expensesAmount:act.expenses_amount,note:act.description})
+      setIssuing(true)
+      try {
+        const document_word=await blobBase64(await buildActWord(doc))
+        const {error}=await supabase.from('acts').update({status:'signed',rows,document_snapshot:doc,document_html:actBodyHtml(doc),document_css:PRINT_CSS+actCss(),document_word}).eq('id',id)
+        if(error){toast.error(error.message);return}
+      } catch {toast.error('Не удалось сохранить неизменную версию документа. Акт не выпущен.');return}
+      finally {setIssuing(false)}
+    }
+    if(status==='paid'){
+      paymentOperation.current=crypto.randomUUID()
+      setPayConfirmAct(act);setPayConfirmDate(format(new Date(),'yyyy-MM-dd'))
+      setPayConfirmAmount(String(paymentTotals[id]?.remaining ?? act.amount));setPayConfirmDocNo('');loadActs();return
+    }
+    if(status==='signed'&&act.status==='paid'){
+      toast('Состояние оплаты определяется распределениями платежей. Измените распределение или подтверждение оплаты.');return
+    }
+    loadActs();toast.success(status==='draft'?'Черновик':'Документ выпущен')
   }
 
   async function confirmPaymentAndMarkPaid() {
@@ -365,38 +406,17 @@ export default function ActsPage() {
     if (!amountNum || amountNum <= 0) { toast.error('Укажите сумму оплаты'); return }
 
     setPayConfirmSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    const { error: payError } = await supabase.from('payments').insert({
-      client_id: payConfirmAct.client_id,
-      matter_id: payConfirmAct.matter_id,
-      pay_date: payConfirmDate,
-      amount: amountNum,
-      description: `Оплата по акту № ${payConfirmAct.act_no}`,
-      doc_no: payConfirmDocNo || null,
-      created_by: user?.id,
-    })
-
-    if (payError) {
-      setPayConfirmSaving(false)
-      toast.error('Ошибка при записи платежа: ' + payError.message)
-      return
-    }
-
-    const { error: statusError } = await supabase.from('acts').update({ status: 'paid' }).eq('id', payConfirmAct.id)
-    setPayConfirmSaving(false)
-
-    if (statusError) {
-      toast.error('Платёж записан, но не удалось обновить статус акта: ' + statusError.message)
-    } else {
-      toast.success('Оплата зафиксирована, статус акта обновлён')
-    }
-    setPayConfirmAct(null)
-    loadActs()
+    try {
+      const {error}=await supabase.rpc('record_act_payment',{p_id:payConfirmAct.id,p_date:payConfirmDate,p_amount:amountNum,p_doc_no:payConfirmDocNo,p_operation_id:paymentOperation.current})
+      if(error)throw error
+      toast.success('Платёж внесён и связан с актом. Частичная оплата учтена.');setPayConfirmAct(null);loadActs()
+    } catch(e){toast.error((e as {message?:string}).message||'Не удалось сохранить оплату')}
+    finally{setPayConfirmSaving(false)}
   }
 
   async function markPaidWithoutPayment() {
     if (!payConfirmAct) return
-    const { error } = await supabase.from('acts').update({ status: 'paid' }).eq('id', payConfirmAct.id)
+    const { error } = await supabase.from('acts').update({ status: 'paid',externally_paid:true }).eq('id', payConfirmAct.id)
     if (error) { toast.error('Не удалось изменить статус: ' + error.message); return }
     toast.success('Статус обновлён без записи платежа')
     setPayConfirmAct(null)
@@ -411,7 +431,18 @@ export default function ActsPage() {
   }
 
   /** Состав документа из акта: тот же идёт и в печать, и в Word, они не могут разойтись */
+  function paymentDetails(act: Act) {return (<div className="text-xs mt-2 space-y-1">
+ {act.is_void?<p className="text-amber-300">Заменён исправленной версией</p>:<>
+ <p>Оплачено: {fmt(Number(paymentTotals[act.id]?.paid_amount??0))} ₽</p>
+ <p>Остаток: {fmt(Number(paymentTotals[act.id]?.remaining??act.amount))} ₽</p>
+ {Number(paymentTotals[act.id]?.overpayment)>0&&<p>Переплата: {fmt(Number(paymentTotals[act.id].overpayment))} ₽</p>}
+ {act.externally_paid&&<p>Оплата подтверждена вручную без связанного платежа</p>}
+ {act.status!=='draft'&&<button className="btn-secondary min-h-11" onClick={ev=>{ev.stopPropagation();changeStatus(act.id,'draft')}}>Создать исправление</button>}
+ </>}
+ </div>)}
+
   function actDocFor(act: Act, rows: ServiceRow[]) {
+    if(act.document_snapshot)return act.document_snapshot
     return buildActDoc({
       cabinet: CABINET, client: act.matters.clients, matter: act.matters,
       periodFrom: act.period_from, periodTo: act.period_to,
@@ -420,7 +451,9 @@ export default function ActsPage() {
   }
 
   function printAct(act: Act, rows: ServiceRow[]) {
-    if (!printActDoc(actDocFor(act, rows))) {
+    const printed=act.issued_at&&act.document_html&&act.document_css
+      ?printDocument(escapeHtml(actDocFor(act,rows).fileName),act.document_html,act.document_css):printActDoc(actDocFor(act,rows))
+    if (!printed) {
       toast.error('Браузер заблокировал всплывающее окно. Разрешите всплывающие окна для этого сайта и попробуйте снова.')
       return
     }
@@ -428,6 +461,7 @@ export default function ActsPage() {
   }
 
   async function wordAct(act: Act, rows: ServiceRow[]) {
+    if(act.issued_at&&act.document_word){downloadWord(act.document_word,actDocFor(act,rows).fileName);return}
     try { await exportActWord(actDocFor(act, rows)) }
     catch (e) { console.error(e); toast.error('Не удалось сформировать файл Word') }
   }
@@ -581,7 +615,7 @@ export default function ActsPage() {
             )}
 
             <div className="md:col-span-3 flex gap-3">
-              <button type="submit" disabled={submitting || previewTotal === 0} className="btn-primary">
+              <button type="submit" disabled={submitting || loadingPreview || previewTotal === 0} className="btn-primary">
                 <Check className="w-4 h-4" /> {submitting ? 'Создаю...' : `Создать акт на ${fmt(previewTotal)} руб.`}
               </button>
               <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">Отмена</button>
@@ -617,7 +651,7 @@ export default function ActsPage() {
                 }`}>
                   <td className="py-3 pr-4">
                     <button onClick={() => openPreview(act)}
-                      className="text-gold-400 hover:underline num text-xs">{act.act_no}</button>
+                      className="text-gold-400 hover:underline num text-xs min-h-11">{act.act_no}</button>
                   </td>
                   <td className="py-3 pr-4 text-navy-300 text-xs max-w-[150px] truncate">{act.matters?.title}</td>
                   <td className="py-3 pr-4 text-navy-400 text-xs max-w-[130px] truncate">{act.matters?.clients?.name}</td>
@@ -626,18 +660,18 @@ export default function ActsPage() {
                   </td>
                   <td className="py-3 pr-4 num text-navy-100 text-xs whitespace-nowrap">{fmt(act.amount)} ₽</td>
                   <td className="py-3 pr-4">
-                    <select value={act.status}
+                    <select value={act.status} disabled={act.is_void || issuing}
                       onChange={e => changeStatus(act.id, e.target.value as Act['status'])}
                       className={`no-zoom tap text-xs px-2 py-1 rounded-md border-0 cursor-pointer ${STATUS_COLORS[act.status]}`}>
-                      {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                    </select>
+                      {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v} disabled={v==='draft'&&act.status!=='draft'}>{l}</option>)}
+                    </select>{paymentDetails(act)}
                   </td>
                   <td className="py-3">
                     <div className="flex gap-1">
                       <button aria-label="Просмотр и печать акта" onClick={() => openPreview(act)} className="btn-ghost p-1.5" title="Просмотр / печать">
                         <Printer className="w-3.5 h-3.5" />
                       </button>
-                      <button aria-label="Удалить акт" onClick={() => deleteAct(act.id)}
+                      <button disabled={act.status!=='draft'} aria-label="Удалить акт" onClick={() => deleteAct(act.id)}
                         className="btn-ghost p-1.5 hover:text-red-400 hover:bg-red-900/10">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -679,20 +713,21 @@ export default function ActsPage() {
                   {fmtDate(act.period_from)} — {fmtDate(act.period_to)}
                 </p>
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <select value={act.status}
+                  <select value={act.status} disabled={act.is_void || issuing}
                     onClick={ev => ev.stopPropagation()}
                     onChange={e => changeStatus(act.id, e.target.value as Act['status'])}
                     className={`no-zoom tap text-xs px-2 py-1 rounded-md border-0 cursor-pointer ${STATUS_COLORS[act.status]}`}>
-                    {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v} disabled={v==='draft'&&act.status!=='draft'}>{l}</option>)}
                   </select>
                   <span className="num text-sm text-navy-100 font-semibold">{fmt(act.amount)} ₽</span>
                 </div>
+                {paymentDetails(act)}
                 <div className="flex items-center justify-end gap-1 pt-2 border-t border-navy-800/60">
                   <button aria-label="Просмотр и печать акта" onClick={ev => { ev.stopPropagation(); openPreview(act) }}
                     className="btn-ghost p-1.5" title="Просмотр / печать">
                     <Printer className="w-3.5 h-3.5" />
                   </button>
-                  <button aria-label="Удалить акт" onClick={ev => { ev.stopPropagation(); deleteAct(act.id) }}
+                  <button disabled={act.status!=='draft'} aria-label="Удалить акт" onClick={ev => { ev.stopPropagation(); deleteAct(act.id) }}
                     className="btn-ghost p-1.5 hover:text-red-400 hover:bg-red-900/10">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -764,7 +799,7 @@ export default function ActsPage() {
                 <p className="text-xs text-navy-400 mb-3 flex items-center gap-1.5">
                   <Lock className="w-3.5 h-3.5 flex-shrink-0" />
                   Акт {previewAct.act.status === 'paid' ? 'оплачен' : 'подписан'}: состав зафиксирован,
-                  записи из него в журнале изменить нельзя. Чтобы исправить — переведите акт в «Черновик».
+                  записи из него в журнале изменить нельзя. Исправление создаёт отдельную версию документа.
                 </p>
               )}
               {/* Таблица (десктоп) */}

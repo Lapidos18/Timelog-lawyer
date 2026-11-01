@@ -23,6 +23,8 @@ const NAV = [
   { href: '/dashboard/acts',           icon: FileCheck,       label: 'Акты' },
   { href: '/dashboard/reimbursements', icon: Receipt,         label: 'Возмещаемые расходы' },
   { href: '/dashboard/reconciliation', icon: ClipboardList,   label: 'Платежи и акты сверки', group: 'Финансы' },
+  { href: '/dashboard/balances', icon: Wallet, label: 'Расшифровка расчётов' },
+  { href: '/dashboard/closing', icon: ClipboardList, label: 'Закрытие месяца' },
   { href: '/dashboard/finance',         icon: Wallet,          label: 'Доходы и налоги' },
   { href: '/dashboard/backup',          icon: HardDrive,       label: 'Бэкап', group: 'Система' },
 ]

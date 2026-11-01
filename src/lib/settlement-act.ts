@@ -50,6 +50,7 @@ export interface SettlementParty {
 
 /** Содержимое акта, как оно лежит в базе (колонка doc, jsonb) */
 export interface SettlementDoc {
+  sourceActId?: string
   version: 1
   periodFrom: string
   periodTo: string
@@ -465,6 +466,7 @@ export function normalizeDoc(raw: unknown, fallbackPeriod: { from: string; to: s
     periodFrom: str(o.periodFrom, fallbackPeriod.from),
     periodTo: str(o.periodTo, fallbackPeriod.to),
     currency: str(o.currency, 'руб.'),
+    sourceActId: str(o.sourceActId)||undefined,
     contract: str(o.contract),
     orientation: o.orientation === 'landscape' ? 'landscape' : 'portrait',
     us: cleanParty(o.us, empty),

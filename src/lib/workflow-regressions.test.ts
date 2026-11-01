@@ -55,6 +55,7 @@ import FinancePage from '@/app/dashboard/finance/page'
 import ReportsPage from '@/app/dashboard/reports/page'
 import ReimbursementsPage from '@/app/dashboard/reimbursements/page'
 import LoadError from '@/components/LoadError'
+import { BACKUP_TABLES } from '../../scripts/backup-format.mjs'
 import AccrualsBlock from '@/app/dashboard/matters/AccrualsBlock'
 
 const entry = {
@@ -76,6 +77,12 @@ const updates: any[] = []
 const inserts: any[] = []
 function makeClient() {
   return {
+    rpc: async (name: string) => {
+      if(name !== 'backup_snapshot') return {data:null,error:{message:'Неизвестная функция'}}
+      const all=await Promise.all(BACKUP_TABLES.map(async (table:string)=>[table,await replies(table)] as const))
+      const failed=all.find(([,r])=>r.error)
+      return failed ? {data:null,error:failed[1].error} : {data:Object.fromEntries(all.map(([t,r])=>[t,r.data])),error:null}
+    },
     auth: { getUser: async () => ({ data: { user: { id: 'user-1' } } }) },
     from: (table: string) => {
       let single = false
@@ -152,7 +159,7 @@ beforeEach(() => {
   vi.clearAllMocks(); updates.length = 0; inserts.length = 0
   replies = table => ({ data: fixture[table] ?? [], error: null })
   runtime.client = makeClient()
-  vi.stubGlobal('window', { scrollTo: vi.fn() })
+  vi.stubGlobal('window', { scrollTo: vi.fn(), location: { search: '' } })
   vi.stubGlobal('localStorage', { setItem: vi.fn() })
 })
 
@@ -165,6 +172,8 @@ describe('журнал: итоговая ставка не получает на
     nodes(tree).find(n => n.type === 'tr' && n.props.onDoubleClick).props.onDoubleClick()
     tree = render(TableView)
     expect(taxToggle(tree).props.checked).toBe(false)
+    nodes(tree).find(n => n.props.id === 'entry-change-reason').props.onChange({target:{value:'Проверка сохранения ставки'}})
+    tree=render(TableView)
     await nodes(tree).find(n => n.type === 'form').props.onSubmit({ preventDefault() {} })
     expect(updates[0].payload.hourly_rate).toBe(8824)
   })
@@ -205,12 +214,12 @@ describe('ручная копия: успех только после выгру
     expect(button(render(BackupPage), 'Скачать резервную копию').props.disabled).toBe(false)
     expect(runtime.success).not.toHaveBeenCalled()
   })
-  it('успешная копия содержит все 15 таблиц, даже если localStorage недоступен', async () => {
+  it('успешная копия содержит все 20 таблиц, даже если localStorage недоступен', async () => {
     const { click, blobs } = downloadEnvironment()
     vi.mocked(localStorage.setItem).mockImplementation(() => { throw new Error('Storage blocked') })
     await button(render(BackupPage), 'Скачать резервную копию').props.onClick()
     expect(click).toHaveBeenCalledOnce()
-    expect(JSON.parse(await blobs[0].text()).meta.tables).toHaveLength(15)
+    expect(JSON.parse(await blobs[0].text()).meta.tables).toHaveLength(20)
     expect(text(render(BackupPage))).toContain('✓ Бэкап скачан')
     expect(runtime.success).toHaveBeenCalledOnce()
   })

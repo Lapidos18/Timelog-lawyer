@@ -66,7 +66,7 @@ export default function Modal({
         <div className="sticky top-0 z-10 flex items-center justify-between gap-3
                         px-5 py-4 bg-navy-900 border-b border-navy-800">
           <h2 className="font-medium text-navy-200">{title}</h2>
-          <button aria-label="Закрыть" onClick={onClose} className="btn-ghost p-1">
+          <button aria-label="Закрыть" onClick={onClose} className="btn-ghost p-1 min-h-11 min-w-11">
             <X className="w-4 h-4" />
           </button>
         </div>

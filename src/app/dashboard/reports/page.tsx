@@ -109,6 +109,8 @@ export default function ReportsPage() {
   }
 
   useEffect(() => {
+    const params=new URLSearchParams(window.location.search)
+    if(params.get('from')&&params.get('to'))setFilters(f=>({...f,client_id:params.get('client')||'',date_from:params.get('from')!,date_to:params.get('to')!}))
     Promise.all([
       supabase.from('clients').select('*').order('name'),
       supabase.from('matters').select('*, clients(*)').order('title'),
@@ -197,8 +199,10 @@ export default function ReportsPage() {
     if (!editForm.matter_id) { toast.error('Выберите дело'); return }
     const dmin = parseInt(editForm.hours || '0') * 60 + parseInt(editForm.minutes || '0')
     if (dmin <= 0) { toast.error('Укажите время'); return }
+    const changeReason=window.prompt('Причина изменения записи из отчёта:')
+    if(!changeReason?.trim())return
     setEditSaving(true)
-    const { error } = await supabase.from('time_entries').update({
+    const { error } = await supabase.from('time_entries').update({change_reason:changeReason.trim(),
       matter_id: editForm.matter_id,
       work_date: editForm.work_date,
       duration_min: dmin,
@@ -216,7 +220,9 @@ export default function ReportsPage() {
   async function deleteEdit() {
     if (!editRow) return
     if (!confirm('Удалить запись?')) return
-    const { error } = await supabase.from('time_entries').delete().eq('id', editRow.id)
+    const deleteReason=window.prompt('Причина удаления записи:')
+    if(!deleteReason?.trim())return
+    const { error } = await supabase.rpc('delete_time_entry',{p_id:editRow.id,p_reason:deleteReason.trim()})
     if (error) { toast.error('Ошибка удаления') }
     else { toast.success('Удалено'); setEditRow(null); runReport() }
   }

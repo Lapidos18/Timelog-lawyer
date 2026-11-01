@@ -1,4 +1,6 @@
 'use client'
+import { readAllResult } from '@/lib/billing'
+import ChangeHistory from '@/components/ChangeHistory'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Matter, Client, MatterType, MatterStatus, MATTER_TYPE_LABELS, MATTER_STATUS_LABELS } from '@/types'
@@ -74,18 +76,17 @@ export default function MattersPage() {
     // и актом сверки — а он нужен именно чтобы совпадать с ними.
     const [mattersRes, paymentsRes, entriesRes, reimbRes, accrualsRes] = await Promise.all([
       q,
-      supabase.from('payments').select('matter_id, amount'),
-      supabase.from('time_entries').select('matter_id, amount, is_billable'),
+      readAllResult(supabase,'effective_payment_allocations','matter_id, amount'),
+      readAllResult(supabase,'time_entries','matter_id, amount, is_billable'),
       // Предъявленные доверителю издержки: он платит их вместе с
       // вознаграждением, поэтому остаток аванса без них завышается
-      supabase.from('reimbursable_expenses').select('matter_id, amount')
-        .in('status', ['invoiced', 'reimbursed']),
+      readAllResult(supabase,'reimbursable_expenses','matter_id, amount',q=>q.in('status',['invoiced','reimbursed'])),
       // Начисления по актам (миграция 022). Пока таблицы нет, запрос вернёт ошибку —
       // экран из-за этого не падает, начислений просто нет
-      supabase.from('matter_accruals').select('matter_id, accrual_date, amount'),
+      readAllResult(supabase,'matter_accruals','matter_id, accrual_date, amount'),
     ])
 
-    setLoadError(!!(mattersRes.error || paymentsRes.error || entriesRes.error || reimbRes.error))
+    setLoadError(!!(mattersRes.error || paymentsRes.error || entriesRes.error || reimbRes.error || accrualsRes.error))
 
     const paid: Record<string, number> = {}
     for (const p of (paymentsRes.data ?? [])) {
@@ -330,6 +331,7 @@ export default function MattersPage() {
 
     return (
       <p className="text-xs mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <a className="btn-secondary min-h-11" href={'/dashboard/balances?client='+m.client_id+'&matter='+m.id}>Расшифровать расчёт</a>
         {hasActivity && (
           <>
             <span className="text-navy-400">
@@ -531,7 +533,8 @@ export default function MattersPage() {
             </div>
           </form>
           {/* Начисления по актам — вне формы: Enter в их полях не должен сохранять само дело */}
-          {editId && <AccrualsBlock matterId={editId} onChanged={loadMatters} />}
+          {editId && <ChangeHistory table="matters" rowId={editId}/>}
+        {editId && <AccrualsBlock matterId={editId} onChanged={loadMatters} />}
       </Modal>
 
       {/* Filter tabs */}
@@ -654,6 +657,7 @@ export default function MattersPage() {
                     {m.case_no && <p className="text-navy-400 text-xs mt-0.5">Дело <span className="num">{m.case_no}</span></p>}
                     {m.court && <p className="text-navy-400 text-xs mt-0.5">{m.court}</p>}
 
+                    <a className="btn-secondary min-h-11 mt-2" onClick={e=>e.stopPropagation()} href={'/dashboard/balances?client='+m.client_id+'&matter='+m.id}>Расшифровать расчёт</a>
                     {hasMoney && (
                       <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                         <dt className="text-navy-400">Оплачено</dt>

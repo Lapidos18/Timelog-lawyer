@@ -1,3 +1,4 @@
+import { CALENDARS, calendarVerified } from './work-calendar'
 /**
  * Расчёт процессуальных сроков.
  *
@@ -6,9 +7,9 @@
  * Поэтому формулы вынесены сюда и покрыты тестами, а в интерфейсе рядом с
  * каждой подставленной датой показывается норма, по которой она посчитана.
  *
- * ВАЖНО: расчёт — подсказка, а не заключение. Переносы выходных дней
- * устанавливаются ежегодно постановлением Правительства (рабочие субботы,
- * длинные майские) и здесь не учитываются; итоговую дату нужно сверять.
+ * ВАЖНО: расчёт — подсказка, а не заключение. Переносы 2026–2027 годов заданы в work-calendar.ts по официальным источникам.
+ * Для других годов выводится явная отметка о непроверенном календаре;
+ * окончательную дату и применимость правила подтверждает адвокат.
  */
 
 export type DeadlineUnit = 'months' | 'working-days' | 'calendar-days'
@@ -128,20 +129,12 @@ function isFixedHoliday(d: Date): boolean {
  * после них тоже считается нерабочим.
  */
 export function isWorkingDay(d: Date): boolean {
+  const override=CALENDARS[d.getFullYear()]
+  if(override?.working.includes(toISO(d)))return true
   if (isWeekend(d) || isFixedHoliday(d)) return false
 
-  // Перенос: идём назад, пока дни нерабочие, и смотрим, был ли среди них
-  // праздник, выпавший на субботу или воскресенье
-  const probe = new Date(d)
-  let shifted = 0
-  for (;;) {
-    probe.setDate(probe.getDate() - 1)
-    if (!isWeekend(probe) && !isFixedHoliday(probe)) break
-    if (isFixedHoliday(probe) && isWeekend(probe)) shifted++
-    // Длинные январские каникулы и так все нерабочие; ограничиваем просмотр
-    if (shifted > 0) break
-  }
-  return shifted === 0
+  const calendar=CALENDARS[d.getFullYear()]
+  return !calendar?.holidays.includes(toISO(d))
 }
 
 /** Ближайший рабочий день, начиная с указанного */
@@ -184,6 +177,8 @@ export type DeadlineResult = {
   explanation: string
   /** Сдвинут ли с нерабочего дня */
   shifted: boolean
+  calendarVerified: boolean
+  calendarSource: string
 }
 
 /**
@@ -198,7 +193,7 @@ export type DeadlineResult = {
 export function computeDeadline(baseISO: string, t: DeadlineTemplate): DeadlineResult | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(baseISO)) return null
   const base = fromISO(baseISO)
-  if (Number.isNaN(base.getTime())) return null
+  if (Number.isNaN(base.getTime()) || toISO(base) !== baseISO) return null
 
   let raw: Date
   if (t.unit === 'months') {
@@ -219,9 +214,12 @@ export function computeDeadline(baseISO: string, t: DeadlineTemplate): DeadlineR
 
   return {
     date: toISO(final),
-    explanation: shifted
+    calendarVerified: calendarVerified(base, final),
+    calendarSource: CALENDARS[final.getFullYear()]?.version ?? 'Переносы этого года не подтверждены',
+    explanation: (shifted
       ? `${t.amount} ${unitWord} ${t.from} (${t.citation}); окончание пришлось на нерабочий день и перенесено на ближайший рабочий`
-      : `${t.amount} ${unitWord} ${t.from} (${t.citation})`,
+      : `${t.amount} ${unitWord} ${t.from} (${t.citation})`
+    ) + (calendarVerified(base,final) ? '' : ' — переносы этого года не подтверждены; дату необходимо проверить вручную'),
     shifted,
   }
 }

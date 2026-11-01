@@ -263,7 +263,7 @@ export default function SettlementEditor(p: EditorProps) {
               <Lock className="w-4 h-4" /> Отметить подписанным
             </button>
           : <button type="button" className="btn-secondary" onClick={() => p.onSetStatus('draft')} disabled={p.saving}>
-              <Unlock className="w-4 h-4" /> Вернуть в черновик
+              <Unlock className="w-4 h-4" /> Создать новый черновик
             </button>}
         <button type="button" className="btn-secondary" onClick={p.onRebuild} disabled={locked || p.rebuilding}
           title="Заново собрать таблицу кабинета из журнала, издержек и платежей за период">

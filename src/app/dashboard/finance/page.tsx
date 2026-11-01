@@ -1,4 +1,5 @@
 'use client'
+import { nextWorkingDay } from '@/lib/deadlines'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import {
@@ -513,11 +514,11 @@ export default function FinancePage() {
       const report = new Date(src)
       const pay = new Date(src)
       pay.setDate(28)
-      return { report, pay, reportLabel: 'Уведомление', payLabel: 'Уплата аванса' }
+      return { report:nextWorkingDay(report), pay:nextWorkingDay(pay), reportLabel: 'Уведомление', payLabel: 'Уплата аванса' }
     }
     const report = new Date(year + 1, 3, 30) // 30 апреля следующего года
     const pay = taxSettings.annual_deadline ? new Date(taxSettings.annual_deadline) : null
-    return { report, pay, reportLabel: 'Декларация 3-НДФЛ', payLabel: 'Уплата за год' }
+    return { report:nextWorkingDay(report), pay:pay?nextWorkingDay(pay):null, reportLabel: 'Декларация 3-НДФЛ', payLabel: 'Уплата за год' }
   }
 
   const expensesTotal = expenses.filter(e => e.is_documented).reduce((a, b) => a + b.amount, 0)

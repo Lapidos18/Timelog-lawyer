@@ -76,7 +76,7 @@ describe('миграции: представления закрыты от по�
 
   it('знает все три прежних представления', () => {
     const names = Array.from(finalViewState(load()).keys()).sort()
-    expect(names).toEqual(['finance_expense_view', 'finance_income_view', 'report_view'])
+    expect(names).toEqual(['act_payment_totals', 'billing_events', 'effective_payment_allocations', 'finance_expense_view', 'finance_income_view', 'report_view'])
   })
 
   it('ловит именно ту ошибку: переопределение без параметра открывает представление', () => {

@@ -59,7 +59,11 @@ function ReconciliationInner() {
   useEffect(() => {
     const wantsActs = params.get('view') === 'acts'
     setView(wantsActs ? 'acts' : 'payments')
-    if (wantsActs) setActsOpened(true)
+    if (wantsActs) {
+      setActsOpened(true)
+      const clientId=params.get('client'),from=params.get('from'),to=params.get('to')
+      if(clientId&&from&&to)setDeepLink({clientId,from,to})
+    }
     if (params.get('new') === '1') {
       setView('payments')
       setFormSignal(n => n + 1)

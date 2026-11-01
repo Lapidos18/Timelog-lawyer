@@ -155,7 +155,8 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
     ])
     for (const r of [svc, svcBefore, pay, payBefore, exp, expBefore]) if (r.error) throw r.error
 
-    const accrRows = (accr.error ? [] : (accr.data ?? [])) as { accrual_date: string; amount: number | string; description: string | null }[]
+    if(accr.error)throw accr.error
+    const accrRows = (accr.data ?? []) as { accrual_date: string; amount: number | string; description: string | null }[]
     const actInPeriod = accrRows.filter(a => a.accrual_date >= from)
       .map(a => ({ date: a.accrual_date, kop: toKop(a.amount), doc: a.description?.trim() || `Акт от ${shortDate(a.accrual_date)}` }))
     const actBeforeKop = accrRows.filter(a => a.accrual_date < from).reduce((s, a) => s + toKop(a.amount), 0)
@@ -269,6 +270,10 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
   }
 
   function setStatus(next: SettlementStatus) {
+    if(editing?.status==='signed' && next==='draft') {
+      if(!confirm('Создать новый черновик? Подписанная версия сохранится неизменной.'))return
+      setEditing({...editing,id:null,status:'draft',doc:{...editing.doc,sourceActId:editing.id??undefined}});setSnapshot('');return
+    }
     if (next === 'signed' && !confirm('Отметить акт подписанным? После этого править его нельзя, пока не вернёте в черновик.')) return
     save(next)
   }

@@ -1,4 +1,5 @@
 'use client'
+import { readAllResult } from '@/lib/billing'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { ReportRow } from '@/types'
@@ -84,12 +85,8 @@ export default function DashboardPage() {
             .select('*')
             .order('work_date', { ascending: false })
             .limit(8),
-          supabase
-            .from('time_entries')
-            .select('matter_id, amount, is_billable'),
-          supabase
-            .from('payments')
-            .select('client_id, amount'),
+          readAllResult(supabase,'time_entries','matter_id, amount, is_billable'),
+          readAllResult(supabase,'payments','client_id, amount'),
           supabase
             .from('clients')
             .select('id, name'),
@@ -102,15 +99,10 @@ export default function DashboardPage() {
           // вознаграждением, поэтому без них «оплачено» больше «начислено»
           // и долг занижается ровно на сумму компенсации.
           // «Ожидает включения в счёт» не берём — это ещё не предъявлено.
-          supabase
-            .from('reimbursable_expenses')
-            .select('matter_id, amount, status')
-            .in('status', ['invoiced', 'reimbursed']),
+          readAllResult(supabase,'reimbursable_expenses','matter_id, amount, status',q=>q.in('status',['invoiced','reimbursed'])),
           // Начисления по актам (миграция 022): работа на фиксированную сумму без часов.
           // Пока таблицы нет, запрос вернёт ошибку — Обзор из-за этого не падает
-          supabase
-            .from('matter_accruals')
-            .select('matter_id, accrual_date, amount'),
+          readAllResult(supabase,'matter_accruals','matter_id, accrual_date, amount'),
           // Сроки и заседания: берём только неисполненные и не дальше
           // полугода — фильтр «за сколько дней предупреждать» у каждого
           // события свой и применяется уже здесь, в коде.
@@ -216,7 +208,7 @@ export default function DashboardPage() {
         // рисует нули, и это выглядит как «все данные пропали»
         setLoadError(!!(monthRes.error || recentRes.error || allEntriesRes.error
           || allPaymentsRes.error || allClientsRes.error || allMattersRes.error
-          || allReimbRes.error))
+          || allReimbRes.error || accrualsRes.error))
       } catch (e) {
         console.error('Dashboard load error:', e)
         setLoadError(true)
@@ -368,7 +360,7 @@ export default function DashboardPage() {
               <div key={b.id} className="flex flex-col md:flex-row md:items-center md:flex-wrap
                                          gap-1 md:gap-3 pt-3 first:pt-0 border-t first:border-0
                                          border-navy-800/60 md:border-0 md:pt-0">
-                <span className="text-sm text-navy-200 md:flex-1 md:min-w-[120px] truncate">{b.name}</span>
+                <a className="text-sm text-gold-400 md:flex-1 md:min-w-[120px] truncate min-h-11 inline-flex items-center" href={'/dashboard/balances?client='+b.id}>{b.name}</a>
                 <span className="text-xs text-navy-300">
                   начислено {formatMoney(b.billed + b.reimb)} ₽
                   {b.reimb > 0 && (

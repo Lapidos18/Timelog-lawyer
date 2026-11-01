@@ -15,6 +15,9 @@ import { SkeletonRows } from '@/components/Skeleton'
 import { useMounted } from '@/lib/use-mounted'
 import { isTouchLayout } from '@/lib/touch-layout'
 import ImportStatement from './ImportStatement'
+import PaymentAllocationEditor from '@/components/PaymentAllocationEditor'
+import { Allocation, readAllRows } from '@/lib/billing'
+import { useRef } from 'react'
 
 /**
  * «Платежи» — единственное место ввода поступлений во всём приложении
@@ -26,6 +29,7 @@ import ImportStatement from './ImportStatement'
  */
 
 interface Payment {
+  revision?: number
   id: string
   client_id: string
   matter_id: string | null
@@ -116,6 +120,10 @@ export default function PaymentsView({ clients, matters, switcher, openFormSigna
   // То же для ручного поступления (без доверителя, лежит в manual_income)
   const [editManualId, setEditManualId] = useState<string | null>(null)
   const [showImport, setShowImport] = useState(false)
+  const [allocationPayment, setAllocationPayment] = useState<Payment | null>(null)
+  const [allocationMap, setAllocationMap] = useState<Record<string, Allocation[]>>({})
+  const saveOperation = useRef({ signature: '', id: '' })
+  const newPaymentId = useRef('')
 
   // Возмещаемые расходы доверителя, которые ещё не компенсированы.
   // Платёж от доверителя обычно включает и вознаграждение, и компенсацию издержек;
@@ -169,6 +177,12 @@ export default function PaymentsView({ clients, matters, switcher, openFormSigna
         mq = mq.eq('client_id', selectedClient)
       }
       const [p, m] = await Promise.all([pq, mq])
+      try {
+        const allocations = await readAllRows<Allocation>(supabase, 'payment_allocations')
+        if (!cancelled) setAllocationMap(allocations.reduce((map, a) => {
+          (map[a.payment_id!] ??= []).push(a); return map
+        }, {} as Record<string, Allocation[]>))
+      } catch { if (!cancelled) { setLoadError(true); setLoading(false) }; return }
       if (cancelled) return
       if (p.error || m.error) setLoadError(true)
       else {
@@ -269,147 +283,39 @@ export default function PaymentsView({ clients, matters, switcher, openFormSigna
       return
     }
 
-    // Правка существующего платежа. Доверителя не меняем (см. форму), поэтому
-    // достаточно переписать поля и пересобрать привязку издержек.
-    if (editPayId) {
-      const { error: upError } = await supabase.from('payments').update({
-        matter_id: payForm.matter_id || null,
-        pay_date: payForm.pay_date,
-        amount: payAmount,
-        description: payForm.description,
-        doc_no: payForm.doc_no || null,
-      }).eq('id', editPayId)
-
-      if (upError) { toast.error('Ошибка: ' + upError.message); setSavingPay(false); return }
-
-      // Снятые галочки возвращаем в «Выставлено доверителю», отмеченные —
-      // перепривязываем с актуальной датой платежа (она могла измениться)
-      const unlinked = openReimb
-        .filter(r => r.payment_id === editPayId && !coveredReimb.includes(r.id))
-        .map(r => r.id)
-
-      // Привязка расходов решает, вычтутся ли эти суммы из дохода по НДФЛ.
-      // Если платёж сохранился, а привязка нет — цифры разъедутся молча,
-      // поэтому о неудаче надо сказать прямо.
-      let linkError: string | null = null
-      if (unlinked.length > 0) {
-        const { error } = await supabase.from('reimbursable_expenses')
-          .update({ status: 'invoiced', payment_id: null, reimbursed_date: null })
-          .in('id', unlinked)
-        if (error) linkError = error.message
-      }
-      if (!linkError && coveredReimb.length > 0) {
-        const { error } = await supabase.from('reimbursable_expenses')
-          .update({ status: 'reimbursed', payment_id: editPayId, reimbursed_date: payForm.pay_date })
-          .in('id', coveredReimb)
-        if (error) linkError = error.message
-      }
-
-      if (linkError) {
-        toast.error('Платёж изменён, но не удалось обновить возмещаемые расходы: ' + linkError)
-      } else {
-        toast.success('Платёж изменён')
-      }
-      setShowPayForm(false)
-      resetPayForm()
-      afterChange(changed)
-      setSavingPay(false)
-      return
-    }
-
     const { data: { user } } = await supabase.auth.getUser()
-
-    // Без доверителя (вознаграждение по назначению и т.п.) — в manual_income:
-    // в payments доверитель обязателен на уровне базы. Для пользователя это
-    // одна и та же форма, разделение техническое.
     if (!payForm.client_id) {
-      const { error: miError } = await supabase.from('manual_income').insert({
-        income_date: payForm.pay_date,
-        client_id: null,
-        matter_id: null,
-        amount: payAmount,
-        description: payForm.description,
-        doc_no: payForm.doc_no || null,
-        created_by: user!.id,
-      })
+      const { error } = await supabase.from('manual_income').insert({ income_date: payForm.pay_date,
+        client_id: null, matter_id: null, amount: payAmount, description: payForm.description,
+        doc_no: payForm.doc_no || null, created_by: user?.id })
       setSavingPay(false)
-      if (miError) { toast.error('Ошибка: ' + miError.message); return }
-      toast.success('Поступление внесено (без доверителя)')
-      setShowPayForm(false)
-      resetPayForm()
-      afterChange(changed)
-      return
+      if (error) { toast.error(error.message); return }
+      toast.success('Поступление внесено'); setShowPayForm(false); resetPayForm(); afterChange(changed); return
     }
-
-    // Нужен id созданного платежа, чтобы привязать к нему возмещения
-    const { data: created, error } = await supabase.from('payments').insert({
-      client_id: payForm.client_id,
-      matter_id: payForm.matter_id || null,
-      pay_date: payForm.pay_date,
-      amount: payAmount,
-      description: payForm.description,
-      doc_no: payForm.doc_no || null,
-      created_by: user!.id,
-    }).select('id').single()
-
-    if (error) { toast.error('Ошибка: ' + error.message); setSavingPay(false); return }
-
-    // Отмеченные издержки помечаем компенсированными этим платежом.
-    // reimbursed_date = дата платежа: именно по ней сумма исключается из дохода.
-    if (coveredReimb.length > 0 && created) {
-      const { error: linkError } = await supabase.from('reimbursable_expenses')
-        .update({
-          status: 'reimbursed',
-          payment_id: created.id,
-          reimbursed_date: payForm.pay_date,
-        })
-        .in('id', coveredReimb)
-      if (linkError) {
-        toast.error('Платёж внесён, но не удалось отметить возмещаемые расходы: ' + linkError.message)
-      }
-    }
-
-    toast.success(coveredReimb.length > 0
-      ? `Поступление внесено, возмещено расходов на ${fmt(coveredTotal)} ₽`
-      : 'Поступление внесено')
-    setShowPayForm(false)
-    resetPayForm()
-    afterChange(changed)
-    setSavingPay(false)
+    newPaymentId.current ||= crypto.randomUUID()
+    const payment = { ...payForm, id: editPayId || newPaymentId.current, amount: payAmount,
+      matter_id: editPayId && allocationMap[editPayId]?.length ? null : payForm.matter_id || null }
+    const signature = JSON.stringify({ payment, coveredReimb })
+    if (saveOperation.current.signature !== signature) saveOperation.current = { signature, id: crypto.randomUUID() }
+    try {
+      const { error } = await supabase.rpc('save_payment', { p_payment: payment,
+        p_reimbursement_ids: coveredReimb, p_operation_id: saveOperation.current.id,
+        p_expected_revision: editPayId ? payments.find(p => p.id === editPayId)?.revision ?? 0 : null })
+      if (error) throw error
+      toast.success(editPayId ? 'Платёж изменён' : 'Поступление внесено')
+      newPaymentId.current = ''; saveOperation.current = { signature: '', id: '' }
+      setShowPayForm(false); resetPayForm(); afterChange(changed)
+    } catch (e) { toast.error((e as { message?: string }).message || 'Не удалось сохранить платёж') }
+    finally { setSavingPay(false) }
   }
 
   async function deletePayment(id: string) {
-    if (!confirm('Удалить платёж?')) return
-
-    // Если этим платежом были компенсированы издержки — возвращаем их
-    // в «Выставлено доверителю». Иначе расход остался бы «Компенсировано»
-    // без поступивших денег и продолжал бы уменьшать доход в расчёте НДФЛ.
-    const { data: linked } = await supabase.from('reimbursable_expenses')
-      .select('id').eq('payment_id', id)
-
-    // Сначала отвязываем расходы, потом удаляем платёж. Если отвязать не
-    // удалось — платёж НЕ удаляем: иначе расходы остались бы «Компенсировано»
-    // со ссылкой на несуществующий платёж и продолжали бы уменьшать доход.
-    if (linked && linked.length > 0) {
-      const { error } = await supabase.from('reimbursable_expenses')
-        .update({ status: 'invoiced', payment_id: null, reimbursed_date: null })
-        .eq('payment_id', id)
-      if (error) {
-        toast.error('Платёж не удалён: не удалось открепить возмещаемые расходы. ' + error.message)
-        return
-      }
-    }
-
-    const { error: delError } = await supabase.from('payments').delete().eq('id', id)
-    if (delError) {
-      toast.error('Не удалось удалить платёж: ' + delError.message)
-      afterChange()
-      return
-    }
-    toast.success(linked && linked.length > 0
-      ? `Платёж удалён, ${linked.length} возмещаемых расходов вернулись в «Выставлено доверителю»`
-      : 'Удалено')
-    afterChange()
+    if (!confirm('Удалить платёж и его распределение? Связанные расходы вернутся в «Выставлено».')) return
+    const payment = payments.find(p => p.id === id)
+    if (!payment) return
+    const { error } = await supabase.rpc('delete_payment', { p_id: id, p_expected_revision: payment.revision ?? 0 })
+    if (error) { toast.error(error.message); return }
+    toast.success('Платёж удалён'); setTick(t => t + 1)
   }
 
   async function deleteManual(id: string) {
@@ -432,7 +338,7 @@ export default function PaymentsView({ clients, matters, switcher, openFormSigna
 
   const rows: ListRow[] = [
     ...payments.map(p => ({
-      key: 'p' + p.id, date: p.pay_date, client: p.clients?.name ?? '—', matter: p.matters?.title ?? '—',
+      key: 'p' + p.id, date: p.pay_date, client: p.clients?.name ?? '—', matter: allocationMap[p.id]?.length ? 'Распределён по заданиям' : p.matters?.title ?? '—',
       docNo: p.doc_no ?? '—', description: p.description, amount: Number(p.amount), payment: p,
     })),
     ...manual.map(m => ({
@@ -451,6 +357,8 @@ export default function PaymentsView({ clients, matters, switcher, openFormSigna
 
   return (
     <div className="p-4 md:p-7">
+      {allocationPayment && <PaymentAllocationEditor payment={allocationPayment} matters={matters}
+        onClose={() => setAllocationPayment(null)} onSaved={() => setTick(t => t + 1)} />}
       <PageHeader title="Платежи и акты сверки"
         description="Внесение поступлений и акты сверки взаимных расчётов с доверителями">
         {switcher}
@@ -652,6 +560,7 @@ export default function PaymentsView({ clients, matters, switcher, openFormSigna
                         <td className="py-2 pr-3 text-navy-300 w-full max-w-0 min-w-[140px]"><p className="truncate" title={r.description}>{r.description}</p></td>
                         <td className="py-2 pr-3 text-right num text-emerald-400 whitespace-nowrap">{fmt(r.amount)} ₽</td>
                         <td className="py-2 whitespace-nowrap">
+                          {r.payment && <button type="button" className="btn-secondary min-h-11 mr-2" onClick={ev => { ev.stopPropagation(); setAllocationPayment(r.payment!) }}>Распределить</button>}
                           <button aria-label="Удалить поступление" onClick={ev => { ev.stopPropagation(); removeRow(r) }}
                             className="tap-icon text-navy-400 hover:text-red-400">
                             <Trash2 className="w-4 h-4" />
@@ -680,7 +589,8 @@ export default function PaymentsView({ clients, matters, switcher, openFormSigna
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="num text-sm text-emerald-400 font-semibold">{fmt(r.amount)} ₽</span>
-                      <button aria-label="Удалить поступление" onClick={ev => { ev.stopPropagation(); removeRow(r) }}
+                      {r.payment && <button type="button" className="btn-secondary min-h-11 mr-2" onClick={ev => { ev.stopPropagation(); setAllocationPayment(r.payment!) }}>Распределить</button>}
+                          <button aria-label="Удалить поступление" onClick={ev => { ev.stopPropagation(); removeRow(r) }}
                         className="tap-icon text-navy-400 hover:text-red-400">
                         <Trash2 className="w-4 h-4" />
                       </button>

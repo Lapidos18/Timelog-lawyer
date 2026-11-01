@@ -9,6 +9,7 @@ import { ChevronLeft, ChevronRight, Plus, X, Check, Calendar, Trash2, Pencil } f
 import toast from 'react-hot-toast'
 import { useEscapeKey, submitOnCtrlEnter } from '@/lib/form-keys'
 import Modal from '@/components/Modal'
+import ChangeHistory from '@/components/ChangeHistory'
 import LoadError from '@/components/LoadError'
 import { useLockedEntries, lockedMessage } from '@/lib/locked-entries'
 import { SkeletonRows } from '@/components/Skeleton'
@@ -128,6 +129,7 @@ export default function TimelineView() {
   const [calMonth, setCalMonth] = useState(new Date())
   const [submitting, setSubmitting] = useState(false)
   const [ndfl, setNdfl] = useState(false)
+  const [changeReason,setChangeReason]=useState('')
   const effectiveRate = (base: string) => { const n = parseFloat(base || '0'); return ndfl ? n / 0.85 : n }
 
   // Даты с записями за отображаемый месяц (для подсветки в календаре)
@@ -384,7 +386,7 @@ export default function TimelineView() {
       is_billable: entry.is_billable,
       notes: entry.notes ?? '',
     })
-    setEditId(entry.id)
+    setEditId(entry.id);setChangeReason('')
     setEditUserId(entry.user_id)
     setNdfl(false)
     setShowForm(true)
@@ -397,6 +399,7 @@ export default function TimelineView() {
     const dmin = parseInt(form.hours || '0') * 60 + parseInt(form.minutes || '0')
     if (dmin <= 0) { toast.error('Укажите время'); return }
     if (dmin > 1440) { toast.error('Длительность одной записи не может превышать 24 часа'); return }
+    if(editId && !changeReason.trim()){toast.error('Укажите причину изменения записи');return}
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
     const startTime = `${form.start_hour.padStart(2,'0')}:${form.start_minute.padStart(2,'0')}:00`
@@ -411,6 +414,7 @@ export default function TimelineView() {
       activity_type: form.activity_type,
       description: form.description,
       is_billable: form.is_billable,
+      ...(editId ? {change_reason:changeReason.trim()} : {}),
       notes: form.notes || null,
     }
 
@@ -426,7 +430,9 @@ export default function TimelineView() {
   async function handleDelete() {
     if (!editId) return
     if (!confirm('Удалить запись?')) return
-    const { error } = await supabase.from('time_entries').delete().eq('id', editId)
+    const deleteReason=window.prompt('Причина удаления записи:')
+    if(!deleteReason?.trim())return
+    const { error } = await supabase.rpc('delete_time_entry',{p_id:editId,p_reason:deleteReason.trim()})
     if (error) { toast.error('Ошибка удаления') }
     else { toast.success('Удалено'); resetForm(); loadDay() }
   }
@@ -543,7 +549,9 @@ export default function TimelineView() {
     const durationMin = d.end - d.start
     // Сразу показываем новое время, не дожидаясь базы; loadDay ниже вернёт правду
     setEntries(prev => prev.map(x => x.id === d.id ? { ...x, start_time: startTime, duration_min: durationMin } : x))
-    const { error } = await supabase.from('time_entries').update({ start_time: startTime, duration_min: durationMin }).eq('id', d.id)
+    const reason=window.prompt('Причина изменения времени записи:')
+    if(!reason?.trim()){loadDay();return}
+    const { error } = await supabase.from('time_entries').update({ start_time: startTime, duration_min: durationMin,change_reason:reason.trim() }).eq('id', d.id)
     if (error) toast.error('Не удалось изменить время: ' + error.message)
     else toast.success(`Время записи: ${minToLabel(d.start)}–${minToLabel(d.end)}`)
     loadDay()
@@ -691,6 +699,7 @@ export default function TimelineView() {
       <Modal open={showForm} onClose={resetForm}
         title={editId ? 'Редактировать запись' : `Новая запись — ${format(date, 'd MMMM yyyy', { locale: ru })}`} wide>
           <form onKeyDown={submitOnCtrlEnter} onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        {editId && <div className="mb-4 md:col-span-4"><label className="label" htmlFor="timeline-change-reason">Причина изменения</label><input id="timeline-change-reason" className="input min-h-11" value={changeReason} onChange={e=>setChangeReason(e.target.value)} required/><ChangeHistory table="time_entries" rowId={editId}/></div>}
             <div className="md:col-span-2">
               <label className="label">Дело *</label>
               <select className="select" required value={form.matter_id}

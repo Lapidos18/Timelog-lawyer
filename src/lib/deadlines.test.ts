@@ -7,6 +7,11 @@ import {
 const tpl = (id: string) => DEADLINE_TEMPLATES.find(t => t.id === id)!
 
 describe('рабочие и нерабочие дни', () => {
+  it('учитывает проверенные переносы 2026 и 2027 годов', () => {
+    for(const date of ['2026-12-31','2026-01-09','2027-02-22','2027-11-05','2027-12-31'])
+      expect(isWorkingDay(fromISO(date))).toBe(false)
+    expect(isWorkingDay(fromISO('2026-12-30'))).toBe(true)
+  })
   it('выходные и праздники нерабочие', () => {
     expect(isWorkingDay(fromISO('2026-09-20'))).toBe(false)  // воскресенье
     expect(isWorkingDay(fromISO('2026-09-21'))).toBe(true)   // понедельник
@@ -80,6 +85,13 @@ describe('сроки в сутках (УПК, КоАП)', () => {
 })
 
 describe('защита от мусора на входе', () => {
+  it('не принимает несуществующую календарную дату',()=>{
+    expect(computeDeadline('2026-02-31',tpl('gpk-appeal'))).toBeNull()
+  })
+  it('помечает годы без проверенного календаря',()=>{
+    expect(computeDeadline('2028-02-01',tpl('gpk-appeal'))?.calendarVerified).toBe(false)
+    expect(computeDeadline('2028-02-01',tpl('gpk-appeal'))?.explanation).toContain('проверить вручную')
+  })
   it('пустая или неполная дата не даёт расчёта', () => {
     expect(computeDeadline('', tpl('gpk-appeal'))).toBeNull()
     expect(computeDeadline('2026-13', tpl('gpk-appeal'))).toBeNull()

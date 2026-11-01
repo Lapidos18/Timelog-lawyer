@@ -331,7 +331,6 @@ export default function MattersPage() {
 
     return (
       <p className="text-xs mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-        <a className="btn-secondary min-h-11" href={'/dashboard/balances?client='+m.client_id+'&matter='+m.id}>Расшифровать расчёт</a>
         {hasActivity && (
           <>
             <span className="text-navy-400">
@@ -657,7 +656,6 @@ export default function MattersPage() {
                     {m.case_no && <p className="text-navy-400 text-xs mt-0.5">Дело <span className="num">{m.case_no}</span></p>}
                     {m.court && <p className="text-navy-400 text-xs mt-0.5">{m.court}</p>}
 
-                    <a className="btn-secondary min-h-11 mt-2" onClick={e=>e.stopPropagation()} href={'/dashboard/balances?client='+m.client_id+'&matter='+m.id}>Расшифровать расчёт</a>
                     {hasMoney && (
                       <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                         <dt className="text-navy-400">Оплачено</dt>

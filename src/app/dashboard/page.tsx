@@ -360,7 +360,7 @@ export default function DashboardPage() {
               <div key={b.id} className="flex flex-col md:flex-row md:items-center md:flex-wrap
                                          gap-1 md:gap-3 pt-3 first:pt-0 border-t first:border-0
                                          border-navy-800/60 md:border-0 md:pt-0">
-                <a className="text-sm text-gold-400 md:flex-1 md:min-w-[120px] truncate min-h-11 inline-flex items-center" href={'/dashboard/balances?client='+b.id}>{b.name}</a>
+                <span className="text-sm text-navy-100 md:flex-1 md:min-w-[120px] truncate min-h-11 inline-flex items-center">{b.name}</span>
                 <span className="text-xs text-navy-300">
                   начислено {formatMoney(b.billed + b.reimb)} ₽
                   {b.reimb > 0 && (

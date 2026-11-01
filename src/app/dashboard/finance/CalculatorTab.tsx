@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { Info, Copy, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { calculateFee, calculatorAmount } from '@/lib/fee-calculator'
 import { fmtMoneyWords } from '@/lib/money-words'
 
 function fmt2(n: number) {
@@ -17,47 +18,22 @@ export default function CalculatorTab() {
   const [monthlyExpenses, setMonthlyExpenses] = useState('')
   const [copied, setCopied] = useState(false)
 
-  const rateNum = parseFloat(rate) || 0
-  const amountNum = parseFloat(amount) || 0
-  const expensesNum = parseFloat(monthlyExpenses) || 0
+  const rateNum = Number(rate)
+  const parsedAmount = calculatorAmount(amount), parsedExpenses = calculatorAmount(monthlyExpenses)
+  const invalid = parsedAmount === null || parsedExpenses === null
+  const amountNum = parsedAmount ?? 0, expensesNum = parsedExpenses ?? 0
+  const calc = useMemo(() => ({
+    noDeduction: calculateFee(amountNum, 0, rateNum, mode === 'net_to_gross'),
+    withDeduction: calculateFee(amountNum, expensesNum, rateNum, mode === 'net_to_gross'),
+  }), [mode, amountNum, rateNum, expensesNum])
 
-  const calc = useMemo(() => {
-    if (mode === 'net_to_gross') {
-      // Хочу получить "на руки" amountNum -> сколько выставить
-      const baseNoDeduction = amountNum / (1 - rateNum)
-      const ndflNoDeduction = baseNoDeduction * rateNum
-      const netCheckNoDeduction = baseNoDeduction - ndflNoDeduction
-
-      const baseWithDeduction = (amountNum - expensesNum * rateNum) / (1 - rateNum)
-      const ndflWithDeduction = (baseWithDeduction - expensesNum) * rateNum
-      const netCheckWithDeduction = baseWithDeduction - ndflWithDeduction
-
-      return {
-        noDeduction: { gross: baseNoDeduction, ndfl: ndflNoDeduction, net: netCheckNoDeduction },
-        withDeduction: { gross: baseWithDeduction, ndfl: ndflWithDeduction, net: netCheckWithDeduction },
-      }
-    } else {
-      // Получил доход amountNum -> сколько НДФЛ и сколько останется на руки
-      const ndflNoDeduction = amountNum * rateNum
-      const netNoDeduction = amountNum - ndflNoDeduction
-
-      const taxBaseWithDeduction = Math.max(0, amountNum - expensesNum)
-      const ndflWithDeduction = taxBaseWithDeduction * rateNum
-      const netWithDeduction = amountNum - ndflWithDeduction
-
-      return {
-        noDeduction: { gross: amountNum, ndfl: ndflNoDeduction, net: netNoDeduction },
-        withDeduction: { gross: amountNum, ndfl: ndflWithDeduction, net: netWithDeduction },
-      }
-    }
-  }, [mode, amountNum, rateNum, expensesNum])
-
-  function copyActText() {
+  async function copyActText() {
+    if (invalid) return
     const sum = calc.withDeduction.gross
     const ndfl = calc.withDeduction.ndfl
     const ratePct = Math.round(rateNum * 100)
     const text = `Вознаграждение Адвоката составляет ${fmtMoneyWords(sum)}, в т.ч. НДФЛ (${ratePct}%) — ${fmtMoneyWords(ndfl)}, уплачиваемый Адвокатом самостоятельно в соответствии с пп. 2 п. 1 ст. 227 НК РФ.`
-    navigator.clipboard.writeText(text)
+    try { await navigator.clipboard.writeText(text) } catch { toast.error('Не удалось скопировать текст'); return }
     setCopied(true)
     toast.success('Текст скопирован')
     setTimeout(() => setCopied(false), 2000)
@@ -66,7 +42,7 @@ export default function CalculatorTab() {
   return (
     <div>
       <p className="text-sm text-navy-300 mb-5">
-        Разовый расчёт: сколько выставить, чтобы получить нужную сумму «на руки», или сколько НДФЛ удержится
+        Разовый расчёт: сколько выставить, чтобы получить нужную сумму «на руки», или сколько НДФЛ потребуется уплатить
         с уже полученного дохода (пп. 2 п. 1 ст. 227 НК РФ). Для годового расчёта нарастающим итогом — вкладка «Расчёт НДФЛ».
       </p>
 
@@ -75,7 +51,7 @@ export default function CalculatorTab() {
         <div className="flex gap-2 mb-5">
           <button
             onClick={() => setMode('net_to_gross')}
-            className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex-1 min-h-[44px] py-2.5 px-4 rounded-lg text-sm font-medium transition-colors ${
               mode === 'net_to_gross'
                 ? 'bg-gold-500 text-navy-950'
                 : 'bg-navy-800 text-navy-400 hover:text-navy-200'
@@ -85,7 +61,7 @@ export default function CalculatorTab() {
           </button>
           <button
             onClick={() => setMode('gross_to_net')}
-            className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex-1 min-h-[44px] py-2.5 px-4 rounded-lg text-sm font-medium transition-colors ${
               mode === 'gross_to_net'
                 ? 'bg-gold-500 text-navy-950'
                 : 'bg-navy-800 text-navy-400 hover:text-navy-200'
@@ -103,7 +79,7 @@ export default function CalculatorTab() {
             </label>
             <div className="relative">
               <input step="0.01"
-                type="number"
+                type="text"
                 inputMode="decimal"
                 className="input pr-10"
                 value={amount}
@@ -126,12 +102,12 @@ export default function CalculatorTab() {
           </div>
           <div>
             <label className="label">
-              Ежемесячные расходы кабинета
+              Расходы для этого расчёта
               <span className="ml-1 text-navy-400 normal-case font-normal">(для профвычета)</span>
             </label>
             <div className="relative">
               <input step="0.01"
-                type="number"
+                type="text"
                 inputMode="decimal"
                 className="input pr-10"
                 value={monthlyExpenses}
@@ -144,6 +120,9 @@ export default function CalculatorTab() {
         </div>
       </div>
 
+      {invalid && <p role="alert" className="text-red-400 mb-4">Введите неотрицательные суммы с точностью до копейки.</p>}
+      <p className="text-xs text-navy-400 mb-4">На руки — доход после расчётного НДФЛ, без вычитания самих расходов. Вычет применяется только к этому расчёту; годовой прогрессивный налог рассчитывается отдельно.</p>
+      <div className={invalid ? 'hidden' : ''}>
       {/* Results: two columns */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
         {/* Without deduction */}
@@ -215,6 +194,7 @@ export default function CalculatorTab() {
         </p>
       </div>
 
+      </div>
       {/* Reference */}
       <div className="card bg-navy-900/40">
         <h2 className="text-xs font-medium text-navy-400 mb-3 flex items-center gap-1.5">

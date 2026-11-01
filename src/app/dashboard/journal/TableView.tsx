@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { isSubscription } from '@/lib/balance'
 import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
@@ -59,6 +59,11 @@ function formatMoney(n: number) {
 
 export default function TableView() {
   const supabase = createClient()
+  const [page,setPage]=useState(0)
+  const [total,setTotal]=useState(0)
+  const pageSize=50
+  const requestId=useRef(0)
+  const activeFilters=useRef({date_from:'',date_to:'',matter_id:'',activity_type:'' as ActivityType|'',user_id:''})
   const [entries, setEntries] = useState<EntryWithRelations[]>([])
   const [matters, setMatters] = useState<(Matter & { clients: Client })[]>([])
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -101,27 +106,40 @@ export default function TableView() {
     return ndfl ? n / 0.85 : n
   }
 
-  const loadEntries = useCallback(async (f?: typeof filters) => {
+  const loadEntries = useCallback(async (f?: typeof filters, requestedPage = page):Promise<void> => {
+    const request=++requestId.current
+    const targetPage=f ? 0 : requestedPage
+    if(f) activeFilters.current=f
     setLoading(true)
+    try {
     let query = supabase
       .from('time_entries')
-      .select('*, matters(*, clients(*)), profiles(*)')
+      .select('*, matters(*, clients(*)), profiles(*)', {count:'exact'})
 
-    const active = f ?? filters
+    const active = activeFilters.current
     if (active.date_from) query = query.gte('work_date', active.date_from)
     if (active.date_to) query = query.lte('work_date', active.date_to)
     if (active.matter_id) query = query.eq('matter_id', active.matter_id)
     if (active.activity_type) query = query.eq('activity_type', active.activity_type)
     if (active.user_id) query = query.eq('user_id', active.user_id)
 
-    const { data, error } = await query
+    const { data, error, count } = await query
       .order('work_date', { ascending: false })
       .order('created_at', { ascending: false })
-      .limit(200)
+      .order('id', {ascending:false})
+      .range(targetPage*pageSize,(targetPage+1)*pageSize-1)
+    if(request!==requestId.current)return
+    if(!error && targetPage>0 && !data?.length){ loadEntries(undefined,targetPage-1); return }
+    setPage(targetPage)
+    setTotal(count ?? 0)
     setLoadError(!!error)
     setEntries((data ?? []) as EntryWithRelations[])
     setLoading(false)
-  }, [filters])
+    } catch {
+      if(request!==requestId.current)return
+      setLoadError(true);setLoading(false)
+    }
+  }, [page])
 
   function applyFilters() {
     loadEntries(filters)
@@ -289,7 +307,7 @@ export default function TableView() {
       ? await supabase.from('time_entries').update(payload).eq('id', editId)
       : await supabase.from('time_entries').insert(payload)
     if (error) { toast.error('Ошибка: ' + error.message) }
-    else { toast.success(editId ? 'Запись обновлена' : 'Запись добавлена'); resetForm(); loadEntries() }
+    else { toast.success(editId ? 'Запись обновлена' : 'Запись добавлена'); resetForm(); loadEntries(undefined,editId?page:0) }
     setSubmitting(false)
   }
 
@@ -699,6 +717,13 @@ export default function TableView() {
           </div>
         )}
       </div>
+      {!loading && !loadError && <div className="flex flex-wrap items-center justify-between gap-3 mt-4">
+        <p className="text-sm text-navy-300">Записи {total ? page*pageSize+1 : 0}–{Math.min(page*pageSize+entries.length,total)} из {total}</p>
+        <div className="flex gap-2">
+          <button className="btn-secondary min-h-[44px]" disabled={page===0} onClick={()=>loadEntries(undefined,page-1)}>Назад</button>
+          <button className="btn-secondary min-h-[44px]" disabled={(page+1)*pageSize>=total} onClick={()=>loadEntries(undefined,page+1)}>Далее</button>
+        </div>
+      </div>}
     </div>
   )
 }

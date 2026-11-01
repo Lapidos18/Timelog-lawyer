@@ -113,6 +113,7 @@ export default function PaymentsView({ clients, matters, switcher, openFormSigna
     doc_no: '',
     matter_id: '',
   })
+  const [autoAllocate,setAutoAllocate]=useState(true)
   const [savingPay, setSavingPay] = useState(false)
   // id редактируемого платежа. Раньше исправить сумму можно было только
   // удалением и повторным вводом — легко потерять привязку издержек.
@@ -295,14 +296,15 @@ export default function PaymentsView({ clients, matters, switcher, openFormSigna
     newPaymentId.current ||= crypto.randomUUID()
     const payment = { ...payForm, id: editPayId || newPaymentId.current, amount: payAmount,
       matter_id: editPayId && allocationMap[editPayId]?.length ? null : payForm.matter_id || null }
-    const signature = JSON.stringify({ payment, coveredReimb })
+    const signature = JSON.stringify({ payment, coveredReimb, autoAllocate })
     if (saveOperation.current.signature !== signature) saveOperation.current = { signature, id: crypto.randomUUID() }
     try {
-      const { error } = await supabase.rpc('save_payment', { p_payment: payment,
-        p_reimbursement_ids: coveredReimb, p_operation_id: saveOperation.current.id,
+      const { data:allocationResult, error } = await supabase.rpc('save_payment_matched', { p_payment: payment,
+        p_reimbursement_ids: coveredReimb, p_auto:autoAllocate, p_operation_id: saveOperation.current.id,
         p_expected_revision: editPayId ? payments.find(p => p.id === editPayId)?.revision ?? 0 : null })
       if (error) throw error
-      toast.success(editPayId ? 'Платёж изменён' : 'Поступление внесено')
+      toast.success(editPayId ? 'Платёж изменён' : allocationResult?.allocated ? 'Платёж внесён и автоматически распределён по заданиям: '+allocationResult.parts : 'Поступление внесено')
+      if(!editPayId && autoAllocate && !payForm.matter_id && !allocationResult?.allocated) toast('Сумма не определяет однозначное распределение. Можно распределить вручную.')
       newPaymentId.current = ''; saveOperation.current = { signature: '', id: '' }
       setShowPayForm(false); resetPayForm(); afterChange(changed)
     } catch (e) { toast.error((e as { message?: string }).message || 'Не удалось сохранить платёж') }
@@ -457,6 +459,10 @@ export default function PaymentsView({ clients, matters, switcher, openFormSigna
                 onChange={e => setPayForm(f => ({ ...f, description: e.target.value }))} />
             </div>
 
+            {!editing && payForm.client_id && !payForm.matter_id && <label className="md:col-span-4 flex gap-3 items-start text-sm text-navy-300">
+              <input type="checkbox" className="min-w-[44px] min-h-[44px] accent-gold-500" checked={autoAllocate} onChange={e=>setAutoAllocate(e.target.checked)}/>
+              <span>Автоматически распределить при точном совпадении с остатками начислений и предъявленных расходов на дату платежа. Неоднозначные суммы остаются для ручного распределения.</span>
+            </label>}
             {/* Возмещение издержек внутри платежа. Отмеченные суммы не попадут
                 в доход при расчёте НДФЛ и 1% ОПС — это компенсация, а не гонорар. */}
             {openReimb.length > 0 && !editManualId && (

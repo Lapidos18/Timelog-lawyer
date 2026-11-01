@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Client, Matter } from '@/types'
 import { format } from 'date-fns'
@@ -7,6 +7,8 @@ import { Upload, Check, Wand2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Modal from '@/components/Modal'
 import { parseStatement, StatementRow } from '@/lib/bank-statement'
+import { readAllRows } from '@/lib/billing'
+import { receiptMatch, receiptKey, sourceReceipt, Receipt } from '@/lib/statement-import'
 import { suggestForRow, reasonLabel } from '@/lib/statement-match'
 
 /**
@@ -22,7 +24,7 @@ import { suggestForRow, reasonLabel } from '@/lib/statement-match'
  * каждой строке остаётся за пользователем.
  */
 
-type Match = 'new' | 'existing' | 'skip'
+type Match = 'new' | 'possible' | 'skip' | 'duplicate'
 
 type Prepared = StatementRow & {
   clientId: string
@@ -31,6 +33,8 @@ type Prepared = StatementRow & {
   hint: string
   match: Match
   checked: boolean
+  status?: 'saved' | 'existing' | 'error'
+  error?: string
 }
 
 function fmt(n: number) {
@@ -50,35 +54,30 @@ export default function ImportStatement({
   const [rows, setRows] = useState<Prepared[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [fileName, setFileName] = useState('')
+  const [autoAllocate,setAutoAllocate]=useState(true)
+  const [account,setAccount]=useState('')
+  const importing=useRef(false)
 
   async function handleFile(file: File) {
     setBusy(true)
     try {
       const parsed = await parseStatement(file)
 
-      // Уже внесённые определяем по дате и сумме: банк не выгружает наш
-      // внутренний идентификатор, а совпадение и того и другого в один день
-      // практически наверняка означает тот же самый платёж
-      const { data: existing } = await supabase.from('payments').select('pay_date, amount')
-      const seen = new Set((existing ?? []).map(p => `${p.pay_date}|${Number(p.amount).toFixed(2)}`))
-
-      setRows(parsed.rows.map(r => {
-        // Доверитель — по ИНН или названию плательщика, дело — по номеру
-        // соглашения либо дела в назначении платежа (src/lib/statement-match.ts)
-        const s = suggestForRow(r, clients, matters)
-        const match: Match = r.skipReason ? 'skip'
-          : seen.has(`${r.date}|${r.amount.toFixed(2)}`) ? 'existing'
-          : 'new'
-        return {
-          ...r,
-          clientId: s.clientId,
-          matterId: s.matterId,
-          hint: reasonLabel(s),
-          match,
-          // По умолчанию отмечены только новые поступления от доверителей
-          checked: match === 'new',
-        }
+      if (!parsed.accountNo.trim()) throw Error('Не найден номер счёта выписки. Проверьте формат файла.')
+      const [payments,incomes]=await Promise.all([
+        readAllRows<any>(supabase,'payments','id,pay_date,amount,doc_no,description'),
+        readAllRows<any>(supabase,'manual_income','id,income_date,amount,doc_no,description'),
+      ])
+      const existing:Receipt[]=[...payments.map(p=>({...p,date:p.pay_date})),...incomes.map(p=>({...p,date:p.income_date}))]
+      const seen=new Set<string>()
+      setRows(parsed.rows.map(r=>{
+        const suggestion=suggestForRow(r,clients,matters)
+        const key=receiptKey(parsed.accountNo,r)
+        const match:Match=seen.has(key)?'duplicate':r.skipReason?'skip':receiptMatch(r,existing)
+        seen.add(key)
+        return {...r,clientId:suggestion.clientId,matterId:suggestion.matterId,hint:reasonLabel(suggestion),match,checked:match==='new'}
       }))
+      setAccount(parsed.accountNo)
       setFileName(file.name)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Не удалось прочитать файл')
@@ -86,43 +85,39 @@ export default function ImportStatement({
     setBusy(false)
   }
 
-  const selected = rows?.filter(r => r.checked) ?? []
+  const selected = rows?.filter(r => r.checked && !r.status?.match(/saved|existing/) && r.match!=='duplicate') ?? []
   const selectedTotal = selected.reduce((s, r) => s + r.amount, 0)
 
   async function doImport() {
-    if (selected.length === 0) return
+    if (!selected.length || importing.current) return
+    importing.current=true
     setBusy(true)
-    const { data: { user } } = await supabase.auth.getUser()
-
-    let ok = 0
-    let failed = 0
-    for (const r of selected) {
-      const description = r.purpose || 'Поступление по выписке'
-      // Как и в ручной форме: без доверителя платёж физически не помещается
-      // в payments и уходит в manual_income
-      const { error } = r.clientId
-        ? await supabase.from('payments').insert({
-            client_id: r.clientId, matter_id: r.matterId || null, pay_date: r.date,
-            amount: r.amount, description, doc_no: r.docNo || null, created_by: user!.id,
-          })
-        : await supabase.from('manual_income').insert({
-            income_date: r.date, client_id: null, matter_id: null,
-            amount: r.amount, description, doc_no: r.docNo || null, created_by: user!.id,
-          })
-      if (error) failed++; else ok++
-    }
-
-    setBusy(false)
-    if (failed > 0) toast.error(`Внесено ${ok}, не удалось ${failed}`)
-    else toast.success(`Внесено поступлений: ${ok}`)
-    setRows(null); setFileName('')
-    onImported()
-    onClose()
+    let ok=0,failed=0,existing=0
+    try {
+      const {data:{user},error}=await supabase.auth.getUser()
+      if(error || !user)throw Error('Сессия завершена. Войдите в сайт повторно.')
+      for(const row of selected){
+        try {
+          const {data,error}=await supabase.rpc('import_bank_receipt',{p_source:sourceReceipt(account,row),p_client_id:row.clientId||null,p_matter_id:row.matterId||null,p_auto:autoAllocate})
+          if(error)throw error
+          if(!data?.id)throw Error('Не получено подтверждение сохранения')
+          if(data.existing)existing++;else ok++
+          setRows(rs=>rs!.map(r=>r.index===row.index?{...r,checked:false,status:data.existing?'existing':'saved',error:undefined}:r))
+        }catch(e){
+          failed++
+          const message=e instanceof Error?e.message:(e as {message?:string})?.message||'Не удалось сохранить'
+          setRows(rs=>rs!.map(r=>r.index===row.index?{...r,status:'error',error:message}:r))
+        }
+      }
+      if(failed)toast.error('Внесено '+ok+', уже было '+existing+', ошибок '+failed+'. Повторите только строки с ошибкой.')
+      else toast.success('Внесено '+ok+'; уже было '+existing)
+    }catch(e){toast.error(e instanceof Error?e.message:'Не удалось выполнить импорт')}
+    finally {importing.current=false;setBusy(false);onImported()}
   }
 
   function close() {
-    setRows(null); setFileName('')
-    onClose()
+    if(busy || importing.current)return
+    setRows(null);setFileName('');setAccount('');onClose()
   }
 
   return (
@@ -148,20 +143,27 @@ export default function ImportStatement({
       ) : (
         <div>
           <p className="text-xs text-navy-400 mb-3">
-            {fileName} · разобрано поступлений: {rows.length}
+            {fileName} · поступлений: {rows.length} · сохранено/уже было: {rows.filter(r=>r.status==='saved'||r.status==='existing').length}
+            <span className="block mt-1">Совпадение даты и суммы требует проверки: это могут быть разные платежи. Отметьте такую строку только после сверки. Повтор уже импортированной операции не создаст дубль.</span>
           </p>
 
+          <label className="flex items-start gap-3 mb-3 text-sm text-navy-300">
+            <input type="checkbox" className="min-w-[44px] min-h-[44px] accent-gold-500" checked={autoAllocate} disabled={busy} onChange={e=>setAutoAllocate(e.target.checked)}/>
+            <span>Распределять автоматически при точном совпадении с остатками заданий на дату платежа. При включении выбор задания в строке заменяется автоподбором; при неоднозначности платёж остаётся без распределения.</span>
+          </label>
           {/* Своя прокрутка только на десктопе. На телефоне окно и так лист
               снизу со своей прокруткой — вложенная область внутри него
               превращается в две полосы прокрутки на одном экране. */}
           <div className="space-y-2 md:max-h-[45vh] md:overflow-y-auto md:pr-1">
             {rows.map(r => (
-              <label key={r.index}
+              <div key={r.index}
                 className={`tap flex items-start gap-3 px-3 py-2.5 rounded-lg border cursor-pointer ${
                   r.checked ? 'border-gold-600/50 bg-gold-500/5' : 'border-navy-800 hover:bg-navy-800/40'
                 }`}>
-                <input type="checkbox" className="w-4 h-4 mt-0.5 accent-gold-500 flex-shrink-0"
+                <input type="checkbox" className="w-6 h-6 min-w-[44px] min-h-[44px] accent-gold-500 flex-shrink-0"
                   checked={r.checked}
+                  aria-label={'Внести поступление №'+(r.docNo || r.index+1)}
+                  disabled={busy || r.status==='saved'||r.status==='existing'||r.match==='duplicate'}
                   onChange={e => setRows(rs => rs!.map(x =>
                     x.index === r.index ? { ...x, checked: e.target.checked } : x))} />
                 <span className="flex-1 min-w-0">
@@ -171,10 +173,14 @@ export default function ImportStatement({
                       {' · '}
                       <span className="num font-medium">{fmt(r.amount)} ₽</span>
                     </span>
-                    {r.match === 'existing' && (
-                      <span className="text-xs text-emerald-400">уже внесено</span>
+                    {r.match === 'possible' && (
+                      <span className="text-xs text-emerald-400">возможно уже внесено — проверьте</span>
                     )}
-                    {r.skipReason === 'own' && (
+                    {r.match==='duplicate' && <span className="text-xs text-amber-400">повтор одинаковой строки в файле — проверьте документ</span>}
+                  {r.status==='saved' && <span className="text-xs text-emerald-400">внесено</span>}
+                  {r.status==='existing' && <span className="text-xs text-emerald-400">уже импортировано</span>}
+                  {r.error && <span role="alert" className="block text-xs text-red-400 break-words">{r.error}</span>}
+                  {r.skipReason === 'own' && (
                       <span className="text-xs text-amber-400">перевод со своего счёта — не доход</span>
                     )}
                     {r.skipReason === 'bank' && (
@@ -185,10 +191,8 @@ export default function ImportStatement({
                     {r.counterpartyName}{r.counterpartyInn ? ` · ИНН ${r.counterpartyInn}` : ''}
                   </span>
                   <span className="block text-xs text-navy-400 truncate">{r.purpose}</span>
-                  {/* select внутри label браузер не считает поводом
-                      переключить галочку — это его штатное поведение для
-                      вложенных элементов управления, гасить клик не нужно */}
-                  <select className="select mt-2 text-xs" value={r.clientId}
+
+                  <select disabled={busy || r.status==='saved'||r.status==='existing'||r.match==='duplicate'} className="select mt-2 text-xs" value={r.clientId}
                     onChange={e => setRows(rs => rs!.map(x => x.index === r.index
                       // Сменили доверителя — прежнее дело больше не его,
                       // и подсказка тоже устарела
@@ -198,8 +202,8 @@ export default function ImportStatement({
                     {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
 
-                  {r.clientId && (
-                    <select className="select mt-2 text-xs" value={r.matterId}
+                  {r.clientId && !autoAllocate && (
+                    <select disabled={busy || r.status==='saved'||r.status==='existing'||r.match==='duplicate'} className="select mt-2 text-xs" value={r.matterId}
                       onChange={e => setRows(rs => rs!.map(x =>
                         x.index === r.index ? { ...x, matterId: e.target.value } : x))}>
                       <option value="">— без дела (долг считается по доверителю целиком) —</option>
@@ -215,7 +219,7 @@ export default function ImportStatement({
                     </span>
                   )}
                 </span>
-              </label>
+              </div>
             ))}
           </div>
 
@@ -229,7 +233,7 @@ export default function ImportStatement({
               <button onClick={doImport} disabled={busy || selected.length === 0} className="btn-primary">
                 <Check className="w-4 h-4" /> {busy ? 'Вношу...' : 'Внести отмеченные'}
               </button>
-              <button onClick={() => { setRows(null); setFileName('') }} className="btn-secondary">
+              <button disabled={busy} onClick={() => { setRows(null); setFileName('') }} className="btn-secondary">
                 Другой файл
               </button>
             </div>

@@ -75,7 +75,55 @@ const dir=require('path').resolve(__dirname,'../supabase/migrations');
  await rejects(()=>q('select save_payment($1::jsonb,$2::uuid[],$3::bigint,$4::uuid)',[JSON.stringify({id:crypto.randomUUID(),client_id:cid,matter_id:null,pay_date:'2026-10-29',amount:10,description:'Недостаточная сумма'}),[exp],null,crypto.randomUUID()]),'частичное сохранение');
  if(Number((await q('select count(*) n from payments')).rows[0].n)!==beforeCount)throw Error('Сбой оставил лишний платёж');
  console.log('OK transaction rolls back entire invalid payment');
+ const source={account:'00000000000000000001',date:'2026-10-30',amount:123.45,doc:'TEST-1',inn:'0000000000',name:'Тест',purpose:'Тестовое поступление'};
+ const importRow=(s,c=cid,m=m1)=>q('select import_bank_receipt($1::jsonb,$2,$3,false) result',[JSON.stringify(s),c,m]);
+ const first=(await importRow(source)).rows[0].result;
+ const repeated=(await importRow({...source,name:' тест ',purpose:' тестовое   поступление '})).rows[0].result;
+ if(first.existing||!repeated.existing||first.id!==repeated.id)throw Error('Повтор выписки создал дубль');
+ const second=(await importRow({...source,doc:'TEST-2'})).rows[0].result;
+ if(second.id===first.id)throw Error('Разные документы одной суммы потеряны');
+ const manual=(await importRow({...source,doc:'TEST-3'},null,null)).rows[0].result;
+ const manualAgain=(await importRow({...source,doc:'TEST-3'},cid,m1)).rows[0].result;
+ if(manual.table!=='manual_income'||!manualAgain.existing||manualAgain.id!==manual.id)throw Error('Дубль между payments и manual_income');
+ const operations=Number((await q('select count(*) n from financial_operations')).rows[0].n);
+ await rejects(()=>importRow({...source,doc:'TEST-4',amount:-1}),'отрицательный импорт');
+ await rejects(()=>importRow({...source,doc:'TEST-4'},null,m1),'задание без доверителя');
+ if(Number((await q('select count(*) n from financial_operations')).rows[0].n)!==operations)throw Error('Ошибка импорта сохранилась частично');
+ await q('delete from manual_income where id=$1',[manual.id]);
+ await rejects(()=>importRow({...source,doc:'TEST-3'},null,null),'повтор после удаления');
+ console.log('OK bank import retry + distinct documents + both receipt tables + rollback + deleted receipt');
+ async function autoFixture(fees,expenses=[]) {
+  const c=crypto.randomUUID(),ids=fees.map(()=>crypto.randomUUID());
+  await q('insert into clients(id,name)values($1,$2)',[c,'Синтетический автоподбор']);
+  for(let i=0;i<ids.length;i++){
+   await q('insert into matters(id,client_id,title,hourly_rate)values($1,$2,$3,100)',[ids[i],c,'Задание '+i]);
+   await q('insert into matter_accruals(id,matter_id,accrual_date,amount,description)values($1,$2,$3,$4,$5)',[crypto.randomUUID(),ids[i],'2026-10-01',fees[i],'Начисление для теста']);
+   if(expenses[i])await q('insert into reimbursable_expenses(id,matter_id,expense_date,amount,description,status)values($1,$2,$3,$4,$5,$6)',[crypto.randomUUID(),ids[i],'2026-10-02',expenses[i],'Расход для теста','invoiced']);
+  }
+  return {c,ids};
+ }
+ async function matched(c,amount,auto=true,matter=null){const id=crypto.randomUUID(),op=crypto.randomUUID();const params=[JSON.stringify({id,client_id:c,matter_id:matter,pay_date:'2026-10-31',amount,description:'Тест автоподбора'}),[],null,op,auto];const result=(await q('select save_payment_matched($1::jsonb,$2::uuid[],$3::bigint,$4,$5) result',params)).rows[0].result;return {id,params,result}}
+ const af=await autoFixture([600,300],[40,60]);
+ const ap=await matched(af.c,1000);
+ if(!ap.result.allocated||ap.result.parts!==2)throw Error('Точное распределение двух заданий не найдено: '+JSON.stringify(ap.result));
+ const ar=(await q('select sum(fee_amount) fee,sum(expense_amount) expense,count(*) n from payment_allocations where payment_id=$1',[ap.id])).rows[0];
+ if(Number(ar.fee)!==900||Number(ar.expense)!==100||Number(ar.n)!==2)throw Error('Вознаграждение и расходы смешались');
+ await q('select save_payment_matched($1::jsonb,$2::uuid[],$3::bigint,$4,$5)',ap.params);
+ if(Number((await q('select count(*) n from payment_allocations where payment_id=$1',[ap.id])).rows[0].n)!==2)throw Error('Повтор автоподбора создал дубли');
+ const amb=await autoFixture([100,100]);if((await matched(amb.c,100)).result.reason!=='ambiguous')throw Error('Неоднозначность не обнаружена');
+ const no=await autoFixture([500]);if((await matched(no.c,300)).result.allocated)throw Error('Неполная оплата распределилась автоматически');
+ const manualF=await autoFixture([500]);if((await matched(manualF.c,500,false)).result.allocated)throw Error('Ручной режим проигнорирован');
+ const explicit=await autoFixture([500]);if((await matched(explicit.c,500,true,explicit.ids[0])).result.allocated)throw Error('Явное задание заменено автоподбором');
+ const future=await autoFixture([100]);
+ await q('insert into matter_accruals(id,matter_id,accrual_date,amount,description)values($1,$2,$3,200,$4)',[crypto.randomUUID(),future.ids[0],'2026-11-01','Будущее начисление']);
+ if(!(await matched(future.c,100)).result.allocated)throw Error('Начисления после даты платежа попали в автоподбор');
+ if((await matched(manualF.c,500)).result.reason!=='unallocated')throw Error('Другой нераспределённый аванс проигнорирован');
+ const importedAuto=await autoFixture([70,30]);
+ const ia=(await q('select import_bank_receipt($1::jsonb,$2,null,true) result',[JSON.stringify({...source,doc:'AUTO',amount:100}),importedAuto.c])).rows[0].result;
+ if(!ia.allocation.allocated||ia.allocation.parts!==2)throw Error('Импорт не использует автоподбор');
+ console.log('OK automatic matching: two tasks + expenses + retry + ambiguity + partial + manual + explicit task + statement');
  await db.exec('set role anon');
+ await rejects(()=>importRow({...source,doc:'ANON'}),'анонимный импорт');
  await rejects(()=>q('select * from billing_events'),'анонимное чтение');
  await rejects(()=>q('select backup_snapshot()'),'анонимный бэкап');
  await db.exec('reset role');

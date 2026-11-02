@@ -25,6 +25,7 @@ import Modal from '@/components/Modal'
 import EmptyState from '@/components/EmptyState'
 
 interface Act {
+  expense_rows?: {id:string;amount:number;date:string;description:string}[] | null
   document_snapshot?: ActDoc | null
   document_word?: string | null
   document_html?: string | null
@@ -52,6 +53,7 @@ interface Act {
 }
 
 interface ServiceRow {
+  source_kind?: string
   id: string
   work_date: string
   activity_type: ActivityType
@@ -63,6 +65,8 @@ interface ServiceRow {
 }
 
 const STATUS_LABELS = { draft: 'Черновик', signed: 'Подписан', paid: 'Оплачен' }
+const sourceLabels:Record<string,string>={subscription:'Абонентская плата',accrual:'Начисление',reduction:'Уменьшение стоимости'}
+function serviceLabel(r:ServiceRow){return r.source_kind?(sourceLabels[r.source_kind]||'Начисление'):ACTIVITY_LABELS[r.activity_type]}
 const STATUS_COLORS = {
   draft: 'text-navy-200 bg-navy-800',
   signed: 'text-amber-400 bg-amber-900/30',
@@ -122,6 +126,7 @@ export default function ActsPage() {
   const [expensesHint, setExpensesHint] = useState<{ sum: number; count: number } | null>(null)
   /** Остаток неотработанного аванса по каждому делу; отрицательное — долг */
   const [advanceByMatter, setAdvanceByMatter] = useState<Record<string, number>>({})
+  const [expenseRows,setExpenseRows]=useState<{id:string;amount:number;date:string;description:string}[]>([])
   const [previewRows, setPreviewRows] = useState<ServiceRow[]>([])
   const [previewTotal, setPreviewTotal] = useState(0)
   const [loadingPreview, setLoadingPreview] = useState(false)
@@ -197,55 +202,23 @@ export default function ActsPage() {
     if(params.get('from')&&params.get('to')){setForm(f=>({...f,period_from:params.get('from')!,period_to:params.get('to')!}));setShowForm(true)}
   }, [])
 
-  // Load preview when matter + period selected
-  useEffect(() => {
-    if (!form.matter_id || !form.period_from || !form.period_to) {
-      setPreviewRows([]); setPreviewTotal(0); return
-    }
-    const m = matters.find(x => x.id === form.matter_id)
-    if (!m) return
+  // Один согласованный состав начислений и расходов вместо двух независимых запросов.
+  useEffect(()=>{
     const generation=++previewGeneration.current
-    setLoadingPreview(true);setPreviewRows([]);setPreviewTotal(0)
-    supabase.from('report_view').select('*')
-      .eq('matter_id', form.matter_id)
-      .gte('work_date', form.period_from)
-      .lte('work_date', form.period_to)
-      .eq('is_billable', true)
-      .order('work_date')
-      .then(({ data, error }) => {
-        if(generation!==previewGeneration.current)return
-        if(error){setLoadingPreview(false);toast.error('Не удалось загрузить актуальный состав акта');return}
-        const rows = (data ?? []).map((r: any) => ({
-          id: r.id, work_date: r.work_date, activity_type: r.activity_type,
-          description: r.description, hours: Number(r.hours),
-          hourly_rate: Number(r.hourly_rate), amount: Number(r.amount),
-          performed_by: r.performed_by,
-        }))
-        setPreviewRows(rows)
-        setPreviewTotal(actRowsTotal(rows))
-        setLoadingPreview(false)
-      })
+    setPreviewRows([]);setPreviewTotal(0);setExpenseRows([]);setExpensesHint(null);setForm(f=>({...f,expenses_amount:''}))
+    if(!form.matter_id||!form.period_from||!form.period_to){setLoadingPreview(false);return}
+    setLoadingPreview(true)
+    Promise.resolve(supabase.rpc('act_accrual_preview',{p_matter_id:form.matter_id,p_from:form.period_from,p_to:form.period_to,p_act_id:null}))
+     .then(({data,error})=>{
+      if(generation!==previewGeneration.current)return
+      if(error||!Array.isArray(data?.rows)||!Array.isArray(data?.expenses)){toast.error('Не удалось загрузить начисления и расходы');return}
+      const rows=data.rows as ServiceRow[],expenses=data.expenses as {id:string;amount:number;date:string;description:string}[]
+      const sum=expenses.reduce((v,r)=>v+Math.round(Number(r.amount)*100),0)/100
+      setPreviewRows(rows);setPreviewTotal(actRowsTotal(rows));setExpenseRows(expenses);setExpensesHint({sum,count:expenses.length});setForm(f=>({...f,expenses_amount:String(sum)}))
+     }).catch(()=>{if(generation===previewGeneration.current)toast.error('Не удалось загрузить начисления')})
+     .finally(()=>{if(generation===previewGeneration.current)setLoadingPreview(false)})
     return ()=>{previewGeneration.current++}
-  }, [form.matter_id, form.period_from, form.period_to])
-
-  // Возмещаемые расходы по делу за период: «Доверитель возмещает Адвокату расходы в размере …».
-  // Берутся ещё не возмещённые (ожидают включения в счёт и выставленные); уже возмещённые
-  // в акт не идут — доверитель их оплатил. Статусы расходов программа здесь не меняет.
-  useEffect(() => {
-    if (!form.matter_id || !form.period_from || !form.period_to) { setExpensesHint(null); return }
-    let cancelled = false
-    supabase.from('reimbursable_expenses').select('amount')
-      .eq('matter_id', form.matter_id).in('status', ['pending', 'invoiced'])
-      .gte('expense_date', form.period_from).lte('expense_date', form.period_to)
-      .then(({ data }) => {
-        if (cancelled) return
-        const list = (data ?? []) as { amount: number | string }[]
-        const sum = list.reduce((t, r) => t + Math.round(Number(r.amount) * 100), 0) / 100
-        setExpensesHint({ sum, count: list.length })
-        setForm(f => ({ ...f, expenses_amount: sum > 0 ? String(sum) : '' }))
-      })
-    return () => { cancelled = true }
-  }, [form.matter_id, form.period_from, form.period_to])
+  },[form.matter_id,form.period_from,form.period_to])
 
   /**
    * Следующий номер акта: сквозная нумерация в пределах года — АКТ-2026-001.
@@ -264,7 +237,7 @@ export default function ActsPage() {
     e.preventDefault()
     if (!form.matter_id) { toast.error('Выберите дело'); return }
     if (loadingPreview) { toast.error('Дождитесь загрузки состава акта'); return }
-    if (previewTotal === 0) { toast.error('Нет оплачиваемых записей за период'); return }
+    if (previewTotal <= 0) { toast.error('Нет положительной суммы услуг к выставлению. Проверьте начисления и корректировки'); return }
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
     const m = matters.find(x => x.id === form.matter_id)!
@@ -277,6 +250,7 @@ export default function ActsPage() {
       period_from: form.period_from,
       period_to: form.period_to,
       amount: previewTotal,
+      expense_rows:expenseRows,
       description: form.description || null,
       created_by: user!.id,
       // Сумму расходов кладём в запрос, только если она есть: пока миграция 020 не
@@ -287,47 +261,22 @@ export default function ActsPage() {
     Object.assign(base,{document_snapshot:doc,document_html:actBodyHtml(doc),document_css:PRINT_CSS+actCss()})
     // Копия строк — чтобы акт печатался таким, каким был создан, а не
     // тем, что лежит в журнале сегодня (миграция 015).
-    let { error } = await supabase.from('acts').insert({ ...base, rows: previewRows })
-    if (error && /expenses_amount/.test(error.message) && /column|schema/i.test(error.message)) {
-      const withoutExpenses: Record<string, unknown> = { ...base }
-      delete withoutExpenses.expenses_amount
-      ;({ error } = await supabase.from('acts').insert({ ...withoutExpenses, rows: previewRows }))
-      if (!error) toast('Акт создан без суммы расходов — выполните миграцию 020', { icon: '⚠️' })
-    }
-    // Сайт выкатывается раньше, чем выполнена миграция. Пока колонки rows
-    // нет, создаём акт без копии — это старое поведение, лучше, чем отказ.
-    if (error && /rows/.test(error.message) && /column|schema/i.test(error.message)) {
-      ({ error } = await supabase.from('acts').insert(base))
-      if (!error) toast('Акт создан без сохранения состава — выполните миграцию 015', { icon: '⚠️' })
-    }
-    if (error) {
-      // 23505 — нарушение уникальности: акт с таким номером уже существует.
-      // Показываем это по-человечески, а не текстом ошибки базы.
-      if (error.code === '23505') {
-        toast.error(`Акт № ${actNo} уже существует. Укажите другой номер.`)
-      } else {
-        toast.error('Ошибка: ' + error.message)
-      }
-    }
+    const {error}=await supabase.from('acts').insert({...base,rows:previewRows})
+    if(error)toast.error('Не удалось создать акт: '+error.message)
     else { toast.success('Акт создан'); setShowForm(false); loadActs() }
     setSubmitting(false)
   }
 
-  /** Текущий состав из журнала — для актов без копии и для «Обновить из журнала» */
+  /** Текущий состав из начислений — для актов без копии и для «Обновить из начислений» */
   async function fetchLiveRows(act: Act): Promise<ServiceRow[] | null> {
-    const { data, error } = await supabase.from('report_view').select('*')
-      .eq('matter_id', act.matter_id)
-      .gte('work_date', act.period_from)
-      .lte('work_date', act.period_to)
-      .eq('is_billable', true)
-      .order('work_date')
-    if (error) return null
-    return toActRows(data ?? []) as ServiceRow[]
+    const {data,error}=await supabase.rpc('act_accrual_preview',{p_matter_id:act.matter_id,p_from:act.period_from,p_to:act.period_to,p_act_id:act.status==='draft'?act.id:null})
+    if(error||!Array.isArray(data?.rows))return null
+    return data.rows as ServiceRow[]
   }
 
   async function openPreview(act: Act) {
     // Акт показывается и печатается из своей копии — таким, каким был создан.
-    // Из журнала — только старые акты, созданные до миграции 015.
+    // Из начислений — только старые акты, созданные до миграции 015.
     if (Array.isArray(act.rows)) {
       setPreviewAct({ act, rows: act.rows as ServiceRow[] })
       return
@@ -341,7 +290,7 @@ export default function ActsPage() {
   }
 
   /**
-   * Пересобрать черновик из журнала.
+   * Пересобрать черновик из начислений.
    *
    * Только для черновика: подписанный акт — это документ, который видел
    * доверитель, и меняться он не должен. Сумма нового состава показывается
@@ -349,19 +298,21 @@ export default function ActsPage() {
    */
   async function refreshDraft(act: Act) {
     if (act.status !== 'draft') return
-    const rows = await fetchLiveRows(act)
-    if (!rows) { toast.error('Не удалось получить записи журнала'); return }
+    const {data,error:sourceError}=await supabase.rpc('act_accrual_preview',{p_matter_id:act.matter_id,p_from:act.period_from,p_to:act.period_to,p_act_id:act.id})
+    if(sourceError||!Array.isArray(data?.rows)||!Array.isArray(data?.expenses)){toast.error('Не удалось получить начисления');return}
+    const rows=data.rows as ServiceRow[],expense_rows=data.expenses
+    const expenses_amount=expense_rows.reduce((s:number,r:{amount:number})=>s+Math.round(Number(r.amount)*100),0)/100
     const total = actRowsTotal(rows)
     const was = Number(act.amount)
     const msg = Math.abs(total - was) < 0.005
-      ? `Сумма не изменится: ${fmt(total)} руб. Обновить состав акта из журнала?`
+      ? `Сумма не изменится: ${fmt(total)} руб. Обновить состав акта из начислений?`
       : `Сумма акта изменится: было ${fmt(was)} руб., станет ${fmt(total)} руб. Обновить?`
     if (!confirm(msg)) return
-    const fresh=buildActDoc({cabinet:CABINET,client:act.matters.clients,matter:act.matters,periodFrom:act.period_from,periodTo:act.period_to,rows,expensesAmount:act.expenses_amount,note:act.description})
-    const { error } = await supabase.from('acts').update({ rows, amount: total,document_snapshot:fresh,document_html:actBodyHtml(fresh),document_css:PRINT_CSS+actCss() }).eq('id', act.id)
+    const fresh=buildActDoc({cabinet:CABINET,client:act.matters.clients,matter:act.matters,periodFrom:act.period_from,periodTo:act.period_to,rows,expensesAmount:expenses_amount,note:act.description})
+    const { error } = await supabase.from('acts').update({ rows, amount: total,expense_rows,expenses_amount,document_snapshot:fresh,document_html:actBodyHtml(fresh),document_css:PRINT_CSS+actCss() }).eq('id', act.id)
     if (error) { toast.error('Не удалось обновить акт: ' + error.message); return }
-    toast.success('Состав акта обновлён из журнала')
-    setPreviewAct({ act: { ...act, rows, amount: total,document_snapshot:fresh }, rows })
+    toast.success('Состав акта обновлён из начислений')
+    setPreviewAct({ act: { ...act, rows, amount: total,expense_rows,expenses_amount,document_snapshot:fresh }, rows })
     loadActs()
   }
 
@@ -377,6 +328,7 @@ export default function ActsPage() {
       toast.success('Создан отдельный черновик исправления');setPreviewAct(null);loadActs();return
     }
     if(act.status==='draft'&&status!=='draft'){
+      if(!Array.isArray(act.expense_rows)){toast.error('Пересоберите черновик из начислений перед выпуском');return}
       if(!window.confirm('Выпустить акт? Его содержание будет зафиксировано; исправления оформляются отдельной версией.'))return
       const rows=Array.isArray(act.rows)?act.rows:await fetchLiveRows(act)
       if(!rows){toast.error('Не удалось получить состав акта');return}
@@ -513,13 +465,12 @@ export default function ActsPage() {
               </select>
             </div>
             <div className="md:col-span-3">
-              <label className="label">Возмещаемые расходы, ₽ (необязательно)</label>
-              <input type="number" inputMode="decimal" step="0.01" className="input" value={form.expenses_amount}
-                onChange={e => setForm(f => ({ ...f, expenses_amount: e.target.value }))} />
+              <label className="label">Возмещаемые расходы из записей, ₽</label>
+              <input type="number" inputMode="decimal" step="0.01" className="input" readOnly value={form.expenses_amount} />
               <p className="text-xs text-navy-400 mt-1">
                 {expensesHint && expensesHint.count > 0
-                  ? `Из раздела «Возмещаемые расходы»: ${expensesHint.count} шт. на ${fmt(expensesHint.sum)} ₽ за период, ещё не возмещённые. Попадут в акт отдельным абзацем; сумму можно изменить или стереть.`
-                  : 'За период нет невозмещённых расходов по делу. Если они были, впишите сумму — в акте появится абзац о возмещении.'}
+                  ? `Из раздела «Возмещаемые расходы»: ${expensesHint.count} шт. на ${fmt(expensesHint.sum)} ₽ за период, ещё не включённые в выпущенные акты. Возмещение оформляется отдельно от услуг. Для исправления измените запись расхода и обновите состав.`
+                  : 'За период нет расходов к включению в акт. При необходимости внесите их в «Возмещаемые расходы».'}
               </p>
             </div>
             <div className="md:col-span-3">
@@ -559,11 +510,11 @@ export default function ActsPage() {
                 {loadingPreview ? (
                   <p className="text-navy-300 text-sm">Загрузка...</p>
                 ) : previewRows.length === 0 ? (
-                  <p className="text-red-400 text-sm">Нет оплачиваемых записей за выбранный период</p>
+                  <p className="text-red-400 text-sm">Нет начислений за выбранный период</p>
                 ) : (
                   <div className="bg-navy-800/40 rounded-lg border border-navy-700/50 overflow-hidden">
                     <div className="px-4 py-2.5 border-b border-navy-700/50 flex justify-between items-center">
-                      <span className="text-sm text-navy-300">{previewRows.length} записей войдут в акт</span>
+                      <span className="text-sm text-navy-300">{previewRows.length} начислений войдут в акт</span>
                       <span className="text-navy-100 font-semibold text-sm">{fmt(previewTotal)} руб.</span>
                     </div>
                     {/* Семь колонок в ширину телефона не влезают, поэтому
@@ -581,12 +532,12 @@ export default function ActsPage() {
                         {previewRows.map(r => (
                           <tr key={r.id} className="border-b border-navy-800/40">
                             <td className="px-3 py-1.5 num text-navy-400">{fmtDate(r.work_date)}</td>
-                            <td className="px-3 py-1.5 text-navy-400">{ACTIVITY_LABELS[r.activity_type]}</td>
+                            <td className="px-3 py-1.5 text-navy-400">{serviceLabel(r)}</td>
                             <td className="px-3 py-1.5 text-navy-300 max-w-[160px] truncate">{r.description}</td>
-                            <td className="px-3 py-1.5 text-right num text-navy-300">{r.hours.toFixed(2)}</td>
-                            <td className="px-3 py-1.5 text-right num text-navy-400">{fmt(r.hourly_rate)}</td>
+                            <td className="px-3 py-1.5 text-right num text-navy-300">{r.source_kind?'—':r.hours.toFixed(2)}</td>
+                            <td className="px-3 py-1.5 text-right num text-navy-400">{r.source_kind?'—':fmt(r.hourly_rate)}</td>
                             <td className="px-3 py-1.5 text-right num text-navy-100">{fmt(r.amount)}</td>
-                            <td className="px-3 py-1.5 text-navy-300">{displayPerformer(r.performed_by)}</td>
+                            <td className="px-3 py-1.5 text-navy-300">{r.source_kind?'—':displayPerformer(r.performed_by)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -603,8 +554,7 @@ export default function ActsPage() {
                           </div>
                           <p className="text-navy-300 text-xs mb-1">{r.description}</p>
                           <p className="text-navy-400 text-xs">
-                            {ACTIVITY_LABELS[r.activity_type]} · <span className="num">{r.hours.toFixed(2)}</span> ч ·{' '}
-                            <span className="num">{fmt(r.hourly_rate)}</span> ₽/ч
+                            {r.source_kind?serviceLabel(r):<>{serviceLabel(r)} · <span className="num">{r.hours.toFixed(2)}</span> ч · <span className="num">{fmt(r.hourly_rate)}</span> ₽/ч</>}
                           </p>
                         </div>
                       ))}
@@ -615,7 +565,7 @@ export default function ActsPage() {
             )}
 
             <div className="md:col-span-3 flex gap-3">
-              <button type="submit" disabled={submitting || loadingPreview || previewTotal === 0} className="btn-primary">
+              <button type="submit" disabled={submitting || loadingPreview || previewTotal <= 0} className="btn-primary">
                 <Check className="w-4 h-4" /> {submitting ? 'Создаю...' : `Создать акт на ${fmt(previewTotal)} руб.`}
               </button>
               <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">Отмена</button>
@@ -792,7 +742,7 @@ export default function ActsPage() {
                     Черновик: состав зафиксирован при создании. Если после этого правили журнал — обновите.
                   </p>
                   <button onClick={() => refreshDraft(previewAct.act)} className="btn-secondary text-xs">
-                    <RefreshCw className="w-3.5 h-3.5" /> Обновить из журнала
+                    <RefreshCw className="w-3.5 h-3.5" /> Обновить из начислений
                   </button>
                 </div>
               ) : (
@@ -817,12 +767,12 @@ export default function ActsPage() {
                     <tr key={r.id} className="border-b border-navy-800/40">
                       <td className="py-1.5 pr-3 text-navy-400">{i+1}</td>
                       <td className="py-1.5 pr-3 num text-navy-400">{fmtDate(r.work_date)}</td>
-                      <td className="py-1.5 pr-3 text-navy-400">{ACTIVITY_LABELS[r.activity_type]}</td>
+                      <td className="py-1.5 pr-3 text-navy-400">{serviceLabel(r)}</td>
                       <td className="py-1.5 pr-3 text-navy-300 max-w-[180px] truncate">{r.description}</td>
-                      <td className="py-1.5 pr-3 text-right num text-navy-300">{r.hours.toFixed(2)}</td>
-                      <td className="py-1.5 pr-3 text-right num text-navy-400">{fmt(r.hourly_rate)}</td>
+                      <td className="py-1.5 pr-3 text-right num text-navy-300">{r.source_kind?'—':r.hours.toFixed(2)}</td>
+                      <td className="py-1.5 pr-3 text-right num text-navy-400">{r.source_kind?'—':fmt(r.hourly_rate)}</td>
                       <td className="py-1.5 pr-3 text-right num text-navy-100">{fmt(r.amount)}</td>
-                      <td className="py-1.5 text-navy-300">{displayPerformer(r.performed_by)}</td>
+                      <td className="py-1.5 text-navy-300">{r.source_kind?'—':displayPerformer(r.performed_by)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -845,7 +795,7 @@ export default function ActsPage() {
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <span className="text-navy-300 text-xs">
                         <span className="text-navy-400 mr-1.5">{i+1}.</span>
-                        {ACTIVITY_LABELS[r.activity_type]}
+                        {serviceLabel(r)}
                       </span>
                       <span className="text-navy-400 num text-xs whitespace-nowrap flex-shrink-0">
                         {fmtDate(r.work_date)}
@@ -854,11 +804,11 @@ export default function ActsPage() {
                     <p className="text-navy-300 text-xs mb-1.5">{r.description}</p>
                     <div className="flex items-center justify-between gap-2 text-xs">
                       <span className="text-navy-300 num">
-                        {r.hours.toFixed(2)} ч × {fmt(r.hourly_rate)} ₽
+                        {r.source_kind?'По условиям соглашения':<>{r.hours.toFixed(2)} ч × {fmt(r.hourly_rate)} ₽</>}
                       </span>
                       <span className="num text-navy-100 font-semibold">{fmt(r.amount)} ₽</span>
                     </div>
-                    <p className="text-navy-400 text-xs mt-0.5">{displayPerformer(r.performed_by)}</p>
+                    <p className="text-navy-400 text-xs mt-0.5">{r.source_kind?'—':displayPerformer(r.performed_by)}</p>
                   </div>
                 ))}
                 <div className="pt-2.5 flex items-center justify-between text-xs">

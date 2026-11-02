@@ -110,6 +110,8 @@ const money = (kop: number) =>
 const hoursText = (hundredths: number) => (hundredths / 100).toFixed(2).replace('.', ',')
 
 export interface ActRowIn {
+  source_kind?: string
+  description?: string
   hours: number
   hourly_rate: number
   amount: number
@@ -229,8 +231,10 @@ export function actFileName(i: Pick<ActDocInput, 'periodTo' | 'matter'>): string
 
 export function buildActDoc(input: ActDocInput): ActDoc {
   const { cabinet: cab, client: c, matter: m } = input
-  const { lines, totalHours100, totalKop } = specialistLines(input.rows)
-  const total = totalKop / 100
+  const { lines, totalHours100, totalKop } = specialistLines(input.rows.filter(r=>!r.source_kind))
+  const charges=input.rows.filter(r=>!!r.source_kind)
+  const combinedKop=totalKop+charges.reduce((sum,r)=>sum+Math.round(Number(r.amount)*100),0)
+  const total = combinedKop / 100
 
   // Соглашение и задание
   const agr = agreementRef(m.agreement_no, m.agreement_date)
@@ -278,16 +282,19 @@ export function buildActDoc(input: ActDocInput): ActDoc {
   })
   blocks.push({
     kind: 'para',
-    text: `За оказанные в период с ${shortDate(input.periodFrom)} по ${shortDate(input.periodTo)} услуги Доверитель уплачивает Адвокату${taskNo ? ` в соответствии с Заданием ${taskRef}` : ''} сумму в размере ${fmtMoneyAct(total)}, исходя из данных учета трудозатрат Адвоката:`,
+    text: `За оказанные в период с ${shortDate(input.periodFrom)} по ${shortDate(input.periodTo)} услуги Доверитель уплачивает Адвокату${taskNo ? ` в соответствии с Заданием ${taskRef}` : ''} сумму в размере ${fmtMoneyAct(total)}, ${charges.length?'на основании начислений за период':'исходя из данных учета трудозатрат Адвоката'}:`,
     bold: true,
   })
-  blocks.push({
+  if(lines.length)blocks.push({
     kind: 'table',
     head: ['Квалификация специалиста', 'Затраты времени, чел-ч', 'Стоимость 1 чел-ч', 'Общая стоимость по проекту'],
     rows: lines.map(l => [l.label, hoursText(l.hours100), money(l.rateKop), money(l.amountKop)]),
     total: ['ИТОГО', 'Х', 'Х', money(totalKop)],
   })
 
+  if(charges.length)blocks.push({kind:'table',head:['Начисление / корректировка','Количество','Ставка','Сумма'],
+    rows:charges.map(r=>[r.description||'Начисление','—','—',money(Math.round(Number(r.amount)*100))]),
+    total:['ИТОГО УСЛУГ','Х','Х',money(combinedKop)]})
   const expenses = Number(input.expensesAmount ?? 0)
   if (expenses > 0) {
     const clause = clean(m.expenses_clause)

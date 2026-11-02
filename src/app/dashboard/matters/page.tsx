@@ -14,6 +14,7 @@ import EmptyState from '@/components/EmptyState'
 import { isDriveUrl, driveUrlHint } from '@/lib/drive-link'
 import { SkeletonRows } from '@/components/Skeleton'
 import { isSubscription, matterFeeAccrued, ManualAccrual } from '@/lib/balance'
+import RateRules from '@/components/RateRules'
 import AccrualsBlock from './AccrualsBlock'
 import { toISO } from '@/lib/deadlines'
 
@@ -533,6 +534,7 @@ export default function MattersPage() {
           </form>
           {/* Начисления по актам — вне формы: Enter в их полях не должен сохранять само дело */}
           {editId && <ChangeHistory table="matters" rowId={editId}/>}
+        {editId && <RateRules key={editId} matterId={editId} />}
         {editId && <AccrualsBlock matterId={editId} onChanged={loadMatters} />}
       </Modal>
 

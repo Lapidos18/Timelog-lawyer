@@ -219,7 +219,7 @@ describe('ручная копия: успех только после выгру
     vi.mocked(localStorage.setItem).mockImplementation(() => { throw new Error('Storage blocked') })
     await button(render(BackupPage), 'Скачать резервную копию').props.onClick()
     expect(click).toHaveBeenCalledOnce()
-    expect(JSON.parse(await blobs[0].text()).meta.tables).toHaveLength(20)
+    expect(JSON.parse(await blobs[0].text()).meta.tables).toHaveLength(BACKUP_TABLES.length)
     expect(text(render(BackupPage))).toContain('✓ Бэкап скачан')
     expect(runtime.success).toHaveBeenCalledOnce()
   })

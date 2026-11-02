@@ -26,7 +26,7 @@ try{
  const tables=backup.meta.tables
  for(const t of tables)await db.exec(`alter table public."${t}" disable trigger user`)
  for(const [i,p] of (backup.data.profiles||[]).entries())await db.query('insert into auth.users(id,email) values($1,$2)',[p.id,`restored-${i}@example.invalid`])
- const order=['clients','profiles','matters','time_entries','payments','expenses','tax_settings','tax_payments','manual_income','reimbursable_expenses','court_events','acts','settlement_acts','matter_accruals','payment_allocations','act_entry_claims','billing_periods','backup_runs','financial_operations','audit_log']
+ const order=['clients','profiles','matters','time_entries','payments','expenses','tax_settings','tax_payments','manual_income','reimbursable_expenses','court_events','acts','settlement_acts','matter_accruals','payment_allocations','act_entry_claims','billing_periods','backup_runs','financial_operations','rate_rules','document_source_claims','notification_deliveries','audit_log']
  for(const t of order.filter(t=>tables.includes(t))){
   const columns=(await db.query('select column_name from information_schema.columns where table_schema=$1 and table_name=$2 and is_generated=$3',['public',t,'NEVER'])).rows.map(r=>r.column_name)
   const rows=[...backup.data[t]];if(t==='acts')rows.sort((a,b)=>(a.document_revision||1)-(b.document_revision||1))
@@ -36,6 +36,8 @@ try{
    await db.query(`insert into public."${t}"(${keys.map(k=>`"${k}"`).join(',')}) values(${keys.map((_,i)=>'$'+(i+1)).join(',')}) on conflict("${pk}") ${update?'do update set '+update:'do nothing'}`,values)
   }
  }
+ // Проверить отложенные ссылки до включения пользовательских триггеров.
+ await db.exec('set constraints all immediate')
  const counts={}
  for(const t of tables){
   const pk=t==='tax_settings'?'year':t==='act_entry_claims'?'entry_id':'id'

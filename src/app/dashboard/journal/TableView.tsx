@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useRateRule } from '@/lib/use-rate-rule'
 import { isSubscription } from '@/lib/balance'
 import { Matter, Client, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import { format } from 'date-fns'
@@ -100,6 +101,10 @@ export default function TableView() {
     is_billable: true,
     notes: '',
   })
+
+  const rateSuggestion=useRateRule(form.matter_id,form.work_date,form.activity_type,selectedUserId||profile?.id||'',!!editId,
+    matters.find(m=>m.id===form.matter_id)?.hourly_rate??profile?.hourly_rate,
+    rate=>{setForm(f=>({...f,hourly_rate:String(rate)}));setNdfl(false)})
 
   const effectiveRate = (base: string) => {
     const n = parseFloat(base || '0')
@@ -288,6 +293,7 @@ export default function TableView() {
     const dmin = (parseInt(form.hours || '0') * 60) + parseInt(form.minutes || '0')
     if (dmin <= 0) { toast.error('Укажите время'); return }
     if (dmin > 1440) { toast.error('Длительность одной записи не может превышать 24 часа'); return }
+    if(!editId && (!rateSuggestion.ready||rateSuggestion.error)){toast.error(rateSuggestion.error||'Дождитесь проверки правил ставок');return}
     if(editId && !changeReason.trim()){toast.error('Укажите причину изменения записи');return}
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
@@ -435,7 +441,7 @@ export default function TableView() {
               <div className="flex items-center justify-between mb-1.5">
                 <label className="label mb-0">Описание работы *</label>
                 <button type="button" onClick={() => setShowTemplates(s => !s)}
-                  className="flex items-center gap-1 text-xs text-gold-400 hover:text-gold-300 transition-colors">
+                  className="flex min-h-11 items-center gap-1 text-xs text-gold-400 hover:text-gold-300 transition-colors">
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showTemplates ? 'rotate-180' : ''}`} />
                   Шаблоны
                 </button>
@@ -445,7 +451,7 @@ export default function TableView() {
                   {templates.map(t => (
                     <button key={t} type="button"
                       onClick={() => { setForm(f => ({ ...f, description: t })); setShowTemplates(false) }}
-                      className="text-xs px-2.5 py-1 bg-navy-800 hover:bg-navy-700 border border-navy-700
+                      className="min-h-11 text-xs px-2.5 py-1 bg-navy-800 hover:bg-navy-700 border border-navy-700
                                  hover:border-gold-600 text-navy-300 hover:text-gold-400 rounded-lg transition-colors">
                       {t}
                     </button>
@@ -504,13 +510,13 @@ export default function TableView() {
             </div>
 
             <div className="flex flex-col gap-2 justify-end pb-1">
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex min-h-11 items-center gap-2 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4 rounded accent-gold-500"
                   checked={form.is_billable}
                   onChange={e => setForm(f => ({ ...f, is_billable: e.target.checked }))} />
                 <span className="text-sm text-navy-300">Оплачиваемо</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex min-h-11 items-center gap-2 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4 rounded accent-amber-500"
                   checked={ndfl} onChange={e => setNdfl(e.target.checked)} />
                 <span className={`text-sm font-medium ${ndfl ? 'text-amber-400' : 'text-navy-300'}`}>
@@ -528,6 +534,11 @@ export default function TableView() {
             </div>
 
             {/* Preview */}
+
+            {rateSuggestion.error&&<p role="alert" className="text-red-400 text-sm">{rateSuggestion.error}</p>}
+            {rateSuggestion.rule&&!editId&&<p className="text-xs text-navy-300 md:col-span-4">Правило: {rateSuggestion.rule.reason} · ставка {formatMoney(Number(rateSuggestion.rule.hourly_rate))} ₽/ч.
+              {Math.abs(effectiveRate(form.hourly_rate)-Number(rateSuggestion.rule.hourly_rate))>.005&&<span className="text-amber-400"> Введённая ставка отличается от правила — проверьте условия.</span>}</p>}
+
             {form.hours && form.hourly_rate && (
               <div className="md:col-span-3 bg-navy-800/50 rounded-lg px-4 py-3 flex gap-6 text-sm flex-wrap">
                 <span className="text-navy-400">Время:

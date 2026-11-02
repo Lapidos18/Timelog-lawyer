@@ -5,6 +5,7 @@ import { CourtEvent, CourtEventKind, EVENT_KIND_LABELS, Matter, Client } from '@
 import { format } from 'date-fns'
 import { CalendarClock, Plus, Check, Trash2, Gavel, AlertTriangle, Calculator, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
+import NotificationStatus from '@/components/NotificationStatus'
 import PageHeader from '@/components/PageHeader'
 import Modal from '@/components/Modal'
 import EmptyState from '@/components/EmptyState'
@@ -177,7 +178,7 @@ export default function DeadlinesPage() {
         headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
       })
       const out = await res.json()
-      if (out.status === 'sent') toast.success('Отправлено в Телеграм — проверьте телефон')
+      if (out.status === 'sent') toast.success(out.message||'Telegram подтвердил приём')
       else if (out.status === 'nothing') toast('Напоминать не о чем: ничего не горит', { icon: '🙂' })
       else if (out.status === 'not-configured') toast.error(out.message)
       else toast.error(out.message ?? 'Не получилось отправить')
@@ -217,6 +218,7 @@ export default function DeadlinesPage() {
         </div>
       </PageHeader>
 
+      <NotificationStatus refresh={testing} onRetry={testNotify}/>
       {noTable && (
         <div className="card mb-5 border-amber-800/50">
           <p className="text-sm text-amber-300 mb-1">Раздел не готов к работе</p>

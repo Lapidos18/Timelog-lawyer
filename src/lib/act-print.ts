@@ -62,7 +62,7 @@ export function actBodyHtml(doc: ActDoc): string {
 
 /** Печать / «Сохранить как PDF». false — браузер заблокировал окно */
 export function printActDoc(doc: ActDoc): boolean {
-  return printDocument(e(doc.fileName), actBodyHtml(doc), actCss())
+  return printDocument(doc.fileName, actBodyHtml(doc), actCss())
 }
 
 // ── Word ────────────────────────────────────────────────────────────────

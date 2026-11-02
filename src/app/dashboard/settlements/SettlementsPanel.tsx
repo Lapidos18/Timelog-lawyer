@@ -12,7 +12,8 @@ import LoadError from '@/components/LoadError'
 import { SkeletonRows } from '@/components/Skeleton'
 import { useEscapeKey } from '@/lib/form-keys'
 import { isTouchLayout } from '@/lib/touch-layout'
-import { CABINET_LINE } from '@/lib/print'
+import {useCabinetSettings} from '@/components/CabinetSettings'
+import {cabinetLine} from '@/lib/cabinet-settings'
 import {
   SettlementActRecord, SettlementDoc, SettlementRow, SettlementStatus, Balance,
   buildRowsUs, openingFrom, newSettlementDoc, normalizeDoc, tableTotals,
@@ -66,6 +67,7 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
   deepLink: ActDeepLink | null
   onDeepLinkDone: () => void
 }) {
+  const {settings,ready:settingsReady,error:settingsError}=useCabinetSettings()
   const supabase = createClient()
   const [acts, setActs] = useState<SettlementActRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -179,6 +181,7 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
   }
 
   async function startNew(client: Client, from: string, to: string) {
+    if(!settingsReady){toast.error(settingsError||'Дождитесь загрузки настроек');return}
     if (!from || !to || to < from) { toast.error('Проверьте период: «по» не может быть раньше «с»'); return }
     setCreating(true)
     try {
@@ -190,8 +193,9 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
         .find(c => c.trim() !== '')
       const doc = newSettlementDoc({
         periodFrom: from, periodTo: to, clientName: client.name, clientInn: client.inn,
-        cabinetLine: CABINET_LINE, contract, ...src,
+        cabinetLine: cabinetLine(settings), contract, ...src,
       })
+      doc.us={...doc.us,name:settings.settlementName,intro:settings.fullName,inn:settings.inn,signer:'Адвокат '+settings.signerShort}
       setEditing({ id: null, clientId: client.id, status: 'draft', doc })
       setSnapshot('') // новый акт ещё не сохранён — считается изменённым
       setNewOpen(false)

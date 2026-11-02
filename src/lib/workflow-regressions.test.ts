@@ -22,6 +22,7 @@ vi.mock('react', async importOriginal => {
   }
   return {
     ...actual,
+    useContext: (context: any) => context._currentValue,
     useState: (initial: any) => {
       const i = runtime.cursor++
       if (!(i in runtime.slots)) runtime.slots[i] = typeof initial === 'function' ? initial() : initial

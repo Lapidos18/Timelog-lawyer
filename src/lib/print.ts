@@ -21,6 +21,8 @@
  * там это умеет сам формат.
  */
 
+import {escapeHtml} from './html'
+
 export const PRINT_CSS = `
   body{font-family:'Times New Roman',Times,serif;font-size:11pt;line-height:1.35;margin:20mm;color:#000}
   h1{text-align:center;font-size:14pt;font-weight:bold;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.02em}
@@ -74,7 +76,7 @@ export const CABINET_LINE =
  */
 export function printDocument(title: string, bodyHtml: string, extraCss = ''): boolean {
   const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">
-<title>${title}</title><style>${PRINT_CSS}${extraCss}</style></head><body>${bodyHtml}</body></html>`
+<title>${escapeHtml(title)}</title><style>${PRINT_CSS}${extraCss}</style></head><body>${bodyHtml}</body></html>`
 
   const w = window.open('', '_blank', 'width=900,height=700')
   if (!w) return false

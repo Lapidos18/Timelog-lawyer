@@ -178,6 +178,8 @@ export interface ActDoc {
 }
 
 export interface ActCabinet {
+  registryRegion?:string
+  bankDetails?:string
   fullName: string
   regNo: string
   certNo: string
@@ -260,7 +262,7 @@ export function buildActDoc(input: ActDocInput): ActDoc {
   const ogrn = clean(c.ogrn)
   const reqs = [ogrn && `ОГРН ${ogrn}`, clientInn && `ИНН ${clientInn}`].filter(Boolean).join(', ')
   const rep = clean(c.representative)
-  const lawyerPara = `${cab.fullName}, регистрационный номер в реестре адвокатов Новосибирской области № ${cab.regNo}, удостоверение адвоката № ${cab.certNo}, именуемый далее «Адвокат» с одной стороны и`
+  const lawyerPara = `${cab.fullName}, регистрационный номер в реестре адвокатов ${clean(cab.registryRegion)||'Новосибирской области'} № ${cab.regNo}, удостоверение адвоката № ${cab.certNo}, именуемый далее «Адвокат» с одной стороны и`
   const clientPara = isOrg
     ? `${orgName}${reqs ? ` (${reqs})` : ''}${rep ? ` в лице ${rep}` : ''}, именуемое далее «Доверитель», с другой стороны,`
     : `${clean(c.full_name) || c.name}${clientInn ? ` (ИНН ${clientInn})` : ''}, именуемый(ая) далее «Доверитель», с другой стороны,`
@@ -307,7 +309,8 @@ export function buildActDoc(input: ActDocInput): ActDoc {
       bold: true,
     })
   }
-  if (clean(input.note)) blocks.push({ kind: 'para', text: clean(input.note) })
+  for(const line of clean(input.note).split(/\r?\n/).filter(Boolean))blocks.push({kind:'para',text:line})
+  for(const line of clean(cab.bankDetails).split(/\r?\n/).filter(Boolean))blocks.push({kind:'para',text:line})
   blocks.push({ kind: 'para', text: 'Доверитель не имеет претензий к качеству оказанных Адвокатом услуг.' })
   blocks.push({ kind: 'para', text: 'Настоящий акт составлен в 2 (двух) экземплярах, имеющих равную юридическую силу, по одному для каждой из сторон.' })
   blocks.push({ kind: 'para', text: 'Подписи сторон:' })

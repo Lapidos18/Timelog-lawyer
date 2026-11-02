@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { buildNotification, NotifyEvent } from '@/lib/notify-text'
 import { notificationParts,notificationDay,deliverTelegram } from '@/lib/notification-delivery'
+import {readSettings} from '@/lib/cabinet-settings'
 import { readAllRows } from '@/lib/billing'
 
 /**
@@ -55,11 +56,13 @@ async function run(req:NextRequest){
  const db=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}})
  const check=async(status:string,error:string|null=null)=>{const {error:e}=await db.rpc('record_notification_check',{p_status:status,p_error:error});if(e)throw Error('delivery_log_unavailable')}
  try{
+  const {settings}=await readSettings(db)
+  if(!settings.notificationsEnabled){await check('checked','notifications_disabled');return NextResponse.json({status:'disabled',message:'Напоминания отключены в настройках кабинета'})}
   if(!token||!chat){await check('failed','telegram_not_configured');return NextResponse.json({status:'not-configured',message:'Не настроен Telegram'})}
   await check('checked')
   const day=notificationDay(),today=new Date(day+'T12:00:00')
   const events=await readAllRows<NotifyEvent>(db,'court_events','id,title,event_date,event_time,kind,remind_days,done,matters(title,clients(name))',q=>q.eq('done',false))
-  const text=buildNotification(events,today)
+  const text=buildNotification(settings.notificationsDetails?events:events.map(e=>({...e,matters:null})),today)
   if(!text){await check('nothing');return NextResponse.json({status:'nothing',message:'Напоминать не о чем'})}
   const parts=notificationParts(text)
   let jobs:any[]

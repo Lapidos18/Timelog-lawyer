@@ -1,6 +1,6 @@
 export const BACKUP_TABLES = ['clients','profiles','matters','time_entries','payments','acts','expenses','tax_settings',
  'tax_payments','manual_income','reimbursable_expenses','court_events','audit_log','settlement_acts','matter_accruals',
- 'payment_allocations','act_entry_claims','billing_periods','backup_runs','financial_operations','rate_rules','document_source_claims','notification_deliveries'];
+ 'payment_allocations','act_entry_claims','billing_periods','backup_runs','financial_operations','rate_rules','document_source_claims','notification_deliveries','cabinet_settings'];
 const canonical = v => Array.isArray(v) ? v.map(canonical) : v && typeof v === 'object'
  ? Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])) : v;
 export async function checksum(value) {
@@ -11,7 +11,7 @@ export async function createBackup(data,source='manual') {
  for(const table of BACKUP_TABLES)if(!Array.isArray(data[table]))throw Error('Отсутствует таблица '+table);
  const table_counts=Object.fromEntries(BACKUP_TABLES.map(t=>[t,data[t].length]));
  const checksums=Object.fromEntries(await Promise.all(BACKUP_TABLES.map(async t=>[t,await checksum(data[t])])));
- return {meta:{backup_date:new Date().toISOString(),backup_version:'2.0',schema_revision:35,source,tables:BACKUP_TABLES,
+ return {meta:{backup_date:new Date().toISOString(),backup_version:'2.0',schema_revision:36,source,tables:BACKUP_TABLES,
   table_counts,checksums,total_records:Object.values(table_counts).reduce((s,n)=>s+n,0)},data};
 }
 /** Проверка содержимого и ссылок до любого восстановления. Ничего не записывает в базу. */
@@ -21,7 +21,7 @@ export async function verifyBackup(backup) {
  if(!['1.0','2.0'].includes(backup.meta.backup_version))throw Error('Неизвестная версия резервной копии');
  if(Object.keys(backup.data).some(t=>!names.includes(t)))throw Error('Таблица отсутствует в перечне копии');
  if(new Set(names).size!==names.length||names.some(t=>!BACKUP_TABLES.includes(t)))throw Error('Неизвестная или повторяющаяся таблица');
- const required=Number(backup.meta.schema_revision)>=35?BACKUP_TABLES:BACKUP_TABLES.filter(t=>!['rate_rules','document_source_claims','notification_deliveries'].includes(t));
+ const required=Number(backup.meta.schema_revision)>=36?BACKUP_TABLES:Number(backup.meta.schema_revision)>=35?BACKUP_TABLES.filter(t=>t!=='cabinet_settings'):BACKUP_TABLES.filter(t=>!['rate_rules','document_source_claims','notification_deliveries','cabinet_settings'].includes(t));
  if(backup.meta.backup_version==='2.0'&&required.some(t=>!names.includes(t)))throw Error('Неполная копия');
  let count=0;
  for(const table of names){

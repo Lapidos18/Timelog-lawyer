@@ -2,7 +2,7 @@ import { ReportRow, ACTIVITY_LABELS } from '@/types'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { escapeHtml } from '@/lib/html'
-import { CABINET_LINE } from '@/lib/print'
+import {CabinetSettings,DEFAULT_SETTINGS,cabinetLine,templateText} from '@/lib/cabinet-settings'
 import { agreementLine, agreementRef, specialistLines } from '@/lib/act-doc'
 import toast from 'react-hot-toast'
 
@@ -63,6 +63,7 @@ export function exportToPDF(
   title: string,
   subtitle?: string,
   meta?: {
+    settings?: CabinetSettings
     agreementNo?: string
     /** Дата соглашения, ГГГГ-ММ-ДД (миграция 020) */
     agreementDate?: string | null
@@ -74,6 +75,9 @@ export function exportToPDF(
     dateTo?: string
   }
 ) {
+  const settings=meta?.settings||DEFAULT_SETTINGS
+  const fields={client:meta?.clientName,matter:meta?.matterTitle,period:meta?.dateFrom&&meta?.dateTo?formatDate(meta.dateFrom)+' — '+formatDate(meta.dateTo):''}
+  const intro=templateText(settings.reportIntro,fields),closing=templateText(settings.reportClosing,fields)
   const billableRows = rows.filter(r => r.is_billable)
   const totalHours   = billableRows.reduce((s, r) => s + Number(r.hours), 0)
   const totalAmount  = billableRows.reduce((s, r) => s + Number(r.amount), 0)
@@ -182,10 +186,8 @@ export function exportToPDF(
     text-decoration: underline;
   }
   .footer {
-    position: fixed;
-    bottom: 10mm;
-    left: 20mm;
-    right: 20mm;
+    position: static;
+    margin-top:12mm;
     font-size: 8pt;
     color: #000;
     border-top: 1px solid #000;
@@ -193,9 +195,12 @@ export function exportToPDF(
     display: flex;
     justify-content: space-between;
   }
+  td,.footer,.meta,.header { overflow-wrap:anywhere; }
+  .template {white-space:pre-line;margin:12px 0;font-size:10pt}
+  @page {size:A4;margin:18mm 18mm 22mm;@bottom-right{content:"Стр. " counter(page) " из " counter(pages);font-family:'Times New Roman';font-size:8pt}}
   @media print {
-    body { padding: 15mm; }
-    .footer { position: fixed; bottom: 8mm; }
+    body { padding: 0; }
+    .footer { position: static; margin-top:12mm; }
 
     /* Многостраничный отчёт: без этого на втором листе таблица идёт без шапки,
        и читающий не понимает, где часы, где ставка, где сумма */
@@ -210,7 +215,7 @@ export function exportToPDF(
 <body>
 
 <div class="header">
-  <h1>Отчёт №${reportNo} от ${reportDate} г.</h1>
+  <h1>Отчёт №${escapeHtml(reportNo)} от ${reportDate} г.</h1>
   <h2>об оказанных услугах</h2>
 </div>
 
@@ -220,6 +225,7 @@ export function exportToPDF(
   <b>Период:</b> ${periodStr}
 </div>
 
+${intro?'<p class="template">'+escapeHtml(intro)+'</p>':''}
 <h3>Детализация по оказанным услугам</h3>
 <table>
   <thead>
@@ -258,9 +264,10 @@ export function exportToPDF(
   </tbody>
 </table>
 
+${closing?'<p class="template">'+escapeHtml(closing)+'</p>':''}
 <div class="footer">
-  <span>Отчёт №${reportNo} от ${reportDate} по соглашению ${escapeHtml(agreementRef(meta?.agreementNo, meta?.agreementDate) || "—")}</span>
-  <span>Стр. 1 из 1</span>
+  <span>${escapeHtml(cabinetLine(settings))}${settings.bankDetails?'<br>'+escapeHtml(settings.bankDetails).replace(/\n/g,'<br>'):''}<br>Отчёт №${escapeHtml(reportNo)} от ${reportDate} по соглашению ${escapeHtml(agreementRef(meta?.agreementNo, meta?.agreementDate) || "—")}</span>
+
 </div>
 
 </body>
@@ -289,6 +296,7 @@ export async function exportToWord(
   rows: ReportRow[],
   title: string,
   meta?: {
+    settings?: CabinetSettings
     agreementNo?: string
     agreementDate?: string | null
     taskNo?: string | null
@@ -303,6 +311,9 @@ export async function exportToWord(
     WidthType, AlignmentType, BorderStyle, HeadingLevel, Footer, PageNumber,
   } = await import('docx')
 
+  const settings=meta?.settings||DEFAULT_SETTINGS
+  const fields={client:meta?.clientName,matter:meta?.matterTitle,period:meta?.dateFrom&&meta?.dateTo?formatDate(meta.dateFrom)+' — '+formatDate(meta.dateTo):''}
+  const intro=templateText(settings.reportIntro,fields),closing=templateText(settings.reportClosing,fields)
   const billableRows = rows.filter(r => r.is_billable)
   const totalHours  = billableRows.reduce((s, r) => s + Number(r.hours), 0)
   const totalAmount = billableRows.reduce((s, r) => s + Number(r.amount), 0)
@@ -349,7 +360,7 @@ export async function exportToWord(
   }
 
   // Table 1: Детализация по оказанным услугам
-  const servicesHeader = new TableRow({
+  const servicesHeader = new TableRow({ tableHeader:true,
     children: [
       headerCell('Дата', 1200),
       headerCell('Квалификация', 2200),
@@ -379,7 +390,7 @@ export async function exportToWord(
   })
 
   // Table 2: Детализация по специалистам
-  const execHeader = new TableRow({
+  const execHeader = new TableRow({ tableHeader:true,
     children: [
       headerCell('Квалификация', 3200),
       headerCell('Ставка, руб./ч.', 1800),
@@ -448,6 +459,7 @@ export async function exportToWord(
           children: [new TextRun({ text: 'Период: ', bold: true, size: 20 }), new TextRun({ text: periodStr, size: 20 })],
         }),
 
+        ...intro.split(/\r?\n/).filter(Boolean).map(text=>new Paragraph({children:[new TextRun({text,size:20})]})),
         new Paragraph({
           heading: HeadingLevel.HEADING_2,
           spacing: { before: 200, after: 150 },
@@ -468,6 +480,7 @@ export async function exportToWord(
           rows: [execHeader, ...execRows, execTotalRow],
         }),
 
+        ...closing.split(/\r?\n/).filter(Boolean).map(text=>new Paragraph({children:[new TextRun({text,size:20})]})),
         new Paragraph({
           spacing: { before: 400 },
           children: [new TextRun({
@@ -477,8 +490,9 @@ export async function exportToWord(
         }),
         new Paragraph({
           spacing: { before: 120 },
-          children: [new TextRun({ text: CABINET_LINE, size: 16 })],
+          children: [new TextRun({ text: cabinetLine(settings), size: 16 })],
         }),
+        ...settings.bankDetails.split(/\r?\n/).filter(Boolean).map(text=>new Paragraph({children:[new TextRun({text,size:16})]})),
       ],
     }],
   })

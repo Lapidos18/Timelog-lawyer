@@ -5,6 +5,7 @@ import { CourtEvent, CourtEventKind, EVENT_KIND_LABELS, Matter, Client } from '@
 import { format } from 'date-fns'
 import { CalendarClock, Plus, Check, Trash2, Gavel, AlertTriangle, Calculator, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
+import {useCabinetSettings} from '@/components/CabinetSettings'
 import NotificationStatus from '@/components/NotificationStatus'
 import PageHeader from '@/components/PageHeader'
 import Modal from '@/components/Modal'
@@ -48,6 +49,7 @@ function urgency(e: CourtEvent): 'over' | 'soon' | 'later' {
 }
 
 export default function DeadlinesPage() {
+  const {settings,ready:settingsReady,error:settingsError}=useCabinetSettings()
   const supabase = createClient()
   const [events, setEvents] = useState<CourtEvent[]>([])
   const [matters, setMatters] = useState<(Matter & { clients?: Client })[]>([])
@@ -64,7 +66,7 @@ export default function DeadlinesPage() {
   const empty = {
     kind: 'deadline' as CourtEventKind,
     title: '', matter_id: '', event_date: '', event_time: '',
-    place: '', note: '', remind_days: '7',
+    place: '', note: '', remind_days: String(settings.defaultRemindDays),
     template_id: '', base_date: '', source_document: '', confirmed: false,
   }
   const [form, setForm] = useState(empty)
@@ -105,6 +107,7 @@ export default function DeadlinesPage() {
   const computed = template && form.base_date ? computeDeadline(form.base_date, template) : null
 
   function startNew() {
+    if(!settingsReady){toast.error(settingsError||'Дождитесь загрузки настроек');return}
     setEditId(null)
     setForm({ ...empty, event_date: toISO(new Date()) })
     setShowForm(true)
@@ -179,6 +182,7 @@ export default function DeadlinesPage() {
       })
       const out = await res.json()
       if (out.status === 'sent') toast.success(out.message||'Telegram подтвердил приём')
+      else if(out.status==='disabled')toast(out.message)
       else if (out.status === 'nothing') toast('Напоминать не о чем: ничего не горит', { icon: '🙂' })
       else if (out.status === 'not-configured') toast.error(out.message)
       else toast.error(out.message ?? 'Не получилось отправить')

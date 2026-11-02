@@ -12,7 +12,8 @@ import { printDocument, PRINT_CSS } from '@/lib/print'
 import { readAllRows } from '@/lib/billing'
 import { escapeHtml } from '@/lib/html'
 import { blobBase64,downloadWord } from '@/lib/document-files'
-import { CABINET } from '@/lib/print'
+import {useCabinetSettings} from '@/components/CabinetSettings'
+import {templateText} from '@/lib/cabinet-settings'
 import { buildActDoc, ActDoc } from '@/lib/act-doc'
 import { printActDoc, exportActWord, actBodyHtml, actCss, buildActWord } from '@/lib/act-print'
 import LoadError from '@/components/LoadError'
@@ -97,6 +98,7 @@ function staleDraft(act: { status: string; created_at: string }) {
 }
 
 export default function ActsPage() {
+  const {settings,ready:settingsReady,error:settingsError}=useCabinetSettings()
   const supabase = createClient()
   const [acts, setActs] = useState<Act[]>([])
   const [matters, setMatters] = useState<(Matter & { clients: Client })[]>([])
@@ -203,6 +205,7 @@ export default function ActsPage() {
   }, [])
 
   // Один согласованный состав начислений и расходов вместо двух независимых запросов.
+  useEffect(()=>{if(showForm&&settingsReady)setForm(f=>f.description?f:{...f,description:settings.actNote})},[showForm,settingsReady])
   useEffect(()=>{
     const generation=++previewGeneration.current
     setPreviewRows([]);setPreviewTotal(0);setExpenseRows([]);setExpensesHint(null);setForm(f=>({...f,expenses_amount:''}))
@@ -235,6 +238,7 @@ export default function ActsPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if(!settingsReady){toast.error(settingsError||'Дождитесь загрузки настроек кабинета');return}
     if (!form.matter_id) { toast.error('Выберите дело'); return }
     if (loadingPreview) { toast.error('Дождитесь загрузки состава акта'); return }
     if (previewTotal <= 0) { toast.error('Нет положительной суммы услуг к выставлению. Проверьте начисления и корректировки'); return }
@@ -242,6 +246,7 @@ export default function ActsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     const m = matters.find(x => x.id === form.matter_id)!
     const actNo = form.act_no || nextActNo
+    const resolvedNote=templateText(form.description,{client:m.clients.name,matter:m.title,period:fmtDate(form.period_from)+' — '+fmtDate(form.period_to)})
     const expenses = Math.round((parseFloat(form.expenses_amount.replace(',', '.')) || 0) * 100) / 100
     const base: Record<string, unknown> = {
       act_no: actNo,
@@ -251,13 +256,13 @@ export default function ActsPage() {
       period_to: form.period_to,
       amount: previewTotal,
       expense_rows:expenseRows,
-      description: form.description || null,
+      description: resolvedNote || null,
       created_by: user!.id,
       // Сумму расходов кладём в запрос, только если она есть: пока миграция 020 не
       // выполнена, колонки нет, и лишнее поле уронило бы создание ЛЮБОГО акта
       ...(expenses > 0 ? { expenses_amount: expenses } : {}),
     }
-    const doc=buildActDoc({cabinet:CABINET,client:m.clients,matter:m,periodFrom:form.period_from,periodTo:form.period_to,rows:previewRows,expensesAmount:expenses,note:form.description})
+    const doc=buildActDoc({cabinet:settings,client:m.clients,matter:m,periodFrom:form.period_from,periodTo:form.period_to,rows:previewRows,expensesAmount:expenses,note:resolvedNote})
     Object.assign(base,{document_snapshot:doc,document_html:actBodyHtml(doc),document_css:PRINT_CSS+actCss()})
     // Копия строк — чтобы акт печатался таким, каким был создан, а не
     // тем, что лежит в журнале сегодня (миграция 015).
@@ -297,6 +302,7 @@ export default function ActsPage() {
    * до сохранения, чтобы расхождение не прошло незамеченным.
    */
   async function refreshDraft(act: Act) {
+    if(!settingsReady){toast.error(settingsError||'Дождитесь загрузки настроек');return}
     if (act.status !== 'draft') return
     const {data,error:sourceError}=await supabase.rpc('act_accrual_preview',{p_matter_id:act.matter_id,p_from:act.period_from,p_to:act.period_to,p_act_id:act.id})
     if(sourceError||!Array.isArray(data?.rows)||!Array.isArray(data?.expenses)){toast.error('Не удалось получить начисления');return}
@@ -308,7 +314,7 @@ export default function ActsPage() {
       ? `Сумма не изменится: ${fmt(total)} руб. Обновить состав акта из начислений?`
       : `Сумма акта изменится: было ${fmt(was)} руб., станет ${fmt(total)} руб. Обновить?`
     if (!confirm(msg)) return
-    const fresh=buildActDoc({cabinet:CABINET,client:act.matters.clients,matter:act.matters,periodFrom:act.period_from,periodTo:act.period_to,rows,expensesAmount:expenses_amount,note:act.description})
+    const fresh=buildActDoc({cabinet:settings,client:act.matters.clients,matter:act.matters,periodFrom:act.period_from,periodTo:act.period_to,rows,expensesAmount:expenses_amount,note:act.description})
     const { error } = await supabase.from('acts').update({ rows, amount: total,expense_rows,expenses_amount,document_snapshot:fresh,document_html:actBodyHtml(fresh),document_css:PRINT_CSS+actCss() }).eq('id', act.id)
     if (error) { toast.error('Не удалось обновить акт: ' + error.message); return }
     toast.success('Состав акта обновлён из начислений')
@@ -328,11 +334,12 @@ export default function ActsPage() {
       toast.success('Создан отдельный черновик исправления');setPreviewAct(null);loadActs();return
     }
     if(act.status==='draft'&&status!=='draft'){
+      if(!settingsReady){toast.error(settingsError||'Дождитесь загрузки настроек');return}
       if(!Array.isArray(act.expense_rows)){toast.error('Пересоберите черновик из начислений перед выпуском');return}
       if(!window.confirm('Выпустить акт? Его содержание будет зафиксировано; исправления оформляются отдельной версией.'))return
       const rows=Array.isArray(act.rows)?act.rows:await fetchLiveRows(act)
       if(!rows){toast.error('Не удалось получить состав акта');return}
-      const doc=buildActDoc({cabinet:CABINET,client:act.matters.clients,matter:act.matters,periodFrom:act.period_from,periodTo:act.period_to,rows,expensesAmount:act.expenses_amount,note:act.description})
+      const doc=buildActDoc({cabinet:settings,client:act.matters.clients,matter:act.matters,periodFrom:act.period_from,periodTo:act.period_to,rows,expensesAmount:act.expenses_amount,note:act.description})
       setIssuing(true)
       try {
         const document_word=await blobBase64(await buildActWord(doc))
@@ -396,7 +403,7 @@ export default function ActsPage() {
   function actDocFor(act: Act, rows: ServiceRow[]) {
     if(act.document_snapshot)return act.document_snapshot
     return buildActDoc({
-      cabinet: CABINET, client: act.matters.clients, matter: act.matters,
+      cabinet: settings, client: act.matters.clients, matter: act.matters,
       periodFrom: act.period_from, periodTo: act.period_to,
       rows, expensesAmount: act.expenses_amount, note: act.description,
     })
@@ -404,7 +411,7 @@ export default function ActsPage() {
 
   function printAct(act: Act, rows: ServiceRow[]) {
     const printed=act.issued_at&&act.document_html&&act.document_css
-      ?printDocument(escapeHtml(actDocFor(act,rows).fileName),act.document_html,act.document_css):printActDoc(actDocFor(act,rows))
+      ?printDocument(actDocFor(act,rows).fileName,act.document_html,act.document_css):printActDoc(actDocFor(act,rows))
     if (!printed) {
       toast.error('Браузер заблокировал всплывающее окно. Разрешите всплывающие окна для этого сайта и попробуйте снова.')
       return
@@ -419,6 +426,8 @@ export default function ActsPage() {
   }
 
 
+  function newAct(){if(!settingsReady){toast.error(settingsError||'Дождитесь загрузки настроек');return}setForm(f=>({...f,description:settings.actNote}));setShowForm(true)}
+
   // Esc закрывает открытую форму или модалку — см. src/lib/form-keys.ts
   useEscapeKey(showForm, () => setShowForm(false))
   useEscapeKey(!!previewAct, () => setPreviewAct(null))
@@ -427,7 +436,7 @@ export default function ActsPage() {
   return (
     <div className="p-4 md:p-7">
       <PageHeader title="Акты об оказании юридической помощи" icon={FileCheck}>
-        <button onClick={() => setShowForm(s => !s)} className="btn-primary">
+        <button onClick={newAct} className="btn-primary">
           <Plus className="w-4 h-4" /> Новый акт
         </button>
       </PageHeader>
@@ -582,7 +591,7 @@ export default function ActsPage() {
         ) : acts.length === 0 ? (
           <EmptyState icon={FileCheck} title="Актов пока нет"
             description="Акт закрывает работу за период: подтверждает объём и сумму, подписывается доверителем."
-            action={<button onClick={() => setShowForm(true)} className="btn-primary">
+            action={<button onClick={newAct} className="btn-primary">
               <Plus className="w-4 h-4" /> Создать первый акт
             </button>} />
         ) : (
@@ -641,7 +650,7 @@ export default function ActsPage() {
         ) : acts.length === 0 ? (
           <EmptyState icon={FileCheck} title="Актов пока нет"
             description="Акт закрывает работу за период: подтверждает объём и сумму, подписывается доверителем."
-            action={<button onClick={() => setShowForm(true)} className="btn-primary">
+            action={<button onClick={newAct} className="btn-primary">
               <Plus className="w-4 h-4" /> Создать первый акт
             </button>} />
         ) : (

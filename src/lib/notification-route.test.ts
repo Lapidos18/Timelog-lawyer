@@ -1,11 +1,11 @@
 import {beforeEach,afterEach,it,expect,vi} from 'vitest'
 import {NextRequest} from 'next/server'
-const state=vi.hoisted(()=>({events:[] as any[],jobs:[] as any[],calls:[] as string[],validUser:false}))
+const state=vi.hoisted(()=>({events:[] as any[],jobs:[] as any[],calls:[] as string[],validUser:false,settings:{} as any}))
 vi.mock('@supabase/supabase-js',()=>({createClient:()=>({
  auth:{getUser:async()=>({data:{user:state.validUser?{id:'qa'}:null},error:null})},
  from:(table:string)=>{let range=[0,499];const q:any=new Proxy({},{get:(_,key)=>{
   if(key==='then')return (resolve:any)=>Promise.resolve({data:(table==='court_events'?state.events:state.jobs).slice(range[0],range[1]+1),count:(table==='court_events'?state.events:state.jobs).length,error:null}).then(resolve)
-  if(key==='single')return async()=>({data:{role:'advocate'},error:null})
+  if(key==='single')return async()=>({data:table==='cabinet_settings'?{data:state.settings,revision:0}:{role:'advocate'},error:null})
   if(key==='range')return(a:number,b:number)=>{range=[a,b];return q}
   return()=>q
  }});return q},
@@ -18,7 +18,7 @@ vi.mock('@supabase/supabase-js',()=>({createClient:()=>({
 })}))
 import {GET,POST} from '../app/api/notify/route'
 import {GET as keepAlive} from '../app/api/keep-alive/route'
-beforeEach(()=>{state.events=[{id:'e',title:'Тестовый срок',event_date:'2026-01-01',kind:'deadline',event_time:null,remind_days:7,done:false}];state.jobs=[];state.calls=[];state.validUser=false
+beforeEach(()=>{state.events=[{id:'e',title:'Тестовый срок',event_date:'2026-01-01',kind:'deadline',event_time:null,remind_days:7,done:false}];state.jobs=[];state.calls=[];state.validUser=false;state.settings={}
  for(const [k,v] of Object.entries({CRON_SECRET:'QA_CRON',TELEGRAM_BOT_TOKEN:'QA_BOT',TELEGRAM_CHAT_ID:'QA_CHAT',SUPABASE_SERVICE_ROLE_KEY:'QA_KEY',NEXT_PUBLIC_SUPABASE_URL:'https://qa.invalid',NEXT_PUBLIC_SUPABASE_ANON_KEY:'QA_ANON'}))vi.stubEnv(k,v)
  vi.stubGlobal('fetch',vi.fn().mockResolvedValue({json:async()=>({ok:true,result:{message_id:1}})}))
 })
@@ -38,3 +38,5 @@ it('публичная проверка работоспособности не 
  await keepAlive(new NextRequest('https://qa.invalid/api/keep-alive'))
  expect(fetch).not.toHaveBeenCalled();expect(state.calls).not.toContain('queue_notification')
 })
+it('выключение в настройках прекращает отправку',async()=>{state.settings={notificationsEnabled:false};const r=await GET(new NextRequest('https://qa.invalid/api/notify',{headers:{authorization:'Bearer QA_CRON'}}));expect((await r.json()).status).toBe('disabled');expect(fetch).not.toHaveBeenCalled()})
+it('скрывает доверителя и дело по настройке',async()=>{state.settings={notificationsDetails:false};state.events[0].matters={title:'Тестовое дело',clients:{name:'Тестовый доверитель'}};await GET(new NextRequest('https://qa.invalid/api/notify',{headers:{authorization:'Bearer QA_CRON'}}));const body=JSON.parse((vi.mocked(fetch).mock.calls[0][1] as any).body);expect(body.text).not.toContain('Тестовый доверитель');expect(body.text).not.toContain('Тестовое дело')})

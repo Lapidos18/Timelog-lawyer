@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import {useCabinetSettings} from '@/components/CabinetSettings'
 import { createClient } from '@/lib/supabase'
 import { ReportRow, ReportFilters, Client, Matter, Profile, ACTIVITY_LABELS, ActivityType } from '@/types'
 import {
@@ -66,6 +67,7 @@ function groupRows(rows: ReportRow[], groupBy: GroupBy): { key: string; label: s
 }
 
 export default function ReportsPage() {
+  const {settings,ready:settingsReady,error:settingsError}=useCabinetSettings()
   const supabase = createClient()
   const [rows, setRows] = useState<ReportRow[]>([])
   const [clients, setClients] = useState<Client[]>([])
@@ -248,6 +250,7 @@ export default function ReportsPage() {
   }
 
   async function handlePDFExport() {
+    if(!settingsReady){toast.error(settingsError||'Дождитесь загрузки настроек кабинета');return}
     if (rows.length === 0) { toast.error('Нет данных для выгрузки — сначала сформируйте отчёт'); return }
     try {
       const { exportToPDF } = await import('@/lib/reports')
@@ -257,6 +260,7 @@ export default function ReportsPage() {
       const title = `Отчёт №${effectiveReportNo}`
 
       exportToPDF(rows, title, undefined, {
+        settings,
         agreementNo: matter?.agreement_no ?? undefined,
         agreementDate: matter?.agreement_date,
         taskNo: matter?.task_no,
@@ -272,6 +276,7 @@ export default function ReportsPage() {
   }
 
   async function handleWordExport() {
+    if(!settingsReady){toast.error(settingsError||'Дождитесь загрузки настроек кабинета');return}
     if (rows.length === 0) { toast.error('Нет данных для выгрузки — сначала сформируйте отчёт'); return }
     try {
       const { exportToWord } = await import('@/lib/reports')
@@ -280,6 +285,7 @@ export default function ReportsPage() {
       const title = `Отчёт №${effectiveReportNo}`
 
       await exportToWord(rows, title, {
+        settings,
         agreementNo: matter?.agreement_no ?? undefined,
         agreementDate: matter?.agreement_date,
         taskNo: matter?.task_no,

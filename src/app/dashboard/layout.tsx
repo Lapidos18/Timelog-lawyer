@@ -11,6 +11,7 @@ import {
   CalendarClock
 } from 'lucide-react'
 import CommandPalette from '@/components/CommandPalette'
+import CabinetSettingsButton,{CabinetSettingsProvider,useCabinetSettings} from '@/components/CabinetSettings'
 import ThemeToggle from '@/components/ThemeToggle'
 
 const NAV = [
@@ -37,37 +38,14 @@ const MOBILE_BOTTOM_NAV = [
   { href: '/dashboard/finance',        icon: Wallet,          label: 'Финансы' },
 ]
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname()
-  const router = useRouter()
-  const supabase = createClient()
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [mobileOpen, setMobileOpen] = useState(false)
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) { router.push('/login'); return }
-      supabase.from('profiles').select('*').eq('id', data.user.id).single()
-        .then(({ data: p }) => p && setProfile(p))
-    })
-  }, [])
-
-  // Close mobile menu on route change
-  useEffect(() => { setMobileOpen(false) }, [pathname])
-
-  async function handleLogout() {
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
-
-  const NavContent = () => (
+function DashboardNav({profile,pathname,shortName,onLogout}:{profile:Profile|null;pathname:string;shortName:string;onLogout:()=>void}){return (
     <>
       <div className="flex items-center gap-3 px-3 mb-7">
         <div className="w-8 h-8 rounded-lg bg-gold-500/15 border border-gold-500/30
                         flex items-center justify-center flex-shrink-0">
           <Scale className="w-4 h-4 text-gold-400" />
         </div>
-        <span className="text-sm font-semibold text-navy-200 leading-tight">АК Бухмин А.А.</span>
+        <span className="text-sm font-semibold text-navy-200 leading-tight">{shortName}</span>
       </div>
 
       {/* Кнопка «Быстрый переход» убрана из меню по просьбе пользователя —
@@ -110,8 +88,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </p>
           </div>
         )}
+        <CabinetSettingsButton />
         <ThemeToggle />
-        <button onClick={handleLogout}
+        <button onClick={onLogout}
           className="tap flex items-center gap-2 w-full px-2 py-1.5 text-xs
                      text-navy-300 hover:text-red-400 hover:bg-red-900/10 rounded-lg transition-colors">
           <LogOut className="w-3.5 h-3.5 flex-shrink-0" /> Выйти
@@ -119,6 +98,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
     </>
   )
+}
+
+function DashboardShell({ children }: { children: React.ReactNode }) {
+  const {settings}=useCabinetSettings()
+  const pathname = usePathname()
+  const router = useRouter()
+  const supabase = createClient()
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) { router.push('/login'); return }
+      supabase.from('profiles').select('*').eq('id', data.user.id).single()
+        .then(({ data: p }) => p && setProfile(p))
+    })
+  }, [])
+
+  // Close mobile menu on route change
+  useEffect(() => { setMobileOpen(false) }, [pathname])
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
 
   return (
     <div className="flex min-h-dvh bg-navy-950">
@@ -127,9 +132,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <CommandPalette />
 
       {/* ── Desktop sidebar ── */}
-      <aside className="hidden md:flex w-56 flex-shrink-0 bg-navy-950 border-r border-navy-800
+      <aside className="hidden md:flex overflow-y-auto w-56 flex-shrink-0 bg-navy-950 border-r border-navy-800
                         flex-col py-5 px-3 fixed h-full z-10">
-        <NavContent />
+        <DashboardNav profile={profile} pathname={pathname} shortName={settings.shortName} onLogout={handleLogout}/>
       </aside>
 
       {/* ── Mobile top bar ── */}
@@ -141,10 +146,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           flex items-center justify-center">
             <Scale className="w-3.5 h-3.5 text-gold-400" />
           </div>
-          <span className="text-sm font-semibold text-navy-200">АК Бухмин А.А.</span>
+          <span className="text-sm font-semibold text-navy-200">{settings.shortName}</span>
         </div>
         <button aria-label="Меню разделов" onClick={() => setMobileOpen(o => !o)}
-          className="p-2 text-navy-400 hover:text-navy-200 hover:bg-navy-800 rounded-lg transition-colors">
+          className="min-h-11 min-w-11 p-2 text-navy-400 hover:text-navy-200 hover:bg-navy-800 rounded-lg transition-colors">
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
@@ -161,7 +166,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           pt-[calc(1.25rem_+_env(safe-area-inset-top))]
                           pb-[calc(1.25rem_+_env(safe-area-inset-bottom))]
                           pl-[calc(0.75rem_+_env(safe-area-inset-left))]">
-            <NavContent />
+            <DashboardNav profile={profile} pathname={pathname} shortName={settings.shortName} onLogout={handleLogout}/>
           </div>
         </>
       )}
@@ -201,3 +206,5 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   )
 }
+
+export default function DashboardLayout({children}:{children:React.ReactNode}){return <CabinetSettingsProvider><DashboardShell>{children}</DashboardShell></CabinetSettingsProvider>}

@@ -63,7 +63,7 @@ export default function BackupPage() {
   const totalRecords = results.filter(r => r.status === 'ok').reduce((s, r) => s + r.count, 0)
 
   const TABLE_LABELS: Record<string, string> = {
-    rate_rules:'Правила ставок',document_source_claims:'Начисления в выпущенных документах',notification_deliveries:'Состояние доставки напоминаний',payment_allocations:'Распределения платежей',act_entry_claims:'Связь работ с актами',billing_periods:'Закрытые месяцы',backup_runs:'Состояние резервирования',financial_operations:'Защита от повторных операций',
+    cabinet_settings:'Настройки кабинета',rate_rules:'Правила ставок',document_source_claims:'Начисления в выпущенных документах',notification_deliveries:'Состояние доставки напоминаний',payment_allocations:'Распределения платежей',act_entry_claims:'Связь работ с актами',billing_periods:'Закрытые месяцы',backup_runs:'Состояние резервирования',financial_operations:'Защита от повторных операций',
     clients:               'Доверители',
     matters:               'Дела',
     time_entries:          'Записи времени',

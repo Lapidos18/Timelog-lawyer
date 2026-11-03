@@ -1,4 +1,5 @@
 'use client'
+import { useFormGuard } from '@/lib/unsaved-changes'
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRateRule } from '@/lib/use-rate-rule'
@@ -97,7 +98,7 @@ const startMinuteOptions = (cur: number) => {
   return o
 }
 
-export default function TimelineView() {
+export default function TimelineView({matterId=''}:{matterId?:string}={}) {
   const supabase = createClient()
   // Число в заголовке зависит от «сегодня», а страница собирается заранее —
   // до загрузки в браузере его не показываем (см. src/lib/use-mounted.ts)
@@ -166,7 +167,7 @@ export default function TimelineView() {
       const { data: { user } } = await supabase.auth.getUser()
       const [profileRes, mattersRes] = await Promise.all([
         user ? supabase.from('profiles').select('*').eq('id', user.id).single() : Promise.resolve({ data: null }),
-        supabase.from('matters').select('*, clients(*)').eq('status', 'active').order('title'),
+        supabase.from('matters').select('*, clients(*)').order('title'),
       ])
       const p = profileRes.data
       if (p) { setProfile(p); setForm(f => ({ ...f, hourly_rate: String(p.hourly_rate ?? '') })) }
@@ -175,24 +176,24 @@ export default function TimelineView() {
     init()
   }, [])
 
-  useEffect(() => { loadDay() }, [dateStr])
+  useEffect(() => { loadDay() }, [dateStr,matterId])
 
   // Подгружаем даты с записями при открытии/смене месяца в календаре
   useEffect(() => {
     if (showCal) loadMonthDates(calMonth)
-  }, [showCal, calMonth])
+  }, [showCal, calMonth,matterId])
 
   // Подгружаем записи для всех выбранных дней в режиме мульти-выбора
   useEffect(() => {
     if (multiSelectMode && selectedDates.length > 0) loadMultipleDays(selectedDates)
-  }, [multiSelectMode, selectedDates])
+  }, [multiSelectMode, selectedDates,matterId])
 
   async function loadMonthDates(month: Date) {
     const from = format(startOfMonth(month), 'yyyy-MM-dd')
     const to = format(endOfMonth(month), 'yyyy-MM-dd')
     const { data } = await supabase
       .from('time_entries')
-      .select('work_date')
+      .select('work_date').match(matterId?{matter_id:matterId}:{})
       .gte('work_date', from)
       .lte('work_date', to)
     const set = new Set((data ?? []).map(r => r.work_date as string))
@@ -203,7 +204,7 @@ export default function TimelineView() {
     setMultiLoading(true)
     const { data, error } = await supabase
       .from('time_entries')
-      .select('*, matters(*, clients(*)), profiles(*)')
+      .select('*, matters(*, clients(*)), profiles(*)').match(matterId?{matter_id:matterId}:{})
       .in('work_date', dates)
       .order('work_date', { ascending: true })
       .order('start_time', { ascending: true })
@@ -240,7 +241,7 @@ export default function TimelineView() {
     setLoading(true)
     const { data, error } = await supabase
       .from('time_entries')
-      .select('*, matters(*, clients(*)), profiles(*)')
+      .select('*, matters(*, clients(*)), profiles(*)').match(matterId?{matter_id:matterId}:{})
       .eq('work_date', dateStr)
       .order('start_time')
     setLoadError(!!error)
@@ -339,9 +340,9 @@ export default function TimelineView() {
 
   function resetForm() {
     setForm({
-      matter_id: '', hours: '1', minutes: '0',
+      matter_id: matterId, hours: '1', minutes: '0',
       start_hour: '9', start_minute: '0',
-      hourly_rate: String(profile?.hourly_rate ?? ''),
+      hourly_rate: String(matters.find(m=>m.id===matterId)?.hourly_rate ?? profile?.hourly_rate ?? ''),
       activity_type: 'consultation', description: '',
       is_billable: true, notes: '',
     })
@@ -576,7 +577,9 @@ export default function TimelineView() {
 
 
   // Esc закрывает форму записи — см. src/lib/form-keys.ts
-  useEscapeKey(showForm, resetForm)
+  const guardForm = useFormGuard(showForm, {form,ndfl,changeReason})
+  const closeForm = () => !submitting && guardForm(resetForm)
+  useEscapeKey(showForm, closeForm)
 
   return (
     <div>
@@ -702,7 +705,7 @@ export default function TimelineView() {
       </div>
 
       {/* Form */}
-      <Modal open={showForm} onClose={resetForm}
+      <Modal open={showForm} onClose={closeForm}
         title={editId ? 'Редактировать запись' : `Новая запись — ${format(date, 'd MMMM yyyy', { locale: ru })}`} wide>
           <form onKeyDown={submitOnCtrlEnter} onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-3">
         {editId && <div className="mb-4 md:col-span-4"><label className="label" htmlFor="timeline-change-reason">Причина изменения</label><input id="timeline-change-reason" className="input min-h-11" value={changeReason} onChange={e=>setChangeReason(e.target.value)} required/><ChangeHistory table="time_entries" rowId={editId}/></div>}
@@ -800,7 +803,7 @@ export default function TimelineView() {
               <button type="submit" disabled={submitting} className="btn-primary">
                 <Check className="w-4 h-4" /> {submitting ? 'Сохраняю...' : (editId ? 'Сохранить' : 'Добавить')}
               </button>
-              <button type="button" onClick={resetForm} className="btn-secondary">Отмена</button>
+              <button type="button" onClick={closeForm} className="btn-secondary">Отмена</button>
               {editId && (
                 <button type="button" onClick={handleDelete}
                   className="btn-secondary text-red-400 hover:bg-red-900/20 ml-auto">

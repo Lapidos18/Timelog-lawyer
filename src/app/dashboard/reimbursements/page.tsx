@@ -1,5 +1,8 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useFormGuard } from '@/lib/unsaved-changes'
+import { Suspense, useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import {
   Matter, Client, ReimbursableExpense, ReimbursementStatus, REIMBURSEMENT_STATUS_LABELS,
@@ -46,7 +49,9 @@ const emptyForm = {
   reimbursed_date: '',
 }
 
-export default function ReimbursementsPage() {
+function ReimbursementsInner() {
+  const params=useSearchParams()
+  const contextMatter=params.get('matter') || ''
   const supabase = createClient()
   const [expenses, setExpenses] = useState<ReimbursableExpense[]>([])
   const [matters, setMatters] = useState<(Matter & { clients: Client })[]>([])
@@ -59,6 +64,7 @@ export default function ReimbursementsPage() {
   const [form, setForm] = useState(emptyForm)
 
   const [filterMatter, setFilterMatter] = useState('')
+  useEffect(()=>{setFilterMatter(contextMatter)},[contextMatter])
   const [filterStatus, setFilterStatus] = useState<ReimbursementStatus | ''>('')
 
   // Запрос даты при переводе расхода в «Компенсировано»
@@ -191,8 +197,12 @@ export default function ReimbursementsPage() {
 
 
   // Esc закрывает открытую форму или модалку — см. src/lib/form-keys.ts
-  useEscapeKey(showForm, resetForm)
-  useEscapeKey(!!dateAskFor, () => setDateAskFor(null))
+  const guardForm = useFormGuard(showForm, form)
+  const closeForm = () => !submitting && guardForm(resetForm)
+  useEscapeKey(showForm, closeForm)
+  const guardDate=useFormGuard(!!dateAskFor,dateAskValue)
+  const closeDate=()=>!dateAskSaving&&guardDate(()=>setDateAskFor(null))
+  useEscapeKey(!!dateAskFor,closeDate)
 
   if (loadError) {
     return (
@@ -238,13 +248,13 @@ export default function ReimbursementsPage() {
             ))}
           </select>
         </div>
-        <button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
+        <button onClick={() => { resetForm(); setForm({...emptyForm,matter_id:filterMatter}); setShowForm(true) }} className="btn-primary">
           <Plus className="w-4 h-4" /> Добавить расход
         </button>
       </div>
 
       {/* Form */}
-      <Modal open={showForm} onClose={resetForm}
+      <Modal open={showForm} onClose={closeForm}
         title={editId ? 'Редактировать расход' : 'Новый возмещаемый расход'}>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div className="md:col-span-2">
@@ -299,7 +309,7 @@ export default function ReimbursementsPage() {
               <button onClick={submitForm} disabled={submitting} className="btn-primary">
                 <Check className="w-4 h-4" /> {submitting ? 'Сохраняю...' : (editId ? 'Сохранить' : 'Добавить')}
               </button>
-              <button onClick={resetForm} className="btn-secondary">Отмена</button>
+              <button onClick={closeForm} className="btn-secondary">Отмена</button>
             </div>
           </div>
           {editId && <ChangeHistory table="reimbursable_expenses" rowId={editId} />}
@@ -320,7 +330,7 @@ export default function ReimbursementsPage() {
         ) : filtered.length === 0 ? (
           <EmptyState icon={Receipt} title="Возмещаемых расходов пока нет"
             description="Такси, почта, госпошлина — деньги, потраченные из своего кармана по делу доверителя. Записанное здесь не забудется при выставлении счёта и не попадёт в доход по НДФЛ."
-            action={<button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
+            action={<button onClick={() => { resetForm(); setForm({...emptyForm,matter_id:filterMatter}); setShowForm(true) }} className="btn-primary">
               <Plus className="w-4 h-4" /> Добавить расход
             </button>} />
         ) : (
@@ -395,7 +405,7 @@ export default function ReimbursementsPage() {
         ) : filtered.length === 0 ? (
           <EmptyState icon={Receipt} title="Возмещаемых расходов пока нет"
             description="Такси, почта, госпошлина — деньги, потраченные из своего кармана по делу доверителя. Записанное здесь не забудется при выставлении счёта и не попадёт в доход по НДФЛ."
-            action={<button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
+            action={<button onClick={() => { resetForm(); setForm({...emptyForm,matter_id:filterMatter}); setShowForm(true) }} className="btn-primary">
               <Plus className="w-4 h-4" /> Добавить расход
             </button>} />
         ) : (
@@ -458,16 +468,7 @@ export default function ReimbursementsPage() {
       {/* Дата компенсации спрашивается обязательно: именно по ней сумма
           исключается из дохода при расчёте НДФЛ и 1% ОПС */}
       {dateAskFor && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          {/* Высота ограничена и включена прокрутка: окно с двумя пояснениями
-              и полем даты выше видимой части телефона, когда открыта
-              клавиатура или календарь */}
-          <div className="bg-navy-900 rounded-xl border border-navy-700 w-full max-w-md
-                          max-h-[90dvh] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
-            <div className="sticky top-0 z-10 bg-navy-900 flex items-center justify-between px-4 md:px-6 py-4 border-b border-navy-800">
-              <h2 className="font-semibold text-navy-200">Когда поступила компенсация?</h2>
-              <button onClick={() => setDateAskFor(null)} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
-            </div>
+        <Modal open onClose={closeDate} title="Когда поступила компенсация?">
             <div className="p-4 md:p-6 space-y-4">
               <p className="text-sm text-navy-300">
                 <span className="text-navy-200">{dateAskFor.description}</span> — {fmt(dateAskFor.amount)} ₽
@@ -492,11 +493,12 @@ export default function ReimbursementsPage() {
                 className="btn-primary">
                 <Check className="w-4 h-4" /> {dateAskSaving ? 'Сохраняю...' : 'Отметить компенсированным'}
               </button>
-              <button onClick={() => setDateAskFor(null)} className="btn-secondary">Отмена</button>
+              <button onClick={closeDate} className="btn-secondary">Отмена</button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   )
 }
+
+export default function ReimbursementsPage(){return <Suspense fallback={<p className="p-4">Загрузка…</p>}><ReimbursementsInner/></Suspense>}

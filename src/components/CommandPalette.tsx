@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { mayLeaveForms } from '@/lib/unsaved-changes'
 import { createClient } from '@/lib/supabase'
 import { Search, CornerDownLeft, Briefcase, Users, LayoutDashboard, BookOpen } from 'lucide-react'
 
@@ -88,7 +89,7 @@ export default function CommandPalette() {
       // когда именно это делалось. Берём последние 300: за пару лет работы
       // их накопятся тысячи, а искать обычно нужно среди недавних.
       supabase.from('time_entries')
-        .select('id, work_date, description, matters(title)')
+        .select('id, matter_id, work_date, description, matters(title)')
         .order('work_date', { ascending: false })
         .limit(300),
     ]).then(([c, m, e]) => {
@@ -97,21 +98,21 @@ export default function CommandPalette() {
         label: x.name,
         hint: 'акт сверки',
         group: 'Доверители',
-        href: '/dashboard/reconciliation?view=acts',
+        href: '/dashboard/reconciliation?view=acts&client=' + encodeURIComponent(x.id),
       }))
       const matterItems: Item[] = (m.data ?? []).map((x: any) => ({
         id: 'm-' + x.id,
         label: x.title,
         hint: x.clients?.name,
         group: 'Дела',
-        href: '/dashboard/matters',
+        href: '/dashboard/matters?matter=' + encodeURIComponent(x.id),
       }))
       const entryItems: Item[] = (e.data ?? []).filter((x: any) => x.description?.trim()).map((x: any) => ({
         id: 'e-' + x.id,
         label: x.description,
         hint: `${x.work_date.split('-').reverse().join('.')} · ${x.matters?.title ?? '—'}`,
         group: 'Записи',
-        href: '/dashboard/journal',
+        href: '/dashboard/journal?view=table&matter=' + encodeURIComponent(x.matter_id) + '&from=' + x.work_date + '&to=' + x.work_date,
       }))
       setData([...clientItems, ...matterItems, ...entryItems])
     })
@@ -138,6 +139,7 @@ export default function CommandPalette() {
   useEffect(() => { setCursor(0) }, [query])
 
   function go(item: Item) {
+    if (!mayLeaveForms()) return
     setOpen(false)
     router.push(item.href)
   }

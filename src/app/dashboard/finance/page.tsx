@@ -1,4 +1,5 @@
 'use client'
+import { useFormGuard, mayLeaveForms } from '@/lib/unsaved-changes'
 import { nextWorkingDay } from '@/lib/deadlines'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -105,6 +106,13 @@ export default function FinancePage() {
     amount: '',
     doc_no: '',
   })
+
+  const guardIncome=useFormGuard(showIncomeForm,incomeForm)
+  const guardExpense=useFormGuard(showExpenseForm,expenseForm)
+  const guardTax=useFormGuard(showPaymentForm,paymentForm)
+  const guardContribution=useFormGuard(showContribPaymentForm,{contribPaymentForm,contribToDeduction})
+  const closeIncome=()=>guardIncome(resetIncomeForm)
+  const closeExpense=()=>guardExpense(resetExpenseForm)
 
   const loadAll = useCallback(async () => {
     const request = ++loadRequest.current
@@ -565,7 +573,7 @@ export default function FinancePage() {
         {TABS.map(t => (
           <button
             key={t.id}
-            onClick={() => setTab(t.id)}
+            onClick={() => {if(!mayLeaveForms())return;setShowIncomeForm(false);setShowExpenseForm(false);setShowPaymentForm(false);setShowContribPaymentForm(false);setTab(t.id)}}
             className={`tap flex items-center gap-1.5 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors ${
               tab === t.id ? 'bg-gold-500 text-navy-950' : 'bg-navy-800 text-navy-400 hover:text-navy-200'
             }`}
@@ -611,7 +619,7 @@ export default function FinancePage() {
                 <h2 className="text-sm font-semibold text-gold-400">
                   {editIncomeId ? 'Редактировать доход' : 'Новый доход (ручная запись)'}
                 </h2>
-                <button aria-label="Закрыть" onClick={resetIncomeForm} className="tap-icon text-navy-400 hover:text-navy-200">
+                <button aria-label="Закрыть" onClick={closeIncome} className="tap-icon text-navy-400 hover:text-navy-200">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -828,7 +836,7 @@ export default function FinancePage() {
                   className="flex items-center gap-1.5 bg-gold-500 text-navy-950 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gold-400 disabled:opacity-50">
                   <Check className="w-4 h-4" /> {editExpenseId ? 'Сохранить' : 'Добавить'}
                 </button>
-                <button onClick={resetExpenseForm}
+                <button onClick={closeExpense}
                   className="tap inline-flex items-center gap-1.5 bg-navy-800 text-navy-400 py-2 px-4 rounded-lg text-sm font-medium hover:text-navy-200">
                   <X className="w-4 h-4" /> Отмена
                 </button>
@@ -1078,7 +1086,7 @@ export default function FinancePage() {
           <div className="card border-gold-800/40">
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-sm font-semibold text-gold-400">Внести фактическую уплату</h2>
-              <button onClick={() => setShowPaymentForm(v => !v)} className="tap-icon text-navy-400 hover:text-navy-200">
+              <button onClick={() => showPaymentForm ? guardTax(()=>setShowPaymentForm(false)) : setShowPaymentForm(true)} className="tap-icon text-navy-400 hover:text-navy-200">
                 <ChevronDown className={`w-4 h-4 transition-transform ${showPaymentForm ? 'rotate-180' : ''}`} />
               </button>
             </div>
@@ -1274,7 +1282,7 @@ export default function FinancePage() {
           <div className="card border-gold-800/40">
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-sm font-semibold text-gold-400">Внести фактическую уплату взносов</h2>
-              <button onClick={() => setShowContribPaymentForm(v => !v)} className="tap-icon text-navy-400 hover:text-navy-200">
+              <button onClick={() => showContribPaymentForm ? guardContribution(()=>setShowContribPaymentForm(false)) : setShowContribPaymentForm(true)} className="tap-icon text-navy-400 hover:text-navy-200">
                 <ChevronDown className={`w-4 h-4 transition-transform ${showContribPaymentForm ? 'rotate-180' : ''}`} />
               </button>
             </div>

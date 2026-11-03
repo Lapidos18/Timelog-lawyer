@@ -32,20 +32,42 @@ export default function Modal({
   // телефоне лист уезжает вместе с фоном и его невозможно докрутить
   useEffect(() => {
     if (!open) return
+    const previous = document.activeElement as HTMLElement | null
+    const panel = panelRef.current
+    const top = () => Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"]'))
+      .filter(el => el.getClientRects().length > 0).at(-1) === panel
+    const focusable = () => Array.from(panel?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), a[href], input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]'
+    ) ?? []).filter(el => el.getClientRects().length > 0)
+    const key = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab' || !top() || document.querySelector('[data-palette-open]')) return
+      const items = focusable(), first = items[0], last = items.at(-1)
+      if (!first) { event.preventDefault(); panel?.focus(); return }
+      if (event.shiftKey && (document.activeElement === first || !panel?.contains(document.activeElement))) {
+        event.preventDefault(); last?.focus()
+      } else if (!event.shiftKey && (document.activeElement === last || !panel?.contains(document.activeElement))) {
+        event.preventDefault(); first.focus()
+      }
+    }
+    const focus = (event: FocusEvent) => {
+      if (top() && !document.querySelector('[data-palette-open]') && !panel?.contains(event.target as Node))
+        (focusable()[0] ?? panel)?.focus()
+    }
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
-  }, [open])
-
-  // Фокус переносим в окно, чтобы клавиатура и скринридер оказались внутри,
-  // а не остались на кнопке под затемнением
-  useEffect(() => {
-    if (!open) return
     const first = panelRef.current?.querySelector<HTMLElement>(
       'input:not([type="hidden"]), select, textarea'
     )
     const t = setTimeout(() => first?.focus(), 60)
-    return () => clearTimeout(t)
+    document.addEventListener('keydown', key)
+    document.addEventListener('focusin', focus)
+    return () => {
+      clearTimeout(t)
+      document.body.style.overflow = prev
+      document.removeEventListener('keydown', key)
+      document.removeEventListener('focusin', focus)
+      if (previous?.isConnected) previous.focus()
+    }
   }, [open])
 
   if (!open) return null
@@ -56,7 +78,7 @@ export default function Modal({
       onClick={onClose}>
       <div className="absolute inset-0 bg-black/60" />
       <div ref={panelRef}
-        role="dialog" aria-modal="true" aria-label={title}
+        role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}
         onClick={e => e.stopPropagation()}
         className={`relative w-full ${wide ? 'md:max-w-4xl' : 'md:max-w-2xl'}
                     bg-navy-900 border border-navy-700

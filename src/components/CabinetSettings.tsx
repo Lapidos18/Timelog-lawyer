@@ -5,6 +5,7 @@ import {CabinetSettings,DEFAULT_SETTINGS,readSettings,settingLabels,settingsErro
 import Modal from './Modal'
 import {Settings} from 'lucide-react'
 import {createPortal} from 'react-dom'
+import {useUnsavedChanges} from '@/lib/unsaved-changes'
 import {useEscapeKey} from '@/lib/form-keys'
 const Context=createContext({settings:DEFAULT_SETTINGS,ready:true,error:'',revision:0,reload:async()=>{},save:async(_s:CabinetSettings)=>{}})
 export function CabinetSettingsProvider({children}:{children:React.ReactNode}){
@@ -18,6 +19,7 @@ export const useCabinetSettings=()=>useContext(Context)
 export default function CabinetSettingsButton(){
  const state=useCabinetSettings(),[open,setOpen]=useState(false),[draft,setDraft]=useState(DEFAULT_SETTINGS),[busy,setBusy]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState(false)
  const dirty=JSON.stringify(draft)!==JSON.stringify(state.settings)
+ useUnsavedChanges(open&&dirty)
  useEffect(()=>{if(open&&state.ready)setDraft(state.settings)},[open,state.ready])
  function close(){if(busy)return;if(dirty&&!confirm('Закрыть без сохранения настроек?'))return;setOpen(false)}
  useEscapeKey(open,close)

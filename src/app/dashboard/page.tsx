@@ -1,5 +1,6 @@
 'use client'
 import { readAllResult } from '@/lib/billing'
+import { dashboardTotals } from '@/lib/dashboard-totals'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { ReportRow } from '@/types'
@@ -33,9 +34,9 @@ export default function DashboardPage() {
   const supabase = createClient()
   const [stats, setStats] = useState({
     hoursThisMonth: 0,
-    revenueThisMonth: 0,
+    accruedThisMonth: 0,
+    receivedThisMonth: 0,
     activeMatters: 0,
-    avgRate: 0,
   })
   const [recentEntries, setRecentEntries] = useState<ReportRow[]>([])
   const [clientBalances, setClientBalances] = useState<{
@@ -70,12 +71,9 @@ export default function DashboardPage() {
           allReimbRes,
           accrualsRes,
           eventsRes,
+          manualMonthRes,
         ] = await Promise.all([
-          supabase
-            .from('report_view')
-            .select('hours, amount, is_billable, hourly_rate')
-            .gte('work_date', monthStart)
-            .lte('work_date', monthEnd),
+          readAllResult(supabase,'report_view','hours, amount, is_billable, matter_id', q => q.gte('work_date',monthStart).lte('work_date',toISO(new Date()))),
           supabase
             .from('matters')
             .select('id', { count: 'exact' })
@@ -85,8 +83,8 @@ export default function DashboardPage() {
             .select('*')
             .order('work_date', { ascending: false })
             .limit(8),
-          readAllResult(supabase,'time_entries','matter_id, amount, is_billable'),
-          readAllResult(supabase,'payments','client_id, amount'),
+          readAllResult(supabase,'time_entries','matter_id, amount, is_billable', q => q.lte('work_date',toISO(new Date()))),
+          readAllResult(supabase,'payments','client_id, amount, pay_date', q => q.lte('pay_date',toISO(new Date()))),
           supabase
             .from('clients')
             .select('id, name'),
@@ -99,7 +97,7 @@ export default function DashboardPage() {
           // вознаграждением, поэтому без них «оплачено» больше «начислено»
           // и долг занижается ровно на сумму компенсации.
           // «Ожидает включения в счёт» не берём — это ещё не предъявлено.
-          readAllResult(supabase,'reimbursable_expenses','matter_id, amount, status',q=>q.in('status',['invoiced','reimbursed'])),
+          readAllResult(supabase,'reimbursable_expenses','matter_id, amount, status',q=>q.in('status',['invoiced','reimbursed']).lte('expense_date',toISO(new Date()))),
           // Начисления по актам (миграция 022): работа на фиксированную сумму без часов.
           // Пока таблицы нет, запрос вернёт ошибку — Обзор из-за этого не падает
           readAllResult(supabase,'matter_accruals','matter_id, accrual_date, amount'),
@@ -114,6 +112,7 @@ export default function DashboardPage() {
             .eq('done', false)
             .lte('event_date', toISO(new Date(Date.now() + 180 * 86_400_000)))
             .order('event_date'),
+          readAllResult(supabase,'manual_income','amount', q => q.gte('income_date',monthStart).lte('income_date',toISO(new Date()))),
         ])
 
         // Показываем только то, что уже пора видеть: просроченное и события
@@ -121,20 +120,11 @@ export default function DashboardPage() {
         setUpcoming(((eventsRes.data ?? []) as unknown as UpcomingEvent[])
           .filter(e => daysUntil(e.event_date) <= e.remind_days))
 
-        const entries = monthRes.data ?? []
-        const totalHours = entries.reduce((s, r) => s + Number(r.hours), 0)
-        const billable = entries.filter(r => r.is_billable)
-        const totalRevenue = billable.reduce((s, r) => s + Number(r.amount), 0)
-        const avgRate = billable.length > 0
-          ? billable.reduce((s, r) => s + Number(r.hourly_rate), 0) / billable.length
-          : 0
-
-        setStats({
-          hoursThisMonth: Math.round(totalHours * 10) / 10,
-          revenueThisMonth: totalRevenue,
-          activeMatters: mattersRes.count ?? 0,
-          avgRate,
-        })
+        const totals = dashboardTotals(allMattersRes.data ?? [], monthRes.data ?? [], accrualsRes.data ?? [],
+          [...(allPaymentsRes.data ?? []).filter(p => p.pay_date >= monthStart), ...(manualMonthRes.data ?? [])],
+          monthStart, toISO(new Date()))
+        setStats({hoursThisMonth: totals.hours, accruedThisMonth: totals.accrued,
+          receivedThisMonth: totals.received, activeMatters: mattersRes.count ?? 0})
 
         setRecentEntries(recentRes.data ?? [])
 
@@ -208,7 +198,7 @@ export default function DashboardPage() {
         // рисует нули, и это выглядит как «все данные пропали»
         setLoadError(!!(monthRes.error || recentRes.error || allEntriesRes.error
           || allPaymentsRes.error || allClientsRes.error || allMattersRes.error
-          || allReimbRes.error || accrualsRes.error))
+          || allReimbRes.error || accrualsRes.error || manualMonthRes.error))
       } catch (e) {
         console.error('Dashboard load error:', e)
         setLoadError(true)
@@ -294,7 +284,7 @@ export default function DashboardPage() {
           уже суммы, и «95 001,50 ₽» вылезало за край плитки */}
       {loading ? (
         <div className="mb-5 md:mb-6"><SkeletonStats count={4} /></div>
-      ) : (
+      ) : loadError ? null : (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-5 md:mb-6">
         <div className="stat-card">
           <div className="flex items-center gap-2 mb-2">
@@ -310,13 +300,13 @@ export default function DashboardPage() {
         <div className="stat-card">
           <div className="flex items-center gap-2 mb-2">
             <Banknote className="w-4 h-4 text-navy-300" />
-            <span className="text-xs text-navy-400">Выручка за месяц</span>
+            <span className="text-xs text-navy-400">Начислено за услуги</span>
           </div>
           {/* На телефоне плитка шириной ~160 px: при 24 px знак ₽ отрывался
               на вторую строку, и «95 001,50» выглядело как обрезанное число */}
           <p className="text-xl md:text-2xl font-semibold text-navy-100 whitespace-nowrap">
-            {formatMoney(stats.revenueThisMonth) + ' ₽'}
-          </p>
+            {formatMoney(stats.accruedThisMonth) + ' ₽'}
+          </p><p className="text-xs text-navy-400 mt-2">За месяц по сегодня, без расходов.</p>
         </div>
         <div className="stat-card">
           <div className="flex items-center gap-2 mb-2">
@@ -332,19 +322,19 @@ export default function DashboardPage() {
         <div className="stat-card">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="w-4 h-4 text-navy-300" />
-            <span className="text-xs text-navy-400">Ср. ставка</span>
+            <span className="text-xs text-navy-400">Поступило за месяц</span>
           </div>
           {/* На телефоне плитка шириной ~160 px: при 24 px знак ₽ отрывался
               на вторую строку, и «95 001,50» выглядело как обрезанное число */}
           <p className="text-xl md:text-2xl font-semibold text-navy-100 whitespace-nowrap">
-            {formatMoney(stats.avgRate) + ' ₽/ч'}
-          </p>
+            {formatMoney(stats.receivedThisMonth) + ' ₽'}
+          </p><p className="text-xs text-navy-400 mt-2">Включая авансы и возмещения.</p>
         </div>
       </div>
       )}
 
       {/* Client balances */}
-      {!loading && clientBalances.length > 0 && (
+      {!loading && !loadError && clientBalances.length > 0 && (
         <div className="card mb-5">
           <h2 className="text-sm font-medium text-navy-300 mb-4 flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-400" />

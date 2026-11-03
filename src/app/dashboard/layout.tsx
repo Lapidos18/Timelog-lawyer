@@ -11,6 +11,7 @@ import {
   CalendarClock
 } from 'lucide-react'
 import CommandPalette from '@/components/CommandPalette'
+import { useNavigationGuard, mayLeaveForms } from '@/lib/unsaved-changes'
 import CabinetSettingsButton,{CabinetSettingsProvider,useCabinetSettings} from '@/components/CabinetSettings'
 import ThemeToggle from '@/components/ThemeToggle'
 
@@ -101,6 +102,7 @@ function DashboardNav({profile,pathname,shortName,onLogout}:{profile:Profile|nul
 }
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
+  useNavigationGuard()
   const {settings}=useCabinetSettings()
   const pathname = usePathname()
   const router = useRouter()
@@ -120,6 +122,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   useEffect(() => { setMobileOpen(false) }, [pathname])
 
   async function handleLogout() {
+    if (!mayLeaveForms()) return
     await supabase.auth.signOut()
     router.push('/login')
   }

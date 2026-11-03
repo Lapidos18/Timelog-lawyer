@@ -1,4 +1,5 @@
 'use client'
+import { useFormGuard } from '@/lib/unsaved-changes'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { CourtEvent, CourtEventKind, EVENT_KIND_LABELS, Matter, Client } from '@/types'
@@ -71,7 +72,9 @@ export default function DeadlinesPage() {
   }
   const [form, setForm] = useState(empty)
 
-  useEscapeKey(showForm, () => setShowForm(false))
+  const guardForm = useFormGuard(showForm, form)
+  const closeForm = () => !saving && guardForm(() => setShowForm(false))
+  useEscapeKey(showForm, closeForm)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -347,7 +350,7 @@ export default function DeadlinesPage() {
       )}
 
       {/* Форма */}
-      <Modal open={showForm} onClose={() => setShowForm(false)}
+      <Modal open={showForm} onClose={closeForm}
         title={editId ? 'Изменить событие' : 'Новое событие'} wide>
         <form onSubmit={handleSubmit} onKeyDown={submitOnCtrlEnter}
           className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -473,7 +476,7 @@ export default function DeadlinesPage() {
             <button type="submit" disabled={saving} className="btn-primary">
               <Check className="w-4 h-4" /> {saving ? 'Сохраняю...' : editId ? 'Сохранить' : 'Добавить'}
             </button>
-            <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">Отмена</button>
+            <button type="button" onClick={closeForm} className="btn-secondary">Отмена</button>
             {editId && (
               <span className="text-xs text-navy-400 self-center flex items-center gap-1.5">
                 <Gavel className="w-3.5 h-3.5" /> изменения записываются в историю

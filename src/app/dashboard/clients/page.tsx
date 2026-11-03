@@ -1,4 +1,5 @@
 'use client'
+import { useFormGuard } from '@/lib/unsaved-changes'
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Client, ClientType } from '@/types'
@@ -91,7 +92,9 @@ export default function ClientsPage() {
 
 
   // Esc закрывает открытую форму или модалку — см. src/lib/form-keys.ts
-  useEscapeKey(showForm, resetForm)
+  const guardForm = useFormGuard(showForm, form)
+  const closeForm = () => !submitting && guardForm(resetForm)
+  useEscapeKey(showForm, closeForm)
 
   // Контрольная сумма ИНН — см. src/lib/inn.ts
   const innCheck = checkInn(form.inn)
@@ -104,7 +107,7 @@ export default function ClientsPage() {
         </button>
       </PageHeader>
 
-      <Modal open={showForm} onClose={resetForm}
+      <Modal open={showForm} onClose={closeForm}
         title={editId ? 'Редактировать доверителя' : 'Новый доверитель'}>
           <form onKeyDown={submitOnCtrlEnter} onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div className="md:col-span-1">
@@ -203,7 +206,7 @@ export default function ClientsPage() {
               <button type="submit" disabled={submitting} className="btn-primary">
                 <Check className="w-4 h-4" /> {submitting ? 'Сохраняю...' : (editId ? 'Сохранить' : 'Добавить')}
               </button>
-              <button type="button" onClick={resetForm} className="btn-secondary">Отмена</button>
+              <button type="button" onClick={closeForm} className="btn-secondary">Отмена</button>
             </div>
           </form>
       </Modal>

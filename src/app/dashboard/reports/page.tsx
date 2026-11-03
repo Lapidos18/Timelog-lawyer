@@ -1,4 +1,6 @@
 'use client'
+import Modal from '@/components/Modal'
+import { useFormGuard } from '@/lib/unsaved-changes'
 import { useEffect, useRef, useState } from 'react'
 import {useCabinetSettings} from '@/components/CabinetSettings'
 import { createClient } from '@/lib/supabase'
@@ -309,7 +311,9 @@ export default function ReportsPage() {
 
 
   // Esc закрывает открытую форму или модалку — см. src/lib/form-keys.ts
-  useEscapeKey(!!editRow, () => setEditRow(null))
+  const guardEdit=useFormGuard(!!editRow, editForm)
+  const closeEdit=()=>guardEdit(()=>setEditRow(null))
+  useEscapeKey(!!editRow, closeEdit)
 
   return (
     <div className="p-4 md:p-7">
@@ -615,12 +619,7 @@ export default function ReportsPage() {
 
       {/* Edit modal */}
       {editRow && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="bg-navy-900 rounded-xl border border-navy-700 w-full max-w-2xl max-h-[90dvh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-navy-800 sticky top-0 bg-navy-900">
-              <h2 className="font-semibold text-navy-200">Редактировать запись</h2>
-              <button onClick={() => setEditRow(null)} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
-            </div>
+<Modal open onClose={closeEdit} title="Редактировать запись">
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="label">Дело *</label>
@@ -679,13 +678,12 @@ export default function ReportsPage() {
               <button onClick={saveEdit} disabled={editSaving} className="btn-primary">
                 <Check className="w-4 h-4" /> {editSaving ? 'Сохраняю...' : 'Сохранить'}
               </button>
-              <button onClick={() => setEditRow(null)} className="btn-secondary">Отмена</button>
+              <button onClick={closeEdit} className="btn-secondary">Отмена</button>
               <button onClick={deleteEdit} className="btn-secondary text-red-400 hover:bg-red-900/20 ml-auto">
                 <Trash2 className="w-4 h-4" /> Удалить
               </button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

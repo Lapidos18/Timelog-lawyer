@@ -1,4 +1,5 @@
 'use client'
+import { useUnsavedChanges } from '@/lib/unsaved-changes'
 import { useEffect, useRef, useState } from 'react'
 import { Client, Matter, ReimbursableExpense } from '@/types'
 import { createClient } from '@/lib/supabase'
@@ -22,7 +23,11 @@ export default function PaymentAllocationEditor({ payment, matters, onClose, onS
   const [revision, setRevision] = useState(payment.revision ?? 0)
   const [busy, setBusy] = useState(true), [error, setError] = useState('')
   const operation = useRef<string | null>(null)
-  useEscapeKey(!busy, onClose)
+  const original=useRef('[]')
+  const dirty=JSON.stringify(rows)!==original.current
+  useUnsavedChanges(dirty)
+  const close=()=>{if(!busy&&(!dirty||confirm('Есть несохранённое распределение. Закрыть без сохранения?')))onClose()}
+  useEscapeKey(!busy, close)
   const available = matters.filter(m => m.client_id === payment.client_id)
   useEffect(() => {
     let active = true
@@ -34,7 +39,7 @@ export default function PaymentAllocationEditor({ payment, matters, onClose, onS
     ]).then(([saved, docs, exp, version]) => {
       if (!active) return
       if (version.error) throw version.error
-      setRows(saved.map(r => ({ ...r, key: crypto.randomUUID() })))
+      const lines=saved.map(r=>({...r,key:crypto.randomUUID()}));original.current=JSON.stringify(lines);setRows(lines)
       setActs(docs); setExpenses(exp); setRevision(version.data.revision)
     }).catch(() => active && setError('Не удалось загрузить распределение. Проверьте связь и выполнение миграций 024–026.'))
       .finally(() => active && setBusy(false))
@@ -64,7 +69,7 @@ export default function PaymentAllocationEditor({ payment, matters, onClose, onS
     finally { setBusy(false) }
   }
   const assigned = allocationTotal(rows) / 100
-  return <Modal open onClose={() => !busy && onClose()} title="Распределение платежа" wide>
+  return <Modal open onClose={close} title="Распределение платежа" wide>
     <p className="text-sm mb-3">{payment.pay_date} · № {payment.doc_no || '—'} · <strong>{moneyText(Number(payment.amount))} ₽</strong></p>
     <p className="text-xs text-navy-300 mb-4">Одно поступление можно разделить между заданиями и актами. Остаток остаётся без распределения; при отсутствии начислений это аванс. Возмещения должны совпадать с отмеченными расходами платежа. Чтобы снять распределение, уберите все части и сохраните: сам платёж и связи с расходами сохранятся.</p>
     {error && <p role="alert" className="text-red-300 text-sm mb-3">{error}</p>}

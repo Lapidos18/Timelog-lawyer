@@ -1,4 +1,5 @@
 'use client'
+import { useFormGuard } from '@/lib/unsaved-changes'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Client, Matter, ReimbursableExpense } from '@/types'
@@ -74,7 +75,9 @@ function fmtDate(s: string) {
   return format(new Date(s), 'dd.MM.yyyy')
 }
 
-export default function PaymentsView({ clients, matters, switcher, openFormSignal, onMakeAct }: {
+export default function PaymentsView({ clients, matters, switcher, openFormSignal, onMakeAct, contextClient='', contextMatter='' }: {
+  contextClient?: string
+  contextMatter?: string
   clients: Client[]
   matters: (Matter & { clients: Client })[]
   /** Переключатель «Платежи / Акты сверки» — стоит в шапке */
@@ -91,6 +94,8 @@ export default function PaymentsView({ clients, matters, switcher, openFormSigna
 
   // Фильтр списка. Пустой доверитель = все
   const [selectedClient, setSelectedClient] = useState('')
+  const [selectedMatter,setSelectedMatter]=useState('')
+  useEffect(()=>{setSelectedClient(contextClient);setSelectedMatter(contextMatter);if(contextClient||contextMatter)setDateFrom('2000-01-01')},[contextClient,contextMatter])
   const [dateFrom, setDateFrom] = useState(format(new Date(new Date().getFullYear(), 0, 1), 'yyyy-MM-dd'))
   const [dateTo, setDateTo] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [payments, setPayments] = useState<Payment[]>([])
@@ -133,7 +138,9 @@ export default function PaymentsView({ clients, matters, switcher, openFormSigna
   const [coveredReimb, setCoveredReimb] = useState<string[]>([])
 
   // Esc закрывает форму поступления — см. src/lib/form-keys.ts
-  useEscapeKey(showPayForm, () => { setShowPayForm(false); resetPayForm() })
+  const guardForm = useFormGuard(showPayForm, {payForm,autoAllocate,coveredReimb})
+  const closePayForm = () => !savingPay && guardForm(() => { setShowPayForm(false); resetPayForm() })
+  useEscapeKey(showPayForm, closePayForm)
 
   // Невозмещённые расходы того доверителя, который выбран В ФОРМЕ поступления.
   // При редактировании добавляем ещё и те, что уже привязаны к этому платежу —
@@ -347,13 +354,15 @@ export default function PaymentsView({ clients, matters, switcher, openFormSigna
       key: 'm' + m.id, date: m.income_date, client: m.clients?.name ?? 'без доверителя', matter: '—',
       docNo: m.doc_no ?? '—', description: m.description, amount: Number(m.amount), manual: m,
     })),
-  ].sort((a, b) => b.date.localeCompare(a.date))
+  ].filter(row => !selectedMatter || ('payment' in row && row.payment && (allocationMap[row.payment.id]?.length
+    ? allocationMap[row.payment.id].some(a=>a.matter_id===selectedMatter) : row.payment.matter_id===selectedMatter)))
+    .sort((a, b) => b.date.localeCompare(a.date))
   // Сумма копейками: на длинном списке 0,1 + 0,2 в рублях не даёт 0,3
   const total = rows.reduce((s, r) => s + Math.round(r.amount * 100), 0) / 100
 
   const openNewForm = () => {
     resetPayForm()
-    setPayForm(f => ({ ...f, client_id: selectedClient }))
+    setPayForm(f => ({ ...f, client_id: selectedClient, matter_id: selectedMatter }))
     setShowPayForm(true)
   }
 
@@ -366,12 +375,16 @@ export default function PaymentsView({ clients, matters, switcher, openFormSigna
         {switcher}
       </PageHeader>
 
+      {selectedMatter && <div className="card mb-4 text-sm text-navy-300">
+        Платежи по заданию «{matters.find(m=>m.id===selectedMatter)?.title||'Выбранное задание'}». Суммы поступлений показаны целиком, включая части по другим заданиям.
+        <button type="button" className="btn-secondary min-h-11 mt-2" onClick={()=>setSelectedMatter('')}>Все задания доверителя</button>
+      </div>}
       {/* Filters */}
       <div className="card mb-5">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4 mb-4">
           <div className="md:col-span-2">
             <label className="label">Доверитель</label>
-            <select className="select" value={selectedClient} onChange={e => setSelectedClient(e.target.value)}>
+            <select className="select" value={selectedClient} onChange={e => {setSelectedClient(e.target.value);setSelectedMatter('')}}>
               <option value="">— все доверители —</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -411,7 +424,7 @@ export default function PaymentsView({ clients, matters, switcher, openFormSigna
         clients={clients} matters={matters} onImported={() => afterChange()} />
 
       {/* Payment form */}
-      <Modal open={showPayForm} onClose={() => { setShowPayForm(false); resetPayForm() }}
+      <Modal open={showPayForm} onClose={closePayForm}
         title={editing ? 'Изменение поступления' : 'Новое поступление'} wide>
           <form onKeyDown={submitOnCtrlEnter} onSubmit={addPayment} className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div className="md:col-span-2">
@@ -507,7 +520,7 @@ export default function PaymentsView({ clients, matters, switcher, openFormSigna
                 <Check className="w-4 h-4" />
                 {savingPay ? 'Сохраняю...' : editing ? 'Сохранить изменения' : 'Добавить платёж'}
               </button>
-              <button type="button" onClick={() => { setShowPayForm(false); resetPayForm() }}
+              <button type="button" onClick={closePayForm}
                 className="btn-secondary">Отмена</button>
             </div>
           </form>

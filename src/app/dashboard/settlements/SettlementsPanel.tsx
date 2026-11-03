@@ -10,6 +10,7 @@ import Modal from '@/components/Modal'
 import EmptyState from '@/components/EmptyState'
 import LoadError from '@/components/LoadError'
 import { SkeletonRows } from '@/components/Skeleton'
+import { useFormGuard, useUnsavedChanges } from '@/lib/unsaved-changes'
 import { useEscapeKey } from '@/lib/form-keys'
 import { isTouchLayout } from '@/lib/touch-layout'
 import {useCabinetSettings} from '@/components/CabinetSettings'
@@ -60,7 +61,8 @@ export interface ActDeepLink { clientId: string; from: string; to: string }
  * и редактор акта «как в 1С». Раньше это была отдельная страница
  * /dashboard/settlements, теперь — вкладка рядом с платежами (CLAUDE.md, п. 19).
  */
-export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLinkDone }: {
+export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLinkDone, contextClient='' }: {
+  contextClient?: string
   clients: Client[]
   /** Переключатель «Платежи / Акты сверки» для шапки списка */
   switcher: React.ReactNode
@@ -69,6 +71,8 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
 }) {
   const {settings,ready:settingsReady,error:settingsError}=useCabinetSettings()
   const supabase = createClient()
+  const [filterClient,setFilterClient]=useState(contextClient)
+  useEffect(()=>{setFilterClient(contextClient)},[contextClient])
   const [acts, setActs] = useState<SettlementActRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
@@ -84,9 +88,12 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
   const [form, setForm] = useState({ clientId: '', from: '', to: '' })
   const [creating, setCreating] = useState(false)
 
-  useEscapeKey(newOpen, () => setNewOpen(false))
+  const guardNew=useFormGuard(newOpen,form)
+  const closeNew=()=>guardNew(()=>setNewOpen(false))
+  useEscapeKey(newOpen,closeNew)
 
   const dirty = !!editing && JSON.stringify({ doc: editing.doc, status: editing.status }) !== snapshot
+  useUnsavedChanges(dirty)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -219,7 +226,7 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
   function openNewForm() {
     const now = new Date()
     setForm({
-      clientId: clients[0]?.id ?? '',
+      clientId: filterClient || clients[0]?.id || '',
       from: `${now.getFullYear()}-01-01`,
       to: format(now, 'yyyy-MM-dd'),
     })
@@ -335,6 +342,7 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
     )
   }
 
+  const visibleActs=acts.filter(a=>!filterClient||a.client_id===filterClient)
   const newButton = (
     <button type="button" className="btn-primary" onClick={openNewForm} disabled={clients.length === 0}>
       <Plus className="w-4 h-4" /> Новый акт
@@ -349,6 +357,7 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
         {newButton}
       </PageHeader>
 
+      <label className="label mb-4">Доверитель<select className="select" value={filterClient} onChange={e=>setFilterClient(e.target.value)}><option value="">Все доверители</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
       {tableMissing && (
         <div className="card mb-5 text-sm text-amber-400">
           Чтобы акты сохранялись, один раз выполните SQL из файла supabase/migrations/019_settlement_acts.sql в Supabase.
@@ -362,7 +371,7 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
         <div className="card p-0 overflow-hidden">
           {loading ? (
             <div className="p-5"><SkeletonRows rows={3} /></div>
-          ) : acts.length === 0 ? (
+          ) : visibleActs.length === 0 ? (
             <EmptyState icon={ArrowLeftRight} title="Актов сверки пока нет"
               description="Составьте первый: выберите доверителя и период, акт соберётся сам, дальше его можно дополнить вручную."
               action={clients.length > 0 ? newButton : undefined} />
@@ -373,7 +382,7 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
                 <span className="md:hidden">Нажмите на акт, чтобы открыть.</span>
               </p>
               <ul className="divide-y divide-navy-800/60">
-                {acts.map(a => {
+                {visibleActs.map(a => {
                   const doc = normalizeDoc(a.doc, { from: a.period_from, to: a.period_to })
                   return (
                     <li key={a.id}
@@ -414,7 +423,7 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
         </div>
       )}
 
-      <Modal open={newOpen} onClose={() => setNewOpen(false)} title="Новый акт сверки">
+      <Modal open={newOpen} onClose={closeNew} title="Новый акт сверки">
         <div className="space-y-4">
           <div>
             <label className="label">Доверитель</label>
@@ -441,7 +450,7 @@ export default function SettlementsPanel({ clients, switcher, deepLink, onDeepLi
               onClick={() => { const c = clients.find(x => x.id === form.clientId); if (c) startNew(c, form.from, form.to) }}>
               {creating ? 'Собираю…' : 'Составить акт'}
             </button>
-            <button type="button" className="btn-secondary" onClick={() => setNewOpen(false)}>Отмена</button>
+            <button type="button" className="btn-secondary" onClick={closeNew}>Отмена</button>
           </div>
         </div>
       </Modal>

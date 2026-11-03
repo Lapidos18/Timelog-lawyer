@@ -5,6 +5,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { shortDate } from '@/lib/act-doc'
+import { useUnsavedChanges } from '@/lib/unsaved-changes'
 
 interface Accrual {
   id: string
@@ -37,6 +38,7 @@ export default function AccrualsBlock({ matterId, onChanged }: { matterId: strin
   const [saving, setSaving] = useState(false)
   const [kind, setKind] = useState<'charge' | 'reduction'>('charge')
   const [form, setForm] = useState({ accrual_date: '', amount: '', description: '' })
+  useUnsavedChanges(!!(form.amount || form.description))
 
   const load = useCallback(async () => {
     setLoading(true)

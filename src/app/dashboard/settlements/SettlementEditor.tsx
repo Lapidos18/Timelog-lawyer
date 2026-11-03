@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, ArrowLeftRight, FileDown, FileText, Lock, Plus, RefreshCw, Save, Trash2, Unlock } from 'lucide-react'
 import PageHeader from '@/components/PageHeader'
+import { useUnsavedChanges } from '@/lib/unsaved-changes'
 import {
   SettlementDoc, SettlementRow, SettlementStatus, Balance, Kop, Orientation,
   parseMoney, formatMoney, fmtDate, effectiveThem, tableTotals, conclusion, discrepancy,
@@ -25,6 +26,7 @@ function MoneyInput({ value, onChange, disabled, label }: {
   const [text, setText] = useState(show(value))
   const [focused, setFocused] = useState(false)
   const [bad, setBad] = useState(false)
+  useUnsavedChanges(!disabled && bad)
 
   // Значение изменилось снаружи (пересборка, зеркало) — обновляем текст,
   // если пользователь сейчас не печатает в этом поле
@@ -162,6 +164,10 @@ function SideTable({
 
       <SumRow label="Обороты за период" debit={t.turnDebit} credit={t.turnCredit} strong />
       <SumRow label="Сальдо конечное" debit={t.closingDebit} credit={t.closingCredit} strong />
+      {!unfilled && <p className="text-sm mt-3 text-navy-300 break-words">
+        Расчёт сальдо: {formatMoney(opening.debit - opening.credit)} + {formatMoney(t.turnDebit)} − {formatMoney(t.turnCredit)} = {formatMoney(t.net)} {currency}.
+        <span className="block text-xs text-navy-400 mt-1">Начальное сальдо + дебет за период − кредит за период. Минус означает кредитовое сальдо в пользу другой стороны таблицы.</span>
+      </p>}
       <p className="text-sm mt-3 text-navy-200">
         <span className="text-navy-400">Вывод: </span>
         {unfilled

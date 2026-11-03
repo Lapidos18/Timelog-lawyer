@@ -1,4 +1,5 @@
 'use client'
+import { useFormGuard } from '@/lib/unsaved-changes'
 import { readAllResult } from '@/lib/billing'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -429,9 +430,13 @@ export default function ActsPage() {
   function newAct(){if(!settingsReady){toast.error(settingsError||'Дождитесь загрузки настроек');return}setForm(f=>({...f,description:settings.actNote}));setShowForm(true)}
 
   // Esc закрывает открытую форму или модалку — см. src/lib/form-keys.ts
-  useEscapeKey(showForm, () => setShowForm(false))
-  useEscapeKey(!!previewAct, () => setPreviewAct(null))
-  useEscapeKey(!!payConfirmAct, () => setPayConfirmAct(null))
+  const guardForm = useFormGuard(showForm, form)
+  const closeForm = () => !submitting && guardForm(() => setShowForm(false))
+  useEscapeKey(showForm, closeForm)
+  const guardPay=useFormGuard(!!payConfirmAct,{payConfirmDate,payConfirmAmount,payConfirmDocNo})
+  const closePay=()=>!payConfirmSaving&&guardPay(()=>setPayConfirmAct(null))
+  useEscapeKey(!!previewAct&&!payConfirmAct, () => setPreviewAct(null))
+  useEscapeKey(!!payConfirmAct, closePay)
 
   return (
     <div className="p-4 md:p-7">
@@ -442,7 +447,7 @@ export default function ActsPage() {
       </PageHeader>
 
       {/* Form */}
-      <Modal open={showForm} onClose={() => setShowForm(false)}
+      <Modal open={showForm} onClose={closeForm}
         title={'Создать акт'} wide>
           <form onKeyDown={submitOnCtrlEnter} onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -577,7 +582,7 @@ export default function ActsPage() {
               <button type="submit" disabled={submitting || loadingPreview || previewTotal <= 0} className="btn-primary">
                 <Check className="w-4 h-4" /> {submitting ? 'Создаю...' : `Создать акт на ${fmt(previewTotal)} руб.`}
               </button>
-              <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">Отмена</button>
+              <button type="button" onClick={closeForm} className="btn-secondary">Отмена</button>
             </div>
           </form>
       </Modal>
@@ -836,17 +841,7 @@ export default function ActsPage() {
 
       {/* Подтверждение фактической оплаты при переводе акта в статус "Оплачен" */}
       {payConfirmAct && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          {/* Высота ограничена и включена прокрутка: на телефоне при открытой
-              клавиатуре видимая часть экрана сжимается примерно вдвое, и без
-              этого нижние кнопки оказывались за краем окна без возможности
-              их докрутить */}
-          <div className="bg-navy-900 rounded-xl border border-navy-700 w-full max-w-md
-                          max-h-[90dvh] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
-            <div className="sticky top-0 z-10 bg-navy-900 flex items-center justify-between px-6 py-4 border-b border-navy-800">
-              <h2 className="font-semibold text-navy-200">Зафиксировать оплату?</h2>
-              <button onClick={() => setPayConfirmAct(null)} className="btn-ghost p-1"><X className="w-4 h-4" /></button>
-            </div>
+        <Modal open onClose={closePay} title="Зафиксировать оплату?">
             <div className="p-6 space-y-4">
               <p className="text-sm text-navy-400">
                 Акт № <span className="text-navy-100 num">{payConfirmAct.act_no}</span> переводится в статус «Оплачен».
@@ -880,8 +875,7 @@ export default function ActsPage() {
                 Отмена
               </button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

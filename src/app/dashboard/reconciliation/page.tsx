@@ -75,7 +75,7 @@ function ReconciliationInner() {
   function switchTo(v: View) {
     setView(v)
     if (v === 'acts') setActsOpened(true)
-    window.history.replaceState(null, '', v === 'acts' ? '?view=acts' : window.location.pathname)
+    const next=new URLSearchParams(window.location.search);next.set('view',v);window.history.replaceState(null,'','?'+next.toString())
   }
 
   function makeAct(clientId: string, from: string, to: string) {
@@ -119,12 +119,12 @@ function ReconciliationInner() {
     <>
       <div className={view === 'payments' ? '' : 'hidden'}>
         <PaymentsView clients={clients} matters={matters} switcher={switcher}
-          openFormSignal={formSignal} onMakeAct={makeAct} />
+          openFormSignal={formSignal} onMakeAct={makeAct} contextClient={params.get('client')||''} contextMatter={params.get('matter')||''} />
       </div>
       {actsOpened && (
         <div className={view === 'acts' ? '' : 'hidden'}>
           <SettlementsPanel clients={clients} switcher={switcher}
-            deepLink={deepLink} onDeepLinkDone={() => setDeepLink(null)} />
+            contextClient={params.get('client')||''} deepLink={deepLink} onDeepLinkDone={() => setDeepLink(null)} />
         </div>
       )}
     </>

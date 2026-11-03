@@ -1,5 +1,7 @@
 'use client'
+import { useFormGuard } from '@/lib/unsaved-changes'
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useRateRule } from '@/lib/use-rate-rule'
 import { isSubscription } from '@/lib/balance'
@@ -60,6 +62,8 @@ function formatMoney(n: number) {
 
 export default function TableView() {
   const supabase = createClient()
+  const params = useSearchParams()
+  const contextMatter=params.get('matter') || '', contextFrom=params.get('from') || '', contextTo=params.get('to') || ''
   const [page,setPage]=useState(0)
   const [total,setTotal]=useState(0)
   const pageSize=50
@@ -163,7 +167,7 @@ export default function TableView() {
       // Независимые запросы отправляем параллельно
       const [profileRes, mattersRes, allProfilesRes] = await Promise.all([
         user ? supabase.from('profiles').select('*').eq('id', user.id).single() : Promise.resolve({ data: null }),
-        supabase.from('matters').select('*, clients(*)').eq('status', 'active').order('title'),
+        supabase.from('matters').select('*, clients(*)').order('title'),
         supabase.from('profiles').select('*').order('full_name'),
       ])
 
@@ -175,11 +179,17 @@ export default function TableView() {
       }
       setMatters((mattersRes.data ?? []) as (Matter & { clients: Client })[])
       setProfiles(allProfilesRes.data ?? [])
-      loadEntries({ date_from: '', date_to: '', matter_id: '', activity_type: '' as ActivityType | '', user_id: '' })
+
     }
     init()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    const next={date_from:contextFrom,date_to:contextTo,matter_id:contextMatter,activity_type:'' as ActivityType|'',user_id:''}
+    setFilters(next);setShowFilters(!!(contextMatter||contextFrom||contextTo));loadEntries(next)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[contextMatter,contextFrom,contextTo])
 
   // Автозаполнение ставки при выборе дела вручную (не при открытии формы на редактирование —
   // там ставка уже зафиксирована в самой записи и не должна подменяться текущей ставкой дела)
@@ -235,6 +245,7 @@ export default function TableView() {
       return
     }
     resetForm()
+    if(contextMatter)selectMatter(contextMatter)
     setShowForm(true)
   }
 
@@ -332,7 +343,9 @@ export default function TableView() {
 
 
   // Esc закрывает форму записи — см. src/lib/form-keys.ts
-  useEscapeKey(showForm, resetForm)
+  const guardForm = useFormGuard(showForm, {form,ndfl,selectedUserId,changeReason})
+  const closeForm = () => !submitting && guardForm(resetForm)
+  useEscapeKey(showForm, closeForm)
 
   return (
     <div>
@@ -401,7 +414,7 @@ export default function TableView() {
         </div>
       )}
 
-      <Modal open={showForm} onClose={resetForm}
+      <Modal open={showForm} onClose={closeForm}
         title={editId ? 'Редактировать запись' : 'Новая запись'} wide>
 
           <form onKeyDown={submitOnCtrlEnter} onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
@@ -566,7 +579,7 @@ export default function TableView() {
               <button type="submit" disabled={submitting} className="btn-primary">
                 <Check className="w-4 h-4" /> {submitting ? 'Сохраняю...' : (editId ? 'Сохранить' : 'Добавить')}
               </button>
-              <button type="button" onClick={resetForm} className="btn-secondary">Отмена</button>
+              <button type="button" onClick={closeForm} className="btn-secondary">Отмена</button>
             </div>
           </form>
       </Modal>

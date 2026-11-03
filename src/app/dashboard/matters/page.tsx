@@ -1,7 +1,10 @@
 'use client'
+import { useFormGuard } from '@/lib/unsaved-changes'
 import { readAllResult } from '@/lib/billing'
 import ChangeHistory from '@/components/ChangeHistory'
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { Suspense, useEffect, useState, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { Matter, Client, MatterType, MatterStatus, MATTER_TYPE_LABELS, MATTER_STATUS_LABELS } from '@/types'
 import { Plus, Pencil, X, Check, Gavel, Briefcase, FolderOpen } from 'lucide-react'
@@ -41,7 +44,9 @@ function noRate(m: MatterWithClient) {
   return !m.hourly_rate && !m.fixed_fee && !isSubscription(m)
 }
 
-export default function MattersPage() {
+function MattersInner() {
+  const params=useSearchParams()
+  const contextMatter=params.get('matter') || ''
   const supabase = createClient()
   const [matters, setMatters] = useState<MatterWithClient[]>([])
   const [clients, setClients] = useState<Client[]>([])
@@ -154,6 +159,7 @@ export default function MattersPage() {
 
   async function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault()
+    if (!guardForm.maySave()) return
     const original = editId ? (matters.find(x => x.id === editId)?.drive_folder_url ?? '') : ''
     const driveLinkChanged = form.drive_folder_url.trim() !== original.trim()
     if (driveLinkChanged && form.drive_folder_url.trim() && !isDriveUrl(form.drive_folder_url)) {
@@ -226,7 +232,7 @@ export default function MattersPage() {
   const fmtMoney = (n: number) =>
     new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 
-  const visible = filterStatus === 'all' ? matters : matters.filter(m => m.status === filterStatus)
+  const visible = matters.filter(m => (!contextMatter || m.id===contextMatter) && (contextMatter || filterStatus==='all' || m.status===filterStatus))
 
   /**
    * Дела, сгруппированные по доверителям.
@@ -380,7 +386,9 @@ export default function MattersPage() {
 
 
   // Esc закрывает открытую форму или модалку — см. src/lib/form-keys.ts
-  useEscapeKey(showForm, resetForm)
+  const guardForm = useFormGuard(showForm, form)
+  const closeForm = () => !submitting && guardForm(resetForm)
+  useEscapeKey(showForm, closeForm)
 
   return (
     <div className="p-4 md:p-7">
@@ -390,8 +398,14 @@ export default function MattersPage() {
         </button>
       </PageHeader>
 
-      <Modal open={showForm} onClose={resetForm}
+      {contextMatter && <p className="text-sm text-navy-300 mb-4">Показано выбранное задание. <Link className="tap inline-flex text-gold-400" href="/dashboard/matters">Все задания</Link></p>}
+      <Modal open={showForm} onClose={closeForm}
         title={editId ? 'Редактировать дело' : 'Новое дело'} wide>
+            {editId && <div className="flex flex-wrap gap-3 mb-4">
+              <Link className="btn-secondary min-h-11" href={'/dashboard/journal?view=table&matter='+encodeURIComponent(editId)}>Работа по заданию</Link>
+              <Link className="btn-secondary min-h-11" href={'/dashboard/reimbursements?matter='+encodeURIComponent(editId)}>Расходы</Link>
+              <Link className="btn-secondary min-h-11" href={'/dashboard/reconciliation?client='+encodeURIComponent(form.client_id)+'&matter='+encodeURIComponent(editId)}>Платежи</Link>
+            </div>}
           <form onKeyDown={submitOnCtrlEnter} onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
             <div>
               <label className="label">Доверитель *</label>
@@ -529,13 +543,13 @@ export default function MattersPage() {
               <button type="submit" disabled={submitting} className="btn-primary">
                 <Check className="w-4 h-4" /> {submitting ? 'Сохраняю...' : (editId ? 'Сохранить' : 'Добавить')}
               </button>
-              <button type="button" onClick={resetForm} className="btn-secondary">Отмена</button>
+              <button type="button" onClick={closeForm} className="btn-secondary">Отмена</button>
             </div>
           </form>
           {/* Начисления по актам — вне формы: Enter в их полях не должен сохранять само дело */}
           {editId && <ChangeHistory table="matters" rowId={editId}/>}
         {editId && <RateRules key={editId} matterId={editId} />}
-        {editId && <AccrualsBlock matterId={editId} onChanged={loadMatters} />}
+            {editId && <AccrualsBlock matterId={editId} onChanged={loadMatters} />}
       </Modal>
 
       {/* Filter tabs */}
@@ -707,3 +721,5 @@ export default function MattersPage() {
     </div>
   )
 }
+
+export default function MattersPage(){return <Suspense fallback={<p className="p-4">Загрузка…</p>}><MattersInner/></Suspense>}

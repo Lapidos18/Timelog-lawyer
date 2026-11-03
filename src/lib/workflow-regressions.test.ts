@@ -44,6 +44,7 @@ vi.mock('react', async importOriginal => {
   }
 })
 vi.mock('@/lib/supabase', () => ({ createClient: () => runtime.client }))
+vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams(window.location.search) }))
 vi.mock('@/lib/locked-entries', () => ({ useLockedEntries: () => ({ locked: new Map() }), lockedMessage: () => '' }))
 vi.mock('@/lib/form-keys', () => ({ useEscapeKey: () => {}, submitOnCtrlEnter: () => {} }))
 vi.mock('@/lib/draft', () => ({ useDraft: () => {}, loadDraft: () => null, clearDraft: () => {} }))
@@ -58,6 +59,7 @@ import ReimbursementsPage from '@/app/dashboard/reimbursements/page'
 import LoadError from '@/components/LoadError'
 import { BACKUP_TABLES } from '../../scripts/backup-format.mjs'
 import AccrualsBlock from '@/app/dashboard/matters/AccrualsBlock'
+import { useFormGuard } from '@/lib/unsaved-changes'
 
 const entry = {
   id: 'entry-1', matter_id: 'matter-1', user_id: 'user-1', work_date: '2026-10-05',
@@ -101,7 +103,15 @@ function makeClient() {
     },
   }
 }
-function render(component: () => any) { runtime.cursor = 0; return component() }
+function render(component: () => any) {
+  runtime.cursor = 0
+  let tree = component()
+  // Page wrappers now provide the Suspense boundary required by query-string navigation.
+  while (tree?.type === React.Suspense || typeof tree?.type === 'function') {
+    tree = tree.type === React.Suspense ? tree.props.children : tree.type(tree.props)
+  }
+  return tree
+}
 async function effects() {
   for (const effect of runtime.effects.splice(0)) effect()
   for (let i = 0; i < 15; i++) await Promise.resolve()
@@ -156,12 +166,46 @@ const taxToggle = (tree: any) => nodes(tree).find(n => n.type === 'label' && tex
   ?.props.children.find((n: any) => n?.type === 'input')
 
 beforeEach(() => {
+  for (const slot of runtime.slots) slot?.cleanup?.()
   runtime.slots = []; runtime.cursor = 0; runtime.effects = []
   vi.clearAllMocks(); updates.length = 0; inserts.length = 0
   replies = table => ({ data: fixture[table] ?? [], error: null })
   runtime.client = makeClient()
-  vi.stubGlobal('window', { scrollTo: vi.fn(), location: { search: '' } })
+  vi.stubGlobal('window', { scrollTo: vi.fn(), confirm: vi.fn(() => true), location: { search: '' } })
   vi.stubGlobal('localStorage', { setItem: vi.fn() })
+})
+
+describe('сохранность незавершённого ввода', () => {
+  it('отмена предупреждения сохраняет форму; возврат исходных значений убирает предупреждение', async () => {
+    let value='Исходный текст'
+    const GuardComponent=()=>useFormGuard(true,{value})
+    render(GuardComponent);await effects()
+    value='Изменённый текст'
+    let close=render(GuardComponent)
+    const discard=vi.fn()
+    vi.mocked(window.confirm).mockReturnValue(false)
+    close(discard)
+    expect(discard).not.toHaveBeenCalled()
+    expect(window.confirm).toHaveBeenCalledTimes(1)
+    value='Исходный текст'
+    close=render(GuardComponent)
+    close(discard)
+    expect(discard).toHaveBeenCalledTimes(1)
+    expect(window.confirm).toHaveBeenCalledTimes(1)
+  })
+
+  it('после сохранения и закрытия не предупреждает о прежних изменениях', async()=>{
+    let active=true,value='Начало'
+    const GuardComponent=()=>useFormGuard(active,{value})
+    render(GuardComponent);await effects()
+    value='Сохранённый текст';render(GuardComponent)
+    active=false
+    const close=render(GuardComponent),discard=vi.fn()
+    vi.mocked(window.confirm).mockReturnValue(false)
+    close(discard)
+    expect(discard).toHaveBeenCalledOnce()
+    expect(window.confirm).not.toHaveBeenCalled()
+  })
 })
 
 describe('журнал: итоговая ставка не получает надбавку повторно', () => {

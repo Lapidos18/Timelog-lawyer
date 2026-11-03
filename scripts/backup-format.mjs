@@ -11,7 +11,7 @@ export async function createBackup(data,source='manual') {
  for(const table of BACKUP_TABLES)if(!Array.isArray(data[table]))throw Error('Отсутствует таблица '+table);
  const table_counts=Object.fromEntries(BACKUP_TABLES.map(t=>[t,data[t].length]));
  const checksums=Object.fromEntries(await Promise.all(BACKUP_TABLES.map(async t=>[t,await checksum(data[t])])));
- return {meta:{backup_date:new Date().toISOString(),backup_version:'2.0',schema_revision:36,source,tables:BACKUP_TABLES,
+ return {meta:{backup_date:new Date().toISOString(),backup_version:'2.0',schema_revision:37,source,tables:BACKUP_TABLES,
   table_counts,checksums,total_records:Object.values(table_counts).reduce((s,n)=>s+n,0)},data};
 }
 /** Проверка содержимого и ссылок до любого восстановления. Ничего не записывает в базу. */

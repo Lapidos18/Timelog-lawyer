@@ -58,6 +58,8 @@ export interface Client {
   representative?: string | null
   signer_position?: string | null
   signer_short?: string | null
+  act_party_text?: string | null
+  act_requisites?: string | null
   is_active: boolean
   created_by: string | null
   created_at: string
@@ -86,6 +88,7 @@ export interface Matter {
   task_date?: string | null
   act_subject?: string | null
   expenses_clause?: string | null
+  act_document_options?: {style?: 'auto'|'hourly'|'subscription'|'fixed';agreement_kind?: 'agreement'|'contract';service_clause?:string;fee_clause?:string;cabinet_requisites?:string} | null
   // Миграция 021 — абонентская плата (см. src/lib/balance.ts)
   monthly_fee?: number | string | null
   fee_from?: string | null

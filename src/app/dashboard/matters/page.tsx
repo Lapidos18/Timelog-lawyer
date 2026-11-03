@@ -30,6 +30,7 @@ type ActField = typeof ACT_FIELDS[number]
 const FEE_FIELDS = ['monthly_fee', 'fee_from', 'fee_to'] as const
 type FeeField = typeof FEE_FIELDS[number]
 const EMPTY_FEE: Record<FeeField, string> = { monthly_fee: '', fee_from: '', fee_to: '' }
+const EMPTY_DOC={act_style:'auto',agreement_kind:'agreement',service_clause:'',fee_clause:'',cabinet_requisites:''}
 const EMPTY_ACT: Record<ActField, string> = { agreement_date: '', task_no: '', task_date: '', act_subject: '', expenses_clause: '' }
 
 /**
@@ -67,7 +68,7 @@ function MattersInner() {
     matter_type: 'litigation' as MatterType, status: 'active' as MatterStatus,
     court: '', case_no: '', hourly_rate: '', fixed_fee: '',
     started_at: '', closed_at: '', notes: '', drive_folder_url: '',
-    ...EMPTY_ACT, ...EMPTY_FEE,
+    ...EMPTY_ACT, ...EMPTY_FEE, ...EMPTY_DOC,
   })
 
   const loadMatters = useCallback(async () => {
@@ -137,7 +138,7 @@ function MattersInner() {
   function resetForm() {
     setForm({ client_id: '', title: '', agreement_no: '', matter_type: 'litigation',
       status: 'active', court: '', case_no: '', hourly_rate: '', fixed_fee: '',
-      started_at: '', closed_at: '', notes: '', drive_folder_url: '', ...EMPTY_ACT, ...EMPTY_FEE })
+      started_at: '', closed_at: '', notes: '', drive_folder_url: '', ...EMPTY_ACT, ...EMPTY_FEE, ...EMPTY_DOC })
     setEditId(null); setShowForm(false)
   }
 
@@ -153,6 +154,7 @@ function MattersInner() {
       act_subject: m.act_subject ?? '', expenses_clause: m.expenses_clause ?? '',
       monthly_fee: m.monthly_fee ? String(Number(m.monthly_fee)) : '',
       fee_from: m.fee_from ?? '', fee_to: m.fee_to ?? '',
+      act_style:m.act_document_options?.style??'auto',agreement_kind:m.act_document_options?.agreement_kind??'agreement',service_clause:m.act_document_options?.service_clause??'',fee_clause:m.act_document_options?.fee_clause??'',cabinet_requisites:m.act_document_options?.cabinet_requisites??'',
     })
     setEditId(m.id); setShowForm(true)
   }
@@ -194,7 +196,11 @@ function MattersInner() {
         feeExtra[k] = form[k].trim() || null
       }
     }
+    const docOptions={style:form.act_style,agreement_kind:form.agreement_kind,service_clause:form.service_clause.trim(),fee_clause:form.fee_clause.trim(),cabinet_requisites:form.cabinet_requisites.trim()}
+    const oldOptions=originalMatter?.act_document_options
+    const docChanged=docOptions.style!==(oldOptions?.style??'auto')||docOptions.agreement_kind!==(oldOptions?.agreement_kind??'agreement')||docOptions.service_clause!==(oldOptions?.service_clause??'')||docOptions.fee_clause!==(oldOptions?.fee_clause??'')||docOptions.cabinet_requisites!==(oldOptions?.cabinet_requisites??'')
     const payload = {
+      ...(docChanged?{act_document_options:docOptions}:{}),
       client_id: form.client_id, title: form.title,
       agreement_no: form.agreement_no || null, matter_type: form.matter_type,
       status: form.status, court: form.court || null, case_no: form.case_no || null,
@@ -498,6 +504,11 @@ function MattersInner() {
                 onChange={e => setForm(f => ({ ...f, task_date: e.target.value }))} />
               <p className="text-xs text-navy-400 mt-1">Пусто — берётся дата начала дела</p>
             </div>
+            <div><label className="label">Форма месячного акта</label><select className="select" value={form.act_style} onChange={e=>setForm(f=>({...f,act_style:e.target.value}))}><option value="auto">Автоматически по начислениям</option><option value="hourly">Почасовой, с таблицей</option><option value="subscription">Абонентский, без таблицы часов</option><option value="fixed">Фиксированная сумма</option></select></div>
+            <div><label className="label">Название основания</label><select className="select" value={form.agreement_kind} onChange={e=>setForm(f=>({...f,agreement_kind:e.target.value}))}><option value="agreement">Соглашение</option><option value="contract">Договор</option></select></div>
+            <div><label className="label">Пункт об услугах</label><input className="input" value={form.service_clause} placeholder="п. 1.2." onChange={e=>setForm(f=>({...f,service_clause:e.target.value}))}/></div>
+            <div><label className="label">Пункт о вознаграждении</label><input className="input" value={form.fee_clause} placeholder="п. 3.1." onChange={e=>setForm(f=>({...f,fee_clause:e.target.value}))}/></div>
+            <div className="md:col-span-3"><label className="label">Реквизиты кабинета в подписи этого акта</label><textarea className="input" rows={3} maxLength={4000} value={form.cabinet_requisites} onChange={e=>setForm(f=>({...f,cabinet_requisites:e.target.value}))}/><p className="text-xs text-navy-400 mt-1">Необязательно: особый блок из вашего образца, по строкам. Пусто — используются общие реквизиты кабинета.</p></div>
             <div className="md:col-span-3">
               <label className="label">Что сделано — после слов «юридическую помощь в виде»</label>
               <textarea className="input resize-none" rows={2} value={form.act_subject}

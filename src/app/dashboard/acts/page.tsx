@@ -264,7 +264,7 @@ export default function ActsPage() {
       ...(expenses > 0 ? { expenses_amount: expenses } : {}),
     }
     const doc=buildActDoc({cabinet:settings,client:m.clients,matter:m,periodFrom:form.period_from,periodTo:form.period_to,rows:previewRows,expensesAmount:expenses,note:resolvedNote})
-    Object.assign(base,{document_snapshot:doc,document_html:actBodyHtml(doc),document_css:PRINT_CSS+actCss()})
+    Object.assign(base,{document_snapshot:doc,document_html:actBodyHtml(doc),document_css:PRINT_CSS+actCss(doc)})
     // Копия строк — чтобы акт печатался таким, каким был создан, а не
     // тем, что лежит в журнале сегодня (миграция 015).
     const {error}=await supabase.from('acts').insert({...base,rows:previewRows})
@@ -316,7 +316,7 @@ export default function ActsPage() {
       : `Сумма акта изменится: было ${fmt(was)} руб., станет ${fmt(total)} руб. Обновить?`
     if (!confirm(msg)) return
     const fresh=buildActDoc({cabinet:settings,client:act.matters.clients,matter:act.matters,periodFrom:act.period_from,periodTo:act.period_to,rows,expensesAmount:expenses_amount,note:act.description})
-    const { error } = await supabase.from('acts').update({ rows, amount: total,expense_rows,expenses_amount,document_snapshot:fresh,document_html:actBodyHtml(fresh),document_css:PRINT_CSS+actCss() }).eq('id', act.id)
+    const { error } = await supabase.from('acts').update({ rows, amount: total,expense_rows,expenses_amount,document_snapshot:fresh,document_html:actBodyHtml(fresh),document_css:PRINT_CSS+actCss(fresh) }).eq('id', act.id)
     if (error) { toast.error('Не удалось обновить акт: ' + error.message); return }
     toast.success('Состав акта обновлён из начислений')
     setPreviewAct({ act: { ...act, rows, amount: total,expense_rows,expenses_amount,document_snapshot:fresh }, rows })
@@ -344,7 +344,7 @@ export default function ActsPage() {
       setIssuing(true)
       try {
         const document_word=await blobBase64(await buildActWord(doc))
-        const {error}=await supabase.from('acts').update({status:'signed',rows,document_snapshot:doc,document_html:actBodyHtml(doc),document_css:PRINT_CSS+actCss(),document_word}).eq('id',id)
+        const {error}=await supabase.from('acts').update({status:'signed',rows,document_snapshot:doc,document_html:actBodyHtml(doc),document_css:PRINT_CSS+actCss(doc),document_word}).eq('id',id)
         if(error){toast.error(error.message);return}
       } catch {toast.error('Не удалось сохранить неизменную версию документа. Акт не выпущен.');return}
       finally {setIssuing(false)}

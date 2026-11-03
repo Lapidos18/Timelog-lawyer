@@ -164,7 +164,7 @@ export function specialistLines(rows: ActRowIn[]): { lines: SpecialistLine[]; to
 export type ActBlock =
   | { kind: 'title'; text: string }
   | { kind: 'placeDate'; place: string; date: string }
-  | { kind: 'para'; text: string; bold?: boolean }
+  | { kind: 'para'; text: string; bold?: boolean; number?: number; emphasis?: string[] }
   | { kind: 'spacer' }
   | { kind: 'table'; head: string[]; rows: string[][]; total: string[] }
   | { kind: 'signs'; left: string[]; right: string[] }
@@ -175,6 +175,7 @@ export interface ActDoc {
   blocks: ActBlock[]
   /** Итог по работе, ₽ (то же, что в тексте и в таблице) */
   total: number
+  layout?: 'hourly' | 'subscription' | 'fixed'
 }
 
 export interface ActCabinet {
@@ -189,6 +190,8 @@ export interface ActCabinet {
 }
 
 export interface ActClientIn {
+  act_party_text?: string | null
+  act_requisites?: string | null
   name: string
   type: 'individual' | 'legal_entity'
   inn?: string | null
@@ -200,6 +203,9 @@ export interface ActClientIn {
 }
 
 export interface ActMatterIn {
+  monthly_fee?: number | string | null
+  fee_from?: string | null
+  act_document_options?: {style?:'auto'|'hourly'|'subscription'|'fixed';agreement_kind?:'agreement'|'contract';service_clause?:string;fee_clause?:string;cabinet_requisites?:string} | null
   title: string
   agreement_no?: string | null
   agreement_date?: string | null
@@ -223,7 +229,7 @@ export interface ActDocInput {
   note?: string | null
 }
 
-const clean = (s?: string | null) => (s ?? '').trim()
+const clean = (s?: string | null) => typeof s==='string'?s.trim():''
 
 export function actFileName(i: Pick<ActDocInput, 'periodTo' | 'matter'>): string {
   const task = clean(i.matter.task_no)
@@ -233,10 +239,15 @@ export function actFileName(i: Pick<ActDocInput, 'periodTo' | 'matter'>): string
 
 export function buildActDoc(input: ActDocInput): ActDoc {
   const { cabinet: cab, client: c, matter: m } = input
+  const options=m.act_document_options??{}
   const { lines, totalHours100, totalKop } = specialistLines(input.rows.filter(r=>!r.source_kind))
   const charges=input.rows.filter(r=>!!r.source_kind)
   const combinedKop=totalKop+charges.reduce((sum,r)=>sum+Math.round(Number(r.amount)*100),0)
   const total = combinedKop / 100
+  const inferred=lines.length?'hourly':charges.some(r=>r.source_kind==='subscription')?'subscription':'fixed'
+  // A table must not disappear when an hourly source is present.
+  const layout=lines.length?'hourly':options.style&&options.style!=='auto'?options.style:inferred
+  const contract=options.agreement_kind==='contract'
 
   // Соглашение и задание
   const agr = agreementRef(m.agreement_no, m.agreement_date)
@@ -263,9 +274,9 @@ export function buildActDoc(input: ActDocInput): ActDoc {
   const reqs = [ogrn && `ОГРН ${ogrn}`, clientInn && `ИНН ${clientInn}`].filter(Boolean).join(', ')
   const rep = clean(c.representative)
   const lawyerPara = `${cab.fullName}, регистрационный номер в реестре адвокатов ${clean(cab.registryRegion)||'Новосибирской области'} № ${cab.regNo}, удостоверение адвоката № ${cab.certNo}, именуемый далее «Адвокат» с одной стороны и`
-  const clientPara = isOrg
+  const clientPara = clean(c.act_party_text) || (isOrg
     ? `${orgName}${reqs ? ` (${reqs})` : ''}${rep ? ` в лице ${rep}` : ''}, именуемое далее «Доверитель», с другой стороны,`
-    : `${clean(c.full_name) || c.name}${clientInn ? ` (ИНН ${clientInn})` : ''}, именуемый(ая) далее «Доверитель», с другой стороны,`
+    : `${clean(c.full_name) || c.name}${clientInn ? ` (ИНН ${clientInn})` : ''}, именуемый(ая) далее «Доверитель», с другой стороны,`)
 
   const blocks: ActBlock[] = []
   blocks.push({ kind: 'title', text: 'АКТ ОБ ОКАЗАНИИ УСЛУГ' })
@@ -294,7 +305,7 @@ export function buildActDoc(input: ActDocInput): ActDoc {
     total: ['ИТОГО', 'Х', 'Х', money(totalKop)],
   })
 
-  if(charges.length)blocks.push({kind:'table',head:['Начисление / корректировка','Количество','Ставка','Сумма'],
+  if(charges.length&&(layout==='hourly'||(layout==='subscription'&&charges.some(r=>r.source_kind!=='subscription'))))blocks.push({kind:'table',head:['Начисление / корректировка','Количество','Ставка','Сумма'],
     rows:charges.map(r=>[r.description||'Начисление','—','—',money(Math.round(Number(r.amount)*100))]),
     total:['ИТОГО УСЛУГ','Х','Х',money(combinedKop)]})
   const expenses = Number(input.expensesAmount ?? 0)
@@ -310,7 +321,6 @@ export function buildActDoc(input: ActDocInput): ActDoc {
     })
   }
   for(const line of clean(input.note).split(/\r?\n/).filter(Boolean))blocks.push({kind:'para',text:line})
-  for(const line of clean(cab.bankDetails).split(/\r?\n/).filter(Boolean))blocks.push({kind:'para',text:line})
   blocks.push({ kind: 'para', text: 'Доверитель не имеет претензий к качеству оказанных Адвокатом услуг.' })
   blocks.push({ kind: 'para', text: 'Настоящий акт составлен в 2 (двух) экземплярах, имеющих равную юридическую силу, по одному для каждой из сторон.' })
   blocks.push({ kind: 'para', text: 'Подписи сторон:' })
@@ -318,12 +328,12 @@ export function buildActDoc(input: ActDocInput): ActDoc {
   // Подписи с реквизитами
   const line = (who: string) => `_______________________${who ? `/${who}/` : ''}`
   const firmRest = cab.fullName.replace(/^Адвокатский кабинет\s+/, '')
-  const left = [
+  let left = [
     'Адвокат:', 'Адвокатский кабинет', firmRest,
     `Рег. номер: ${cab.regNo}`, `Удостоверение адвоката №: ${cab.certNo}`, `ИНН: ${cab.inn}`,
     '', '', '', line(cab.signerShort), 'м.п.',
   ]
-  const right = isOrg
+  let right = isOrg
     ? [
         'Доверитель:', shortOrgName(c.name),
         ...(ogrn ? [`ОГРН: ${ogrn}`] : []), ...(clientInn ? [`ИНН: ${clientInn}`] : []),
@@ -334,7 +344,41 @@ export function buildActDoc(input: ActDocInput): ActDoc {
         ...(clientInn ? [`ИНН: ${clientInn}`] : []),
         '', '', '', '', line(clean(c.signer_short) || shortFio(c.name)),
       ]
+  const cabinetRequisites=clean(options.cabinet_requisites).split(/\r?\n/).filter(Boolean)
+  const bank=clean(cab.bankDetails).split(/\r?\n/).filter(Boolean)
+  if(bank.length)left.splice(6,0,...bank)
+  if(cabinetRequisites.length)left=['Адвокат:',...cabinetRequisites,'','','',line(cab.signerShort),'м.п.']
+  if(clean(c.act_requisites))right=['Доверитель:',...clean(c.act_requisites).split(/\r?\n/),
+    '',clean(c.signer_position),'','',line(clean(c.signer_short)||(!isOrg?shortFio(c.name):'')),'м.п.']
+  if(layout==='subscription') {
+    left=['Адвокат',...(cabinetRequisites.length?cabinetRequisites:[cab.fullName,`ИНН ${cab.inn}`,...bank]),'','','',line(cab.signerShort),'(подпись) М.П.']
+    if(clean(c.act_requisites))right=['Доверитель',...clean(c.act_requisites).split(/\r?\n/),'','','',line(clean(c.signer_short)),'(подпись) М.П.']
+  }
   blocks.push({ kind: 'signs', left, right })
 
-  return { fileName: actFileName(input), blocks, total }
+  // Reference acts use numbered clauses and selective emphasis, rather than whole bold paragraphs.
+  const service=blocks.find(b=>b.kind==='para'&&b.text.startsWith('Адвокат в соответствии'))
+  const payment=blocks.find(b=>b.kind==='para'&&b.text.startsWith('За оказанные'))
+  const acceptance=blocks.find(b=>b.kind==='para'&&b.text.startsWith('Доверитель не имеет'))
+  if(service?.kind==='para'&&clean(options.service_clause))service.text=
+    `Адвокат в соответствии с ${basisInstr} оказал Доверителю надлежащим образом в полном соответствии с условиями Соглашения юридическую помощь, согласно ${clean(options.service_clause)} Соглашения.`
+  if(payment?.kind==='para'&&layout!=='hourly') {
+    const feeBasis=clean(options.fee_clause)?` в соответствии с ${clean(options.fee_clause)} Соглашения`:''
+    payment.text=`За оказанную в период с ${shortDate(input.periodFrom)} по ${shortDate(input.periodTo)} юридическую помощь Доверитель уплачивает Адвокату вознаграждение${feeBasis} в размере ${fmtMoneyAct(total)}, НДС не облагается.`
+    if(acceptance) {blocks.splice(blocks.indexOf(acceptance),1);blocks.splice(blocks.indexOf(payment),0,acceptance)}
+  }
+  let clause=0
+  for(const b of blocks) {
+    if(b.kind!=='para'&&b.kind!=='title')continue
+    if(contract)b.text=b.text.replace(/соглашению/g,'договору').replace(/Соглашению/g,'Договору').replace(/Соглашением/g,'Договором').replace(/Соглашения/g,'Договора')
+    if(b.kind==='para') {
+      if(b===service||clause>0)b.number=++clause
+      if(b===service&&clause===0)b.number=++clause
+      if(b.text.startsWith('Составили')){b.bold=true;continue}
+      b.bold=false
+      if(layout!=='subscription')b.emphasis=[cab.fullName,orgName,clean(c.full_name)||c.name,'«Адвокат»','«Доверитель»',...(b===payment?[fmtMoneyAct(total)]:[])].filter(Boolean)
+      else b.emphasis=[cab.fullName,orgName]
+    }
+  }
+  return { fileName: actFileName(input), blocks, total, layout }
 }

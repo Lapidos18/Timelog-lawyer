@@ -14,9 +14,9 @@ import { checkInn } from '@/lib/inn'
 import { SkeletonRows } from '@/components/Skeleton'
 
 /** Реквизиты для актов (миграция 020). Необязательные: пусто — акт соберёт текст из названия */
-const ACT_FIELDS = ['full_name', 'ogrn', 'representative', 'signer_position', 'signer_short'] as const
+const ACT_FIELDS = ['full_name', 'ogrn', 'representative', 'signer_position', 'signer_short', 'act_party_text', 'act_requisites'] as const
 type ActField = typeof ACT_FIELDS[number]
-const EMPTY_ACT: Record<ActField, string> = { full_name: '', ogrn: '', representative: '', signer_position: '', signer_short: '' }
+const EMPTY_ACT: Record<ActField, string> = { full_name: '', ogrn: '', representative: '', signer_position: '', signer_short: '', act_party_text:'', act_requisites:'' }
 
 const TYPE_LABELS: Record<ClientType, string> = {
   individual: 'Физическое лицо',
@@ -56,7 +56,7 @@ export default function ClientsPage() {
     setForm({ name: c.name, type: c.type, inn: c.inn ?? '', phone: c.phone ?? '',
       email: c.email ?? '', address: c.address ?? '', notes: c.notes ?? '', is_active: c.is_active,
       full_name: c.full_name ?? '', ogrn: c.ogrn ?? '', representative: c.representative ?? '',
-      signer_position: c.signer_position ?? '', signer_short: c.signer_short ?? '' })
+      signer_position: c.signer_position ?? '', signer_short: c.signer_short ?? '', act_party_text:c.act_party_text??'', act_requisites:c.act_requisites??'' })
     setEditId(c.id); setShowForm(true)
   }
 
@@ -193,6 +193,8 @@ export default function ClientsPage() {
               <input className="input" value={form.signer_short}
                 onChange={e => setForm(f => ({ ...f, signer_short: e.target.value }))} placeholder="И.И. Иванов" />
             </div>
+            <div className="md:col-span-2"><label className="label">Доверитель во вводном абзаце акта</label><textarea className="input" rows={3} maxLength={8000} value={form.act_party_text} onChange={e=>setForm(f=>({...f,act_party_text:e.target.value}))}/><p className="text-xs text-navy-400 mt-1">Полная формулировка из вашего образца, включая представителя или сведения физического лица и слова «именуемый … Доверитель». Пусто — собирается из полей выше.</p></div>
+            <div className="md:col-span-2"><label className="label">Реквизиты доверителя под актом</label><textarea className="input" rows={4} maxLength={8000} value={form.act_requisites} onChange={e=>setForm(f=>({...f,act_requisites:e.target.value}))}/><p className="text-xs text-navy-400 mt-1">Наименование или ФИО, затем реквизиты по строкам. Строку подписи сайт добавит сам.</p></div>
             {editId && (
               <div className="md:col-span-2">
                 <label className="flex items-center gap-2 cursor-pointer">

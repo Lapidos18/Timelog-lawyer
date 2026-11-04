@@ -7,14 +7,14 @@ import { ReportRow } from '@/types'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import Link from 'next/link'
-import { Clock, Banknote, Briefcase, TrendingUp, AlertCircle, ArrowRight, CalendarClock } from 'lucide-react'
+import { Clock, Banknote, Briefcase, TrendingUp, ArrowRight, CalendarClock } from 'lucide-react'
 import LoadError from '@/components/LoadError'
 import PageHeader from '@/components/PageHeader'
 import { SkeletonStats, SkeletonRows } from '@/components/Skeleton'
 import { daysUntil, untilLabel, toISO } from '@/lib/deadlines'
 import { useMounted } from '@/lib/use-mounted'
 import { matterFeeAccrued, ManualAccrual } from '@/lib/balance'
-import MonthlyWork, { formatHours, type WorkRow } from './MonthlyWork'
+import MonthlyWork, { formatHours, type ClientDebt, type WorkRow } from './MonthlyWork'
 
 /** Событие в блоке «Сроки и заседания» на Обзоре */
 type UpcomingEvent = {
@@ -40,9 +40,7 @@ export default function DashboardPage() {
     activeMatters: 0,
   })
   const [recentEntries, setRecentEntries] = useState<ReportRow[]>([])
-  const [clientBalances, setClientBalances] = useState<{
-    id: string; name: string; billed: number; reimb: number; paid: number; debt: number
-  }[]>([])
+  const [clientBalances, setClientBalances] = useState<ClientDebt[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [monthlyWork, setMonthlyWork] = useState<{
@@ -207,15 +205,12 @@ export default function DashboardPage() {
         const balances = allClientIds
           .map(clientId => ({
             id: clientId,
-            name: clientMap[clientId] ?? '—',
             billed: billedMap[clientId] ?? 0,
             reimb: reimbMap[clientId] ?? 0,
             paid: paidMap[clientId] ?? 0,
             debt: (billedMap[clientId] ?? 0) + (reimbMap[clientId] ?? 0) - (paidMap[clientId] ?? 0),
           }))
           .filter(b => b.debt > 0.01)
-          .sort((a, b) => b.debt - a.debt)
-          .slice(0, 5)
 
         setClientBalances(balances)
         // Ошибку любого из запросов показываем явно: иначе Обзор просто
@@ -357,43 +352,7 @@ export default function DashboardPage() {
       </div>
       )}
 
-      {!loading && !loadError && <MonthlyWork {...monthlyWork} />}
-
-      {/* Client balances */}
-      {!loading && !loadError && clientBalances.length > 0 && (
-        <div className="card mb-5">
-          <h2 className="text-sm font-medium text-navy-300 mb-4 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-400" />
-            Задолженность доверителей
-          </h2>
-          {/* На телефоне — столбиком: имя, начислено, и отдельной строкой
-              оплачено с долгом по краям. Раньше всё это переносилось как
-              придётся, и у одного доверителя строка выглядела иначе, чем
-              у соседнего. md:contents убирает обёртку на десктопе, чтобы
-              строка осталась прежней */}
-          <div className="space-y-3">
-            {clientBalances.map(b => (
-              <div key={b.id} className="flex flex-col md:flex-row md:items-center md:flex-wrap
-                                         gap-1 md:gap-3 pt-3 first:pt-0 border-t first:border-0
-                                         border-navy-800/60 md:border-0 md:pt-0">
-                <span className="text-sm text-navy-100 md:flex-1 md:min-w-[120px] truncate min-h-11 inline-flex items-center">{b.name}</span>
-                <span className="text-xs text-navy-300">
-                  начислено {formatMoney(b.billed + b.reimb)} ₽
-                  {b.reimb > 0 && (
-                    <span className="text-navy-400"> (в т.ч. возмещаемые расходы {formatMoney(b.reimb)} ₽)</span>
-                  )}
-                </span>
-                <div className="flex items-center justify-between gap-3 md:contents">
-                  <span className="text-xs text-emerald-400">оплачено {formatMoney(b.paid)} ₽</span>
-                  <span className="text-sm font-semibold text-red-400 whitespace-nowrap">
-                    долг {formatMoney(b.debt)} ₽
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {!loading && !loadError && <MonthlyWork {...monthlyWork} debts={clientBalances} />}
 
       {/* Recent entries */}
       <div className="card">

@@ -1,10 +1,10 @@
 'use client'
 import { readAllResult } from '@/lib/billing'
-import { dashboardTotals } from '@/lib/dashboard-totals'
+import { dashboardTotals, matterPeriodTotals } from '@/lib/dashboard-totals'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { ReportRow } from '@/types'
-import { format, startOfMonth, endOfMonth } from 'date-fns'
+import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import Link from 'next/link'
 import { Clock, Banknote, Briefcase, TrendingUp, AlertCircle, ArrowRight, CalendarClock } from 'lucide-react'
@@ -14,6 +14,7 @@ import { SkeletonStats, SkeletonRows } from '@/components/Skeleton'
 import { daysUntil, untilLabel, toISO } from '@/lib/deadlines'
 import { useMounted } from '@/lib/use-mounted'
 import { matterFeeAccrued, ManualAccrual } from '@/lib/balance'
+import MonthlyWork, { formatHours, type WorkRow } from './MonthlyWork'
 
 /** Событие в блоке «Сроки и заседания» на Обзоре */
 type UpcomingEvent = {
@@ -44,6 +45,9 @@ export default function DashboardPage() {
   }[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
+  const [monthlyWork, setMonthlyWork] = useState<{
+    current: WorkRow[]; previous: WorkRow[]; clientNames: Record<string, string>
+  }>({ current: [], previous: [], clientNames: {} })
   /** Просроченное и то, что наступит в пределах своего срока напоминания */
   const [upcoming, setUpcoming] = useState<UpcomingEvent[]>([])
 
@@ -51,13 +55,17 @@ export default function DashboardPage() {
   // до загрузки в браузере его не показываем (см. src/lib/use-mounted.ts)
   const mounted = useMounted()
   const now = new Date()
-  const monthStart = format(startOfMonth(now), 'yyyy-MM-dd')
-  const monthEnd   = format(endOfMonth(now),   'yyyy-MM-dd')
   const monthLabel = format(now, 'LLLL yyyy', { locale: ru })
 
   useEffect(() => {
     async function load() {
       try {
+        const asOf = new Date()
+        const today = toISO(asOf)
+        const monthStart = toISO(startOfMonth(asOf))
+        const previousMonth = subMonths(startOfMonth(asOf), 1)
+        const previousStart = toISO(previousMonth)
+        const previousEnd = toISO(endOfMonth(previousMonth))
         // Все независимые запросы отправляем ОДНОВРЕМЕННО, а не по очереди —
         // это кратно ускоряет загрузку страницы
         const [
@@ -73,7 +81,7 @@ export default function DashboardPage() {
           eventsRes,
           manualMonthRes,
         ] = await Promise.all([
-          readAllResult(supabase,'report_view','hours, amount, is_billable, matter_id', q => q.gte('work_date',monthStart).lte('work_date',toISO(new Date()))),
+          readAllResult(supabase,'report_view','hours, duration_min, amount, is_billable, matter_id, work_date', q => q.gte('work_date',previousStart).lte('work_date',today)),
           supabase
             .from('matters')
             .select('id', { count: 'exact' })
@@ -85,19 +93,15 @@ export default function DashboardPage() {
             .limit(8),
           readAllResult(supabase,'time_entries','matter_id, amount, is_billable', q => q.lte('work_date',toISO(new Date()))),
           readAllResult(supabase,'payments','client_id, amount, pay_date', q => q.lte('pay_date',toISO(new Date()))),
-          supabase
-            .from('clients')
-            .select('id, name'),
+          readAllResult(supabase, 'clients', 'id, name'),
           // Все поля дела: условия абонплаты (миграция 021) могут отсутствовать,
           // пока миграция не выполнена, — перечислять их в запросе нельзя
-          supabase
-            .from('matters')
-            .select('*'),
+          readAllResult(supabase, 'matters', '*'),
           // Издержки, ПРЕДЪЯВЛЕННЫЕ доверителю: он платит их вместе с
           // вознаграждением, поэтому без них «оплачено» больше «начислено»
           // и долг занижается ровно на сумму компенсации.
           // «Ожидает включения в счёт» не берём — это ещё не предъявлено.
-          readAllResult(supabase,'reimbursable_expenses','matter_id, amount, status',q=>q.in('status',['invoiced','reimbursed']).lte('expense_date',toISO(new Date()))),
+          readAllResult(supabase,'reimbursable_expenses','matter_id, amount, expense_date',q=>q.in('status',['invoiced','reimbursed']).lte('expense_date',today)),
           // Начисления по актам (миграция 022): работа на фиксированную сумму без часов.
           // Пока таблицы нет, запрос вернёт ошибку — Обзор из-за этого не падает
           readAllResult(supabase,'matter_accruals','matter_id, accrual_date, amount'),
@@ -120,9 +124,10 @@ export default function DashboardPage() {
         setUpcoming(((eventsRes.data ?? []) as unknown as UpcomingEvent[])
           .filter(e => daysUntil(e.event_date) <= e.remind_days))
 
-        const totals = dashboardTotals(allMattersRes.data ?? [], monthRes.data ?? [], accrualsRes.data ?? [],
+        const currentEntries = (monthRes.data ?? []).filter(entry => entry.work_date >= monthStart)
+        const totals = dashboardTotals(allMattersRes.data ?? [], currentEntries, accrualsRes.data ?? [],
           [...(allPaymentsRes.data ?? []).filter(p => p.pay_date >= monthStart), ...(manualMonthRes.data ?? [])],
-          monthStart, toISO(new Date()))
+          monthStart, today)
         setStats({hoursThisMonth: totals.hours, accruedThisMonth: totals.accrued,
           receivedThisMonth: totals.received, activeMatters: mattersRes.count ?? 0})
 
@@ -137,6 +142,26 @@ export default function DashboardPage() {
         for (const c of (allClients ?? [])) {
           clientMap[c.id] = c.name
         }
+
+        const workForPeriod = (from: string, to: string, entries: typeof currentEntries): WorkRow[] => {
+          const expenses = new Map<string, number>()
+          for (const expense of allReimbRes.data ?? []) {
+            if (expense.expense_date >= from && expense.expense_date <= to) {
+              expenses.set(expense.matter_id, (expenses.get(expense.matter_id) ?? 0)
+                + Math.round(Number(expense.amount) * 100))
+            }
+          }
+          return matterPeriodTotals(allMatters ?? [], entries, accrualsRes.data ?? [], from, to)
+            .map(row => ({ ...row, expensesKop: expenses.get(row.matter.id) ?? 0 }))
+            .filter(row => row.hours || row.accruedKop || row.hourlyKop || row.expensesKop)
+        }
+
+        setMonthlyWork({
+          current: workForPeriod(monthStart, today, currentEntries),
+          previous: workForPeriod(previousStart, previousEnd,
+            (monthRes.data ?? []).filter(entry => entry.work_date <= previousEnd)),
+          clientNames: clientMap,
+        })
 
         const matterClientMap: Record<string, string> = {}
         for (const m of (allMatters ?? [])) {
@@ -153,7 +178,6 @@ export default function DashboardPage() {
             hoursByMatter[r.matter_id] = (hoursByMatter[r.matter_id] ?? 0) + Number(r.amount)
           }
         }
-        const today = toISO(new Date())
         const accrByMatter: Record<string, ManualAccrual[]> = {}
         for (const a of ((accrualsRes.error ? [] : accrualsRes.data) ?? []) as (ManualAccrual & { matter_id: string })[]) {
           (accrByMatter[a.matter_id] = accrByMatter[a.matter_id] ?? []).push(a)
@@ -294,7 +318,7 @@ export default function DashboardPage() {
           {/* На телефоне плитка шириной ~160 px: при 24 px знак ₽ отрывался
               на вторую строку, и «95 001,50» выглядело как обрезанное число */}
           <p className="text-xl md:text-2xl font-semibold text-navy-100 whitespace-nowrap">
-            {stats.hoursThisMonth}
+            {formatHours(stats.hoursThisMonth)}
           </p>
         </div>
         <div className="stat-card">
@@ -332,6 +356,8 @@ export default function DashboardPage() {
         </div>
       </div>
       )}
+
+      {!loading && !loadError && <MonthlyWork {...monthlyWork} />}
 
       {/* Client balances */}
       {!loading && !loadError && clientBalances.length > 0 && (

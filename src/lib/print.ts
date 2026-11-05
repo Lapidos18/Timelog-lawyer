@@ -22,6 +22,7 @@
  */
 
 import {escapeHtml} from './html'
+import DOMPurify from 'dompurify'
 
 export const PRINT_CSS = `
   body{font-family:'Times New Roman',Times,serif;font-size:11pt;line-height:1.35;margin:20mm;color:#000}
@@ -75,17 +76,33 @@ export const CABINET_LINE =
  *                  Остальные документы параметр не передают и не меняются.
  */
 export function printDocument(title: string, bodyHtml: string, extraCss = ''): boolean {
+  const body = DOMPurify.sanitize(bodyHtml, {
+    ALLOWED_TAGS: ['div', 'span', 'p', 'br', 'b', 'strong', 'i', 'em', 'u', 'h1', 'h2', 'h3',
+      'h4', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'colgroup', 'col', 'ul', 'ol', 'li', 'hr'],
+    ALLOWED_ATTR: ['class', 'style', 'colspan', 'rowspan', 'width', 'height'],
+    ALLOW_DATA_ATTR: false,
+  })
+  const policy = "default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"
+  // Escape HTML delimiters in CSS so a stored style cannot introduce markup.
+  const css = (PRINT_CSS + extraCss).replace(/</g, '\\3c ')
   const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">
-<title>${escapeHtml(title)}</title><style>${PRINT_CSS}${extraCss}</style></head><body>${bodyHtml}</body></html>`
+<meta http-equiv="Content-Security-Policy" content="${policy}">
+<title>${escapeHtml(title)}</title><style>${css}</style></head><body>${body}</body></html>`
 
   const w = window.open('', '_blank', 'width=900,height=700')
   if (!w) return false
-  w.document.open()
-  w.document.write(html)
-  w.document.close()
-  w.focus()
-  // Не полагаемся на w.onload: для окна, заполненного через document.write,
-  // в Chrome событие приходит ненадёжно и печать открывается на белом листе
-  setTimeout(() => { w.print() }, 400)
+  w.opener = null
+  w.document.title = title
+  w.document.body.style.margin = '0'
+  const frame = w.document.createElement('iframe')
+  frame.title = title
+  frame.setAttribute('sandbox', 'allow-same-origin allow-modals')
+  frame.style.cssText = 'width:100%;height:100vh;border:0;display:block'
+  frame.addEventListener('load', () => {
+    frame.contentWindow?.focus()
+    frame.contentWindow?.print()
+  }, { once: true })
+  frame.srcdoc = html
+  w.document.body.appendChild(frame)
   return true
 }

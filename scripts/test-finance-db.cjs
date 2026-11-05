@@ -13,6 +13,7 @@ const dir=require('path').resolve(__dirname,'../supabase/migrations');
  }
  const uid='10000000-0000-4000-8000-000000000001',cid='20000000-0000-4000-8000-000000000001',m1='30000000-0000-4000-8000-000000000001',m2='30000000-0000-4000-8000-000000000002';
  await db.exec(`insert into auth.users(id,email,raw_user_meta_data)values('${uid}','qa@example.test','{"role":"advocate"}');
+  update profiles set role='advocate' where id='${uid}';
   select set_config('request.jwt.claim.sub','${uid}',false);select set_config('request.jwt.claim.role','authenticated',false);
   insert into clients(id,name)values('${cid}','Тестовый доверитель');
   insert into matters(id,client_id,title,hourly_rate)values('${m1}','${cid}','Задание 1',1000),('${m2}','${cid}','Задание 2',1000);`);
@@ -182,6 +183,29 @@ const dir=require('path').resolve(__dirname,'../supabase/migrations');
  await rejects(()=>q('select backup_snapshot()'),'анонимный бэкап');
  await db.exec('reset role');
  console.log('OK anonymous access denied');
+
+ const assistantId='10000000-0000-4000-8000-000000000099';
+ await db.exec("select set_config('request.jwt.claim.role','service_role',false)");
+ await q('insert into auth.users(id,email,raw_user_meta_data)values($1,$2,$3)',
+  [assistantId,'assistant@example.invalid','{"role":"advocate","full_name":"Security test"}']);
+ if((await q('select role from profiles where id=$1',[assistantId])).rows[0].role!=='assistant')throw Error('Metadata assigned privileged role');
+ await db.exec(`grant usage on schema public,auth to authenticated;
+  grant select on profiles to authenticated;
+  set role authenticated;
+  select set_config('request.jwt.claim.role','authenticated',false);
+  select set_config('request.jwt.claim.sub','${assistantId}',false);`);
+ await rejects(()=>q("update profiles set role='advocate' where id=$1",[assistantId]),'самостоятельная смена роли');
+ await q('update profiles set full_name=$1,hourly_rate=900 where id=$2',['Assistant renamed',assistantId]);
+ await rejects(()=>q('select backup_snapshot()'),'помощник не получает бэкап');
+ await db.exec('reset role');
+ // The trigger must also block a broader table grant added by a later migration.
+ await db.exec('grant update on profiles to authenticated;set role authenticated');
+ await rejects(()=>q("update profiles set role='advocate' where id=$1",[assistantId]),'обход столбцовых прав через широкое разрешение');
+ await db.exec("reset role;select set_config('request.jwt.claim.role','service_role',false)");
+ await q("update profiles set role='advocate' where id=$1",[assistantId]);
+ if((await q('select role from profiles where id=$1',[assistantId])).rows[0].role!=='advocate')throw Error('Administrator cannot assign role');
+ await db.exec(fs.readFileSync(dir+'/038_protect_profile_roles.sql','utf8'));
+ console.log('OK profile role protection + metadata ignored + profile editing + administrative assignment + idempotent migration');
 
  await db.close();
 })().catch(e=>{console.error(e.message);process.exitCode=1});

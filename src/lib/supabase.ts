@@ -1,4 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr'
+import { sessionCookieOptions } from './security-policy'
 
 /**
  * Клиент Supabase для браузера — один на всё приложение.
@@ -16,7 +17,8 @@ export function createClient() {
   if (!client) {
     client = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { cookieOptions: sessionCookieOptions() }
     )
   }
   return client

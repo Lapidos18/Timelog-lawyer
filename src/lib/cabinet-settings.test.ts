@@ -3,6 +3,7 @@ import {DEFAULT_SETTINGS,normalizeSettings,settingsError,templateText} from './c
 import {exportToPDF,exportToWord} from './reports'
 import {printDocument} from './print'
 import JSZip from 'jszip'
+vi.mock('dompurify',()=>({default:{sanitize:(html:string)=>html}}))
 afterEach(()=>{vi.unstubAllGlobals();vi.useRealTimers();vi.restoreAllMocks()})
 it('сохраняет выключение уведомлений и проверяет поля',()=>{
  expect(normalizeSettings({notificationsEnabled:false}).notificationsEnabled).toBe(false)
@@ -16,7 +17,17 @@ it('экранирует номер отчёта, шаблон и реквизи
  expect(html).toContain('Отчёт №&lt;img src=x&gt;');expect(html).toContain('&lt;script&gt;A&amp;B&lt;/script&gt;');expect(html).toContain('Кабинет &lt;Тест&gt;')
  expect(html).not.toContain('<img src=x>');expect(html).not.toContain('Стр. 1 из 1');expect(html).toContain('counter(pages)')
 })
-it('заголовок общей печати экранируется ровно один раз',()=>{vi.useFakeTimers();let html='';vi.stubGlobal('window',{open:()=>({document:{open(){},write(s:string){html=s},close(){}},focus(){},print(){}})});printDocument('A & <B>','<p>Текст</p>');expect(html).toContain('<title>A &amp; &lt;B&gt;</title>')})
+it('общая печать экранирует заголовок и изолирует документ без разрешения скриптов',()=>{
+ const frame={srcdoc:'',style:{cssText:''},setAttribute:vi.fn(),addEventListener:vi.fn()}
+ const popup={opener:{},document:{title:'',createElement:()=>frame,body:{style:{margin:''},appendChild:vi.fn()}}}
+ vi.stubGlobal('window',{open:()=>popup})
+ printDocument('A & <B>','<p>Текст</p>','</style><script>unsafe()</script>')
+ expect(frame.srcdoc).toContain('<title>A &amp; &lt;B&gt;</title>')
+ expect(frame.srcdoc).toContain("script-src 'none'")
+ expect(frame.srcdoc).not.toContain('</style><script>')
+ expect(frame.setAttribute).toHaveBeenCalledWith('sandbox','allow-same-origin allow-modals')
+ expect(popup.opener).toBeNull()
+})
 it('Word использует настоящие поля страниц, повторяемые шапки и текущие реквизиты',async()=>{
  let blob:Blob|undefined;vi.spyOn(URL,'createObjectURL').mockImplementation(b=>{blob=b as Blob;return 'blob:qa'});vi.spyOn(URL,'revokeObjectURL').mockImplementation(()=>{})
  vi.stubGlobal('document',{createElement:()=>({href:'',download:'',click(){},remove(){}}),body:{appendChild(){},removeChild(){}}})

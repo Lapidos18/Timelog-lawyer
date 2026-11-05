@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { headers } from 'next/headers'
 import { Golos_Text, Cormorant_Garamond } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
@@ -47,14 +48,15 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const nonce = (await headers()).get('x-nonce') ?? undefined
   return (
     <html lang="ru" suppressHydrationWarning className={`${golos.variable} ${cormorant.variable}`}>
       <head>
         {/* Тема выставляется ДО первой отрисовки: иначе при выбранной светлой
             теме страница на мгновение вспыхивает тёмным фоном. Скрипт
             намеренно синхронный и крошечный. */}
-        <script dangerouslySetInnerHTML={{ __html:
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html:
           // «office» — имя, под которым светлая тема «Кабинет» жила до
           // 21.09.2026 на пробной версии; такой выбор тоже считаем светлым
           `try{var t=localStorage.getItem('timelog-theme');` +
